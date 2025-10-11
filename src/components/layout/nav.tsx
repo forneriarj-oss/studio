@@ -34,6 +34,7 @@ const allNavItems = [
     { href: '/inventory', label: 'Matérias-Primas', icon: Warehouse },
     { href: '/purchases', label: 'Compras', icon: Package },
     { href: '/reports', label: 'Relatórios', icon: FileText },
+    { href: '/users', label: 'Usuários', icon: Users },
     { href: '/settings', label: 'Configurações', icon: Settings },
   ];
 

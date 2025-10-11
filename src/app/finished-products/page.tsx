@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { getFinishedProducts } from '@/lib/data';
 import type { FinishedProduct } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -8,6 +8,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Edit, Trash2, Wand } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { useToast } from '@/hooks/use-toast';
 
 
 const formatCurrency = (amount: number) => {
@@ -19,6 +31,28 @@ const formatCurrency = (amount: number) => {
 
 export default function FinishedProductsPage() {
   const [products, setProducts] = useState<FinishedProduct[]>(getFinishedProducts());
+  const [filterCategory, setFilterCategory] = useState('todos');
+  const { toast } = useToast();
+
+  const categories = useMemo(() => {
+    const allCategories = products.map(p => p.category);
+    return ['todos', ...Array.from(new Set(allCategories))];
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    if (filterCategory === 'todos') {
+      return products;
+    }
+    return products.filter(p => p.category === filterCategory);
+  }, [products, filterCategory]);
+
+  const handleDeleteProduct = (productId: string) => {
+    setProducts(products.filter(p => p.id !== productId));
+    toast({
+      title: 'Produto Excluído',
+      description: 'O produto foi removido da sua lista.',
+    });
+  };
 
   const totalStockByProduct = (product: FinishedProduct) => {
     return product.flavors.reduce((total, flavor) => total + flavor.stock, 0);
@@ -44,14 +78,14 @@ export default function FinishedProductsPage() {
         <CardContent>
           <div className="mb-4 flex items-center gap-2">
             <span className="text-sm font-medium">Filtrar por Categoria:</span>
-            <Select defaultValue="todos">
+            <Select value={filterCategory} onValueChange={setFilterCategory}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Todas" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todos">Todas</SelectItem>
-                <SelectItem value="pastel">Pastel</SelectItem>
-                <SelectItem value="bolo">Bolo</SelectItem>
+                {categories.map(cat => (
+                   <SelectItem key={cat} value={cat}>{cat === 'todos' ? 'Todas' : cat}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -67,7 +101,7 @@ export default function FinishedProductsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {products.map(product => (
+              {filteredProducts.map(product => (
                  <TableRow key={product.id}>
                     <TableCell className="font-medium">{product.name.toUpperCase()}</TableCell>
                     <TableCell>{product.category.toUpperCase()}</TableCell>
@@ -76,18 +110,34 @@ export default function FinishedProductsPage() {
                     <TableCell>{formatCurrency(product.salePrice)}</TableCell>
                     <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => toast({ title: 'Em breve!', description: 'Funcionalidade de produção em desenvolvimento.'})}>
                             <Wand className="mr-2 h-4 w-4" />
                             Produzir
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toast({ title: 'Em breve!', description: 'Página de edição em desenvolvimento.'})}>
                             <Edit className="h-4 w-4" />
                             <span className="sr-only">Editar</span>
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                            <span className="sr-only">Excluir</span>
-                        </Button>
+                         <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                                <span className="sr-only">Excluir</span>
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Esta ação não pode ser desfeita. Isso excluirá permanentemente o produto.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteProduct(product.id)}>Excluir</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                     </div>
                     </TableCell>
                 </TableRow>
