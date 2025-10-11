@@ -1,6 +1,6 @@
 'use client';
 
-import { getRevenue, getExpenses } from '@/lib/data';
+import { getRevenue, getExpenses, getSales, getProducts } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -8,7 +8,7 @@ import { useState, useMemo } from 'react';
 import { subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import type { Revenue, Expense } from '@/lib/types';
+import type { Revenue, Expense, Sale, Product } from '@/lib/types';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 
 const formatCurrency = (amount: number) => {
@@ -39,8 +39,10 @@ export default function CashFlowPage() {
 
   const allRevenues = getRevenue();
   const allExpenses = getExpenses();
+  const allSales = getSales();
+  const allProducts = getProducts();
 
-  const { filteredRevenues, filteredExpenses, startDate, endDate } = useMemo(() => {
+  const { filteredRevenues, filteredExpenses, filteredSales, startDate, endDate } = useMemo(() => {
     const now = new Date();
     let startDate: Date;
     const endDate = new Date();
@@ -62,7 +64,7 @@ export default function CashFlowPage() {
     startDate.setHours(0, 0, 0, 0);
     endDate.setHours(23, 59, 59, 999);
 
-    const filterByDate = (item: Revenue | Expense) => {
+    const filterByDate = (item: Revenue | Expense | Sale) => {
       const itemDate = new Date(item.date);
       return itemDate >= startDate && itemDate <= endDate;
     };
@@ -70,14 +72,28 @@ export default function CashFlowPage() {
     return {
       filteredRevenues: allRevenues.filter(filterByDate),
       filteredExpenses: allExpenses.filter(filterByDate),
+      filteredSales: allSales.filter(filterByDate),
       startDate,
       endDate
     };
-  }, [timeRange, allRevenues, allExpenses]);
+  }, [timeRange, allRevenues, allExpenses, allSales]);
 
   const totalRevenue = filteredRevenues.reduce((acc, curr) => acc + curr.amount, 0);
   const totalExpenses = filteredExpenses.reduce((acc, curr) => acc + curr.amount, 0);
   const balance = totalRevenue - totalExpenses;
+
+  const { grossProfit } = useMemo(() => {
+    const totalSalesValue = filteredSales.reduce((acc, sale) => acc + (sale.quantity * sale.unitPrice), 0);
+    const totalCostOfGoodsSold = filteredSales.reduce((acc, sale) => {
+        const product = allProducts.find(p => p.id === sale.productId);
+        const cost = product ? product.cost : 0;
+        return acc + (sale.quantity * cost);
+    }, 0);
+
+    const grossProfit = totalSalesValue - totalCostOfGoodsSold;
+    return { grossProfit };
+  }, [filteredSales, allProducts]);
+
 
   const chartData = useMemo(() => {
     const data: { [key: string]: { revenue: number; expenses: number } } = {};
@@ -148,7 +164,7 @@ export default function CashFlowPage() {
         </Select>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
@@ -169,11 +185,21 @@ export default function CashFlowPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Saldo do Período</CardTitle>
+            <CardTitle className="text-sm font-medium">Saldo de Caixa</CardTitle>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" className="h-4 w-4 text-muted-foreground"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>{formatCurrency(balance)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Lucro Real (Vendas)</CardTitle>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" className="h-4 w-4 text-muted-foreground"><path d="M15 12c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3z"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${grossProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(grossProfit)}</div>
+            <CardDescription className="text-xs">Receita de Vendas - Custo dos Produtos</CardDescription>
           </CardContent>
         </Card>
       </div>
@@ -241,3 +267,5 @@ export default function CashFlowPage() {
     </div>
   );
 }
+
+    
