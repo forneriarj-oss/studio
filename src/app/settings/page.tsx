@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { getSales, getExpenses, getRevenue } from '@/lib/data';
+import { getSales, getExpenses, getRevenue, getFinishedProducts } from '@/lib/data';
 import { Trash2 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function SettingsPage() {
     const { toast } = useToast();
@@ -33,7 +35,6 @@ export default function SettingsPage() {
 
     const [profitMargin, setProfitMargin] = useState('30');
     
-    // State for categories
     const [categories, setCategories] = useState(['Bolo', 'Pastel', 'Bebida']);
     const [newCategory, setNewCategory] = useState('');
 
@@ -67,16 +68,69 @@ export default function SettingsPage() {
         toast({ title: 'Sucesso', description: `Categoria "${categoryToRemove}" removida.` });
     };
 
-    const handleExport = (data: any[], fileName: string) => {
-        const jsonString = JSON.stringify(data, null, 2);
-        const blob = new Blob([jsonString], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${fileName}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        toast({ title: 'Exportação Concluída', description: `Os dados foram salvos em ${fileName}.json` });
+    const handleExportPDF = (type: 'sales' | 'expenses' | 'revenue') => {
+        const doc = new jsPDF();
+        
+        let title = '';
+        let head: string[][] = [];
+        let body: any[][] = [];
+
+        const products = getFinishedProducts();
+        const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+        switch (type) {
+            case 'sales':
+                title = 'Relatório de Vendas';
+                head = [['Data', 'Produto', 'Sabor', 'Qtd', 'Preço Unit.', 'Total']];
+                const sales = getSales();
+                body = sales.map(sale => {
+                    const product = products.find(p => p.id === sale.productId);
+                    const flavor = product?.flavors.find(f => f.id === sale.flavorId);
+                    return [
+                        new Date(sale.date).toLocaleDateString('pt-BR'),
+                        product?.name || 'N/A',
+                        flavor?.name || 'N/A',
+                        sale.quantity,
+                        formatCurrency(sale.unitPrice),
+                        formatCurrency(sale.quantity * sale.unitPrice)
+                    ];
+                });
+                break;
+            case 'expenses':
+                title = 'Relatório de Despesas';
+                head = [['Data', 'Descrição', 'Categoria', 'Valor']];
+                const expenses = getExpenses();
+                body = expenses.map(exp => [
+                    new Date(exp.date).toLocaleDateString('pt-BR'),
+                    exp.description,
+                    exp.category,
+                    formatCurrency(exp.amount)
+                ]);
+                break;
+            case 'revenue':
+                title = 'Relatório de Receitas';
+                head = [['Data', 'Fonte', 'Valor']];
+                const revenues = getRevenue();
+                body = revenues.map(rev => [
+                    new Date(rev.date).toLocaleDateString('pt-BR'),
+                    rev.source,
+                    formatCurrency(rev.amount)
+                ]);
+                break;
+        }
+
+        doc.setFontSize(18);
+        doc.text(title, 14, 22);
+        autoTable(doc, {
+            startY: 30,
+            head: head,
+            body: body,
+            theme: 'striped',
+            headStyles: { fillColor: [41, 128, 185] }
+        });
+
+        doc.save(`${type}_report_${new Date().toISOString().split('T')[0]}.pdf`);
+        toast({ title: 'Exportação Concluída', description: `O relatório foi salvo em PDF.` });
     };
 
 
@@ -226,23 +280,23 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between rounded-md border p-4">
                         <div>
                             <h3 className="font-semibold">Exportar Dados de Vendas</h3>
-                            <p className="text-sm text-muted-foreground">Baixe um arquivo JSON com todas as vendas registradas.</p>
+                            <p className="text-sm text-muted-foreground">Baixe um arquivo PDF com todas as vendas registradas.</p>
                         </div>
-                        <Button variant="outline" onClick={() => handleExport(getSales(), 'vendas')}>Exportar</Button>
+                        <Button variant="outline" onClick={() => handleExportPDF('sales')}>Exportar PDF</Button>
                     </div>
                     <div className="flex items-center justify-between rounded-md border p-4">
                         <div>
                             <h3 className="font-semibold">Exportar Dados de Despesas</h3>
-                            <p className="text-sm text-muted-foreground">Baixe um arquivo JSON com todas as despesas registradas.</p>
+                            <p className="text-sm text-muted-foreground">Baixe um arquivo PDF com todas as despesas registradas.</p>
                         </div>
-                        <Button variant="outline" onClick={() => handleExport(getExpenses(), 'despesas')}>Exportar</Button>
+                        <Button variant="outline" onClick={() => handleExportPDF('expenses')}>Exportar PDF</Button>
                     </div>
                     <div className="flex items-center justify-between rounded-md border p-4">
                         <div>
                             <h3 className="font-semibold">Exportar Dados de Receitas</h3>
-                            <p className="text-sm text-muted-foreground">Baixe um arquivo JSON com todas as receitas registradas.</p>
+                            <p className="text-sm text-muted-foreground">Baixe um arquivo PDF com todas as receitas registradas.</p>
                         </div>
-                        <Button variant="outline" onClick={() => handleExport(getRevenue(), 'receitas')}>Exportar</Button>
+                        <Button variant="outline" onClick={() => handleExportPDF('revenue')}>Exportar PDF</Button>
                     </div>
                 </CardContent>
             </Card>
@@ -250,5 +304,4 @@ export default function SettingsPage() {
       </Tabs>
     </div>
   );
-
-    
+}
