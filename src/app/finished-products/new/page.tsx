@@ -16,6 +16,8 @@ import { getPriceSuggestion } from './actions';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -32,7 +34,11 @@ export default function NewFinishedProductPage() {
   const [priceSuggestion, setPriceSuggestion] = useState<{ price: number; justification: string } | null>(null);
 
   const [productName, setProductName] = useState('');
-  const [category, setCategory] = useState('');
+  
+  const [categories, setCategories] = useState(['Bolo', 'Pastel', 'Bebida']);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [newCategory, setNewCategory] = useState('');
+
   const [unit, setUnit] = useState('UN');
   
   const [recipe, setRecipe] = useState<RecipeItem[]>([]);
@@ -49,6 +55,14 @@ export default function NewFinishedProductPage() {
   }, [recipe, rawMaterials]);
 
   const finalCost = manualCost !== '' ? manualCost : calculatedCost;
+  
+  const handleAddNewCategory = () => {
+    if (newCategory && !categories.includes(newCategory)) {
+        setCategories([...categories, newCategory]);
+        setSelectedCategory(newCategory);
+        setNewCategory('');
+    }
+  }
 
   const handleAddRecipeItem = () => {
     const materialId = newRecipeItem.id;
@@ -63,7 +77,7 @@ export default function NewFinishedProductPage() {
         return;
       }
       setRecipe([...recipe, { rawMaterialId: materialId, quantity: quantity }]);
-      setNewRecipeItem({ id: '', qty: 0 }); // Reset form
+      setNewRecipeItem({ id: '', qty: '' }); // Reset form
     } else {
         toast({
           variant: 'destructive',
@@ -95,7 +109,7 @@ export default function NewFinishedProductPage() {
     // In a real app, this would save to a database.
     console.log({
       name: productName,
-      category,
+      category: selectedCategory,
       unit,
       recipe,
       finalCost,
@@ -170,17 +184,39 @@ export default function NewFinishedProductPage() {
             <div className="space-y-2">
                 <Label htmlFor="category">Categoria</Label>
                 <div className="flex gap-2">
-                    <Select value={category} onValueChange={setCategory}>
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                         <SelectTrigger id="category">
                             <SelectValue placeholder="Selecione uma categoria" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="bolo">Bolo</SelectItem>
-                            <SelectItem value="pastel">Pastel</SelectItem>
-                            <SelectItem value="bebida">Bebida</SelectItem>
+                            {categories.map(cat => (
+                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
-                    <Button variant="outline" size="icon"><PlusCircle className="h-4 w-4" /></Button>
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" size="icon"><PlusCircle className="h-4 w-4" /></Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle>Nova Categoria</DialogTitle>
+                                <DialogDescription>Adicione uma nova categoria de produto.</DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-2">
+                                <Label htmlFor="new-category-name">Nome da Categoria</Label>
+                                <Input id="new-category-name" value={newCategory} onChange={e => setNewCategory(e.target.value)} />
+                            </div>
+                            <DialogFooter>
+                                <DialogClose asChild>
+                                    <Button type="button" variant="outline">Cancelar</Button>
+                                </DialogClose>
+                                <DialogClose asChild>
+                                    <Button type="button" onClick={handleAddNewCategory}>Adicionar</Button>
+                                </DialogClose>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </div>
             </div>
             <div className="space-y-2">

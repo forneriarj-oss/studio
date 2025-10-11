@@ -18,11 +18,11 @@ import {
   DialogTrigger,
   DialogFooter,
   DialogClose,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
 
 const initialPurchases = getPurchases();
-const initialProducts = getRawMaterials();
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -33,7 +33,7 @@ const formatCurrency = (amount: number) => {
 
 export default function PurchasesPage() {
     const [purchases, setPurchases] = useState<Purchase[]>(initialPurchases);
-    const [products, setProducts] = useState<RawMaterial[]>(initialProducts);
+    const [products, setProducts] = useState<RawMaterial[]>(getRawMaterials());
     const { toast } = useToast();
     const [newPurchase, setNewPurchase] = useState({
         productId: '',
@@ -41,6 +41,17 @@ export default function PurchasesPage() {
         unitCost: 0,
         date: new Date().toISOString().split('T')[0]
     });
+    const [newProduct, setNewProduct] = useState({
+        code: "",
+        description: "",
+        unit: "",
+        cost: 0,
+        supplier: "",
+        quantity: 0,
+        minStock: 10,
+    });
+    const [isNewProductDialogOpen, setIsNewProductDialogOpen] = useState(false);
+
 
     const handleAddPurchase = () => {
         if (!newPurchase.productId || newPurchase.quantity <= 0 || newPurchase.unitCost < 0) {
@@ -86,6 +97,29 @@ export default function PurchasesPage() {
             });
         }
     }
+    
+    const handleAddProduct = () => {
+        const productToAdd: RawMaterial = {
+          id: `prod-${Date.now()}`,
+          ...newProduct
+        };
+        setProducts([...products, productToAdd]);
+        // Reset form and close dialog
+        setNewProduct({
+          code: "",
+          description: "",
+          unit: "",
+          cost: 0,
+          supplier: "",
+          quantity: 0,
+          minStock: 10,
+        });
+        setIsNewProductDialogOpen(false);
+        toast({
+            title: 'Matéria-Prima Adicionada!',
+            description: `${productToAdd.description} agora está disponível para compra.`,
+        })
+      };
 
     const getProductDescription = (productId: string) => {
         return products.find(p => p.id === productId)?.description || 'Matéria-prima não encontrada';
@@ -109,16 +143,55 @@ export default function PurchasesPage() {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="product" className="text-right">Matéria-Prima</Label>
-                    <Select onValueChange={(value) => setNewPurchase({...newPurchase, productId: value})}>
-                        <SelectTrigger id="product" className="col-span-3">
-                            <SelectValue placeholder="Selecione uma matéria-prima" />
-                        </SelectTrigger>
-                        <SelectContent>
-                        {products.map(product => (
-                            <SelectItem key={product.id} value={product.id}>{product.description}</SelectItem>
-                        ))}
-                        </SelectContent>
-                    </Select>
+                    <div className="col-span-3 flex gap-2">
+                        <Select onValueChange={(value) => setNewPurchase({...newPurchase, productId: value})}>
+                            <SelectTrigger id="product">
+                                <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                            {products.map(product => (
+                                <SelectItem key={product.id} value={product.id}>{product.description}</SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                        <Dialog open={isNewProductDialogOpen} onOpenChange={setIsNewProductDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button variant="outline" size="icon"><PlusCircle className="h-4 w-4"/></Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md">
+                                <DialogHeader>
+                                    <DialogTitle>Adicionar Nova Matéria-Prima</DialogTitle>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                    {/* New Raw Material Form Fields */}
+                                    <div className="grid grid-cols-4 items-center gap-4">
+                                      <Label htmlFor="new-code" className="text-right">Código</Label>
+                                      <Input id="new-code" value={newProduct.code} onChange={(e) => setNewProduct({...newProduct, code: e.target.value})} className="col-span-3" />
+                                    </div>
+                                    <div className="grid grid-cols-4 items-center gap-4">
+                                      <Label htmlFor="new-description" className="text-right">Descrição</Label>
+                                      <Input id="new-description" value={newProduct.description} onChange={(e) => setNewProduct({...newProduct, description: e.target.value})} className="col-span-3" />
+                                    </div>
+                                     <div className="grid grid-cols-4 items-center gap-4">
+                                      <Label htmlFor="new-unit" className="text-right">Unidade</Label>
+                                      <Input id="new-unit" value={newProduct.unit} onChange={(e) => setNewProduct({...newProduct, unit: e.target.value})} className="col-span-3" />
+                                    </div>
+                                    <div className="grid grid-cols-4 items-center gap-4">
+                                      <Label htmlFor="new-cost" className="text-right">Custo</Label>
+                                      <Input id="new-cost" type="number" value={newProduct.cost} onChange={(e) => setNewProduct({...newProduct, cost: parseFloat(e.target.value) || 0})} className="col-span-3" />
+                                    </div>
+                                    <div className="grid grid-cols-4 items-center gap-4">
+                                      <Label htmlFor="new-quantity" className="text-right">Qtd. Inicial</Label>
+                                      <Input id="new-quantity" type="number" value={newProduct.quantity} onChange={(e) => setNewProduct({...newProduct, quantity: parseInt(e.target.value) || 0})} className="col-span-3" />
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button type="button" variant="outline" onClick={() => setIsNewProductDialogOpen(false)}>Cancelar</Button>
+                                    <Button type="submit" onClick={handleAddProduct}>Salvar</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="quantity" className="text-right">Quantidade</Label>

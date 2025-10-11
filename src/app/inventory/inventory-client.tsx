@@ -28,6 +28,7 @@ const formatCurrency = (amount: number) => {
 
 export function InventoryClient({ initialProducts }: { initialProducts: RawMaterial[] }) {
   const [products, setProducts] = useState<RawMaterial[]>(initialProducts);
+  const [isNewProductDialogOpen, setIsNewProductDialogOpen] = useState(false);
   const [newProduct, setNewProduct] = useState({
     code: "",
     description: "",
@@ -44,7 +45,7 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
       ...newProduct
     };
     setProducts([...products, productToAdd]);
-    // Reset form
+    // Reset form and close dialog
     setNewProduct({
       code: "",
       description: "",
@@ -54,6 +55,7 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
       quantity: 0,
       minStock: 10,
     });
+    setIsNewProductDialogOpen(false);
   };
 
 
@@ -65,7 +67,7 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
             <CardTitle>Matérias-Primas</CardTitle>
             <CardDescription>Gerencie suas matérias-primas e níveis de estoque.</CardDescription>
           </div>
-          <Dialog>
+          <Dialog open={isNewProductDialogOpen} onOpenChange={setIsNewProductDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="mr-2 h-4 w-4" />
@@ -108,8 +110,9 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
               </div>
               <DialogFooter>
                 <DialogClose asChild>
-                  <Button type="submit" onClick={handleAddProduct}>Salvar Matéria-Prima</Button>
+                   <Button type="button" variant="outline">Cancelar</Button>
                 </DialogClose>
+                <Button type="submit" onClick={handleAddProduct}>Salvar Matéria-Prima</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
