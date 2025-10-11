@@ -10,16 +10,7 @@ twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 const tomorrow = new Date(today);
 tomorrow.setDate(tomorrow.getDate() + 1);
 
-let revenues: Revenue[] = [
-  { id: 'rev-1', amount: 2450.00, source: 'Projeto Cliente Alpha', date: today.toISOString().split('T')[0], paymentMethod: 'PIX' },
-  { id: 'rev-2', amount: 1800.50, source: 'Assinatura SaaS', date: yesterday.toISOString().split('T')[0], paymentMethod: 'Cartão' },
-  { id: 'rev-3', amount: 320.00, source: 'Chamada de Consultoria', date: yesterday.toISOString().split('T')[0], paymentMethod: 'PIX' },
-  { id: 'rev-4', amount: 5000.00, source: 'Projeto Cliente Beta', date: twoDaysAgo.toISOString().split('T')[0], paymentMethod: 'Dinheiro' },
-  { id: 'rev-5', amount: 75.00, source: 'Venda de E-book', date: twoDaysAgo.toISOString().split('T')[0], paymentMethod: 'Cartão' },
-  { id: 'rev-6', amount: 1200, source: 'Projeto Cliente Gamma', date: '2024-06-15', paymentMethod: 'PIX' },
-  { id: 'rev-7', amount: 300, source: 'Receita de Anúncios', date: '2024-06-10', paymentMethod: 'Cartão' },
-  { id: 'rev-8', amount: 2100, source: 'Assinatura SaaS', date: '2024-06-05', paymentMethod: 'Cartão' },
-];
+let revenues: Revenue[] = [];
 
 let expenses: Expense[] = [
   { id: 'exp-1', amount: 350.00, category: 'Software', description: 'Assinatura Figma', date: today.toISOString().split('T')[0], paymentMethod: 'Cartão' },
@@ -70,7 +61,7 @@ let appointments: Appointment[] = [
     date: tomorrow.toISOString().split('T')[0],
     time: '16:00',
     attendees: ['Gerente de Contratação', 'Candidato X'],
-    description: 'Entrevista técnica para a vaga de Desenvolvedor Sênior.'
+    description: 'Entrevista técnica para la vaga de Desenvolvedor Sênior.'
   }
 ];
 
@@ -113,10 +104,7 @@ let finishedProducts: FinishedProduct[] = [
   }
 ];
 
-let sales: Sale[] = [
-    { id: 'sale-1', productId: 'fp-1', flavorId: 'flav-1', quantity: 1, unitPrice: 50, date: today.toISOString().split('T')[0], paymentMethod: 'PIX' },
-    { id: 'sale-2', productId: 'fp-2', flavorId: 'flav-3', quantity: 2, unitPrice: 45, date: yesterday.toISOString().split('T')[0], paymentMethod: 'Cartão' },
-];
+let sales: Sale[] = [];
 
 let purchases: Purchase[] = [
     { id: 'purch-1', productId: 'prod-2', quantity: 10, unitCost: 110, date: twoDaysAgo.toISOString().split('T')[0] },

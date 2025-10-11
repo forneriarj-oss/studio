@@ -73,8 +73,8 @@ export default function RevenuePage() {
         <div className="lg:col-span-1">
           <Card>
             <CardHeader>
-              <CardTitle>Adicionar Receita</CardTitle>
-              <CardDescription>Registre uma nova fonte de renda.</CardDescription>
+              <CardTitle>Adicionar Receita Manual</CardTitle>
+              <CardDescription>Registre uma nova fonte de renda que não seja de uma venda.</CardDescription>
             </CardHeader>
             <CardContent>
               <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
@@ -111,7 +111,8 @@ export default function RevenuePage() {
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>Toda a Receita</CardTitle>
+              <CardTitle>Histórico de Receitas</CardTitle>
+              <CardDescription>Inclui vendas de produtos e receitas manuais.</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -124,7 +125,7 @@ export default function RevenuePage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {revenues.map(revenue => (
+                  {revenues.length > 0 ? revenues.map(revenue => (
                     <TableRow key={revenue.id}>
                       <TableCell className="font-medium">{revenue.source}</TableCell>
                       <TableCell><Badge variant="outline">{revenue.paymentMethod || 'N/A'}</Badge></TableCell>
@@ -133,7 +134,11 @@ export default function RevenuePage() {
                         {formatCurrency(revenue.amount)}
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-24 text-center">Nenhuma receita registrada ainda.</TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
