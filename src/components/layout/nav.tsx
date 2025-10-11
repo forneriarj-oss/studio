@@ -14,7 +14,6 @@ import {
   FileText,
   Landmark,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import {
   SidebarMenu,
   SidebarMenuItem,
@@ -39,39 +38,38 @@ export function Nav() {
   const pathname = usePathname();
   const { user } = useUser();
 
+  if (!user) {
+    return null; // Não mostra nada se não houver usuário
+  }
+
   const permittedNavItems = allNavItems.filter(item => {
-    // Se não há usuário, não mostra nada
-    if (!user) {
-      return false;
-    }
-
-    // Caso especial para o painel, visível para qualquer usuário logado
-    if (item.permission === 'dashboard') {
-      return true;
-    }
-
-    // Se o usuário é anônimo, ele só pode ver o painel (já tratado acima)
+    // Caso 1: Usuário é anônimo (visitante)
     if (user.isAnonymous) {
-      return false;
+      // Visitantes só podem ver o painel
+      return item.permission === 'dashboard';
     }
 
-    // Se o usuário não é anônimo, ele deve ter um e-mail.
-    // Buscamos o usuário e seu papel nos dados mockados.
-    const appUser = user.email ? getUserByEmail(user.email) : null;
-    const userRole = appUser ? getRoleById(appUser.roleId) : null;
+    // Caso 2: Usuário logado com e-mail
+    if (user.email) {
+      const appUser = getUserByEmail(user.email);
+      const userRole = appUser ? getRoleById(appUser.roleId) : null;
+      
+      // Se não houver um papel definido para o e-mail, mostre apenas o painel.
+      if (!userRole) {
+        return item.permission === 'dashboard';
+      }
 
-    // Se não encontramos um papel para o usuário, ele não tem permissões especiais.
-    if (!userRole) {
-      return false;
+      // Se o papel for admin (permissão '*'), mostre tudo.
+      if (userRole.permissions.includes('*')) {
+        return true;
+      }
+      
+      // Se for outro papel, verifique se a permissão do item está na lista de permissões do papel.
+      return userRole.permissions.includes(item.permission);
     }
     
-    // Admin tem todas as permissões.
-    if (userRole.permissions.includes('*')) {
-      return true;
-    }
-    
-    // Verifica se o papel do usuário inclui a permissão necessária para o item.
-    return userRole.permissions.includes(item.permission);
+    // Fallback para qualquer outro caso (não deveria acontecer)
+    return false;
   });
 
   return (
