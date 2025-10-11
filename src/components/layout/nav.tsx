@@ -20,7 +20,6 @@ import {
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
 import { useUser } from "@/firebase";
-import { getUserByEmail, getRoleById } from "@/lib/data";
 
 const allNavItems = [
   { href: "/", label: "Painel", icon: LayoutDashboard, permission: "dashboard" },
@@ -42,37 +41,9 @@ export function Nav() {
     return null; // Não mostra nada se não houver usuário
   }
 
-  // Define as permissões com base no tipo de usuário
-  let userPermissions: string[] = [];
-
-  if (user.isAnonymous) {
-    // Permissão para visitante anônimo
-    userPermissions = ['dashboard'];
-  } else if (user.email) {
-    // Lógica para usuário autenticado com e-mail
-    const appUser = getUserByEmail(user.email);
-    const userRole = appUser ? getRoleById(appUser.roleId) : null;
-    
-    if (userRole) {
-      if (userRole.permissions.includes('*')) {
-        // Administrador tem todas as permissões
-        userPermissions = allNavItems.map(item => item.permission);
-      } else {
-        // Outros papéis têm permissões específicas
-        userPermissions = userRole.permissions;
-      }
-    } else {
-        // Fallback para usuário logado sem um papel definido: só vê o painel
-        userPermissions = ['dashboard'];
-    }
-  }
-
-  // Filtra os itens de navegação com base nas permissões do usuário
-  const permittedNavItems = allNavItems.filter(item => userPermissions.includes(item.permission));
-
   return (
     <SidebarMenu>
-      {permittedNavItems.map((item) => (
+      {allNavItems.map((item) => (
         <SidebarMenuItem key={item.href}>
            <SidebarMenuButton
             asChild
