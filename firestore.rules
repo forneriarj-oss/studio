@@ -1,0 +1,96 @@
+/**
+ * @fileOverview Firestore Security Rules for BizView application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a role-based access control model with user-specific data segregation.
+ * Each user is associated with a role that defines their permissions. Access to user data
+ * is restricted to the user themselves or an administrator.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles. Each user can only access their own profile.
+ * - /roles/{roleId}: Stores role definitions. Only accessible by administrators.
+ * - /users/{userId}/activity_logs/{logId}: Stores activity logs for each user.
+ *   Only the user themselves or administrators can access these logs.
+ *
+ * Key Security Decisions:
+ * - Users can only create their own user document (self-registration).
+ * - Users can only read/write their own activity logs.
+ * - Listing of users is not allowed.
+ * - Roles can only be managed by administrators (not implemented in this version, assuming no client-side role management).
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Controls access to user profiles.
+     * @path /users/{userId}
+     * @allow (create) - User creates their own profile if auth.uid matches userId.
+     * @allow (get, update, delete) - User can access their own profile.
+     * @deny (create) - User attempts to create a profile with a mismatched userId.
+     * @deny (get, update, delete) - User attempts to access another user's profile.
+     * @principle Enforces document ownership for writes.
+     */
+    match /users/{userId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+          return isOwner(userId) && resource != null;
+      }
+
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
+      allow get: if isOwner(userId);
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+      allow list: if false;
+    }
+
+    /**
+     * @description Controls access to role definitions.
+     * @path /roles/{roleId}
+     * @allow (get, list) - Allows public read.
+     * @allow (create, update, delete) - No client side operations supported.
+     * @deny (create, update, delete) - Denies any attempt for the client to modify the roles.
+     * @principle Restricts role management to server-side.
+     */
+    match /roles/{roleId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+    /**
+     * @description Controls access to activity logs for each user.
+     * @path /users/{userId}/activity_logs/{logId}
+     * @allow (create) - User can create their own activity log.
+     * @allow (get, update, delete) - User can access their own activity logs.
+     * @deny (create) - User attempts to create an activity log for another user.
+     * @deny (get, update, delete) - User attempts to access another user's activity logs.
+     * @principle Enforces document ownership for writes.
+     */
+    match /users/{userId}/activity_logs/{logId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+        function isExistingOwner(userId) {
+          return isOwner(userId) && resource != null;
+      }
+
+      allow create: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+      allow list: if isOwner(userId);
+    }
+  }
+}

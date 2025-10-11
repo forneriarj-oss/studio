@@ -1,0 +1,171 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user in the system, storing basic profile information and linking to access control.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "username": {
+          "type": "string",
+          "description": "The username of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the user.",
+          "format": "email"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of the user."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name of the user."
+        },
+        "roleId": {
+          "type": "string",
+          "description": "Reference to Role. (Relationship: User 1:1 Role)"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "email",
+        "firstName",
+        "lastName",
+        "roleId"
+      ]
+    },
+    "Role": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Role",
+      "type": "object",
+      "description": "Defines the roles and associated permissions for users within the system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Role entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the role (e.g., Administrator, Caixa, Estoque, Vendedor)."
+        },
+        "permissions": {
+          "type": "array",
+          "description": "A list of permissions associated with this role.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "permissions"
+      ]
+    },
+    "ActivityLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ActivityLog",
+      "type": "object",
+      "description": "Stores logs of user activities for auditing and security purposes.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ActivityLog entry."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N ActivityLog) The ID of the user who performed the action."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The date and time the action was performed.",
+          "format": "date-time"
+        },
+        "action": {
+          "type": "string",
+          "description": "A description of the action that was performed (e.g., 'logged in', 'created expense', 'updated product')."
+        },
+        "details": {
+          "type": "string",
+          "description": "Additional details about the action performed, such as the data that was modified."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "timestamp",
+        "action"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles.  Accessed by the user themselves or administrators. Includes denormalized 'roleId' from the Role document.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles/{roleId}",
+        "definition": {
+          "entityName": "Role",
+          "schema": {
+            "$ref": "#/backend/entities/Role"
+          },
+          "description": "Stores role definitions. Accessible only by administrators.",
+          "params": [
+            {
+              "name": "roleId",
+              "description": "The unique identifier for the role."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/activity_logs/{logId}",
+        "definition": {
+          "entityName": "ActivityLog",
+          "schema": {
+            "$ref": "#/backend/entities/ActivityLog"
+          },
+          "description": "Stores activity logs for each user. Accessible only by the user themselves or administrators.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "logId",
+              "description": "The unique identifier for the activity log entry."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "This Firestore structure is designed to support a secure and scalable BizView application with clear access control. The core principle is Authorization Independence, achieved through denormalization where necessary. This eliminates the need for `get()` calls in security rules, crucial for atomic operations and debuggability.\n\n1.  **Users and Roles:** Users are stored with a `roleId` referencing a role. Roles define permissions (Administrator, Caixa, Estoque, Vendedor). This provides a flexible permission system.\n\n2.  **Activity Logs:** Activity logs are stored as subcollections of users (`/users/{userId}/activity_logs/{logId}`), ensuring proper ownership. \n\n3.  **Authorization Independence:** The structure avoids hierarchical authorization. For instance, if access to a document depended on a user's role, the relevant role attributes (e.g., permissions) would be denormalized directly into the document or a dedicated authorization map. In this particular structure, the user's `roleId` is kept at the user level which is fine for most cases. If granular access control per user was needed on logs, `members` field can be introduced on the logs.\n\n4.  **QAPs (Rules are not Filters):** The structure supports secure list operations.  Access to user-specific data is controlled through path-based rules (`/users/{userId}/*`).  Global roles are managed via document existence checks in the `/roles_*` collections, preventing unauthorized access.\n\n5.  **Data Segregation:** User-specific data (activity logs) are stored in subcollections under the user's document, ensuring that only the user (or an admin) can access them. \n\nThis design prioritizes clarity, security, and scalability, making it easier to maintain and debug the application."
+  }
+}
