@@ -56,6 +56,7 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
   const [isNewProductDialogOpen, setIsNewProductDialogOpen] = useState(false);
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<RawMaterial | null>(null);
+  const [editProductForm, setEditProductForm] = useState<RawMaterial | null>(null);
 
   const { toast } = useToast();
   const [newProduct, setNewProduct] = useState(EMPTY_PRODUCT_STATE);
@@ -89,13 +90,14 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
   
   const handleOpenEditDialog = (product: RawMaterial) => {
     setSelectedProduct(product);
+    setEditProductForm(product); // Initialize form state for editing
     setIsEditProductDialogOpen(true);
   }
 
   const handleEditProduct = () => {
-    if (!selectedProduct) return;
+    if (!editProductForm) return;
 
-     if (!selectedProduct.description || !selectedProduct.unit || selectedProduct.cost < 0 || selectedProduct.quantity < 0) {
+     if (!editProductForm.description || !editProductForm.unit || editProductForm.cost < 0 || editProductForm.quantity < 0) {
       toast({
         variant: "destructive",
         title: "Campos obrigatórios incompletos",
@@ -104,15 +106,16 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
       return;
     }
 
-    setProducts(prev => prev.map(p => p.id === selectedProduct.id ? selectedProduct : p));
+    setProducts(prev => prev.map(p => p.id === editProductForm.id ? editProductForm : p));
 
     toast({
         title: "Matéria-Prima Atualizada!",
-        description: `${selectedProduct.description} foi atualizado com sucesso.`,
+        description: `${editProductForm.description} foi atualizado com sucesso.`,
     });
 
     setIsEditProductDialogOpen(false);
     setSelectedProduct(null);
+    setEditProductForm(null);
   };
 
   const handleDeleteProduct = (productId: string) => {
@@ -254,7 +257,7 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
       </Card>
       
       {/* Edit Dialog */}
-      {selectedProduct && (
+      {editProductForm && (
         <Dialog open={isEditProductDialogOpen} onOpenChange={setIsEditProductDialogOpen}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
@@ -264,12 +267,12 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
                 <div className="grid gap-4 py-4">
                     <div className="space-y-2">
                         <Label htmlFor="edit-description">Nome *</Label>
-                        <Input id="edit-description" value={selectedProduct.description} onChange={(e) => setSelectedProduct({...selectedProduct, description: e.target.value})} />
+                        <Input id="edit-description" value={editProductForm.description} onChange={(e) => setEditProductForm({...editProductForm, description: e.target.value})} />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="edit-unit">Unidade *</Label>
-                            <Select value={selectedProduct.unit} onValueChange={(value) => setSelectedProduct({...selectedProduct, unit: value})}>
+                            <Select value={editProductForm.unit} onValueChange={(value) => setEditProductForm(editProductForm ? {...editProductForm, unit: value} : null)}>
                                 <SelectTrigger id="edit-unit">
                                     <SelectValue />
                                 </SelectTrigger>
@@ -285,12 +288,12 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="edit-quantity">Estoque Atual *</Label>
-                            <Input id="edit-quantity" type="number" value={selectedProduct.quantity} onChange={(e) => setSelectedProduct({...selectedProduct, quantity: parseInt(e.target.value) || 0})} />
+                            <Input id="edit-quantity" type="number" value={editProductForm.quantity} onChange={(e) => setEditProductForm(editProductForm ? {...editProductForm, quantity: parseInt(e.target.value) || 0} : null)} />
                         </div>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="edit-cost">Custo por Unidade *</Label>
-                        <Input id="edit-cost" type="number" value={selectedProduct.cost} onChange={(e) => setSelectedProduct({...selectedProduct, cost: parseFloat(e.target.value) || 0})} />
+                        <Input id="edit-cost" type="number" value={editProductForm.cost} onChange={(e) => setEditProductForm(editProductForm ? {...editProductForm, cost: parseFloat(e.target.value) || 0} : null)} />
                     </div>
                 </div>
                 <DialogFooter>
