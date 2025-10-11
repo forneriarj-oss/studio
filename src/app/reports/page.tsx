@@ -30,16 +30,21 @@ export default function ReportsPage() {
     .slice(0, 10);
     
     const topSellingProducts = useMemo(() => {
-        const productSales: { [key: string]: { quantity: number; total: number; product: Product } } = {};
+        const productSales: { [key: string]: { quantity: number; total: number; profit: number; product: Product } } = {};
 
         sales.forEach(sale => {
             const product = getProductInfo(sale.productId);
             if (product) {
                 if (!productSales[sale.productId]) {
-                    productSales[sale.productId] = { quantity: 0, total: 0, product };
+                    productSales[sale.productId] = { quantity: 0, total: 0, profit: 0, product };
                 }
+                const saleTotal = sale.quantity * sale.unitPrice;
+                const saleCost = sale.quantity * product.cost;
+                const commission = saleTotal * ((sale.commission || 0) / 100);
+                
                 productSales[sale.productId].quantity += sale.quantity;
-                productSales[sale.productId].total += sale.quantity * sale.unitPrice;
+                productSales[sale.productId].total += saleTotal;
+                productSales[sale.productId].profit += saleTotal - saleCost - commission;
             }
         });
         
@@ -52,8 +57,8 @@ export default function ReportsPage() {
 
         <Card>
             <CardHeader>
-                <CardTitle>Produtos Mais Vendidos</CardTitle>
-                <CardDescription>Ranking dos seus produtos com base na quantidade vendida.</CardDescription>
+                <CardTitle>Produtos Mais Vendidos e Rentáveis</CardTitle>
+                <CardDescription>Ranking dos seus produtos com base na quantidade vendida e lucratividade.</CardDescription>
             </CardHeader>
             <CardContent>
                  <Table>
@@ -62,14 +67,16 @@ export default function ReportsPage() {
                             <TableHead>Produto</TableHead>
                             <TableHead className="text-right">Quantidade Vendida</TableHead>
                             <TableHead className="text-right">Total em Vendas</TableHead>
+                            <TableHead className="text-right">Lucro Total</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {topSellingProducts.map(({product, quantity, total}) => (
+                        {topSellingProducts.map(({product, quantity, total, profit}) => (
                         <TableRow key={product.id}>
                             <TableCell className="font-medium">{product.description}</TableCell>
                             <TableCell className="text-right font-semibold">{quantity}</TableCell>
                             <TableCell className="text-right font-semibold text-green-600">{formatCurrency(total)}</TableCell>
+                            <TableCell className={`text-right font-semibold ${profit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>{formatCurrency(profit)}</TableCell>
                         </TableRow>
                         ))}
                     </TableBody>
@@ -130,3 +137,4 @@ export default function ReportsPage() {
     </div>
   );
 }
+
