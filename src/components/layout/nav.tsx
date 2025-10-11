@@ -10,7 +10,8 @@ import {
   Warehouse,
   ShoppingCart,
   Package,
-  FileText
+  FileText,
+  Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -21,6 +22,7 @@ import {
 
 const navItems = [
   { href: "/", label: "Painel", icon: LayoutDashboard },
+  { href: "/cash-flow", label: "Caixa", icon: Landmark },
   { href: "/revenue", label: "Receita", icon: TrendingUp },
   { href: "/expenses", label: "Despesas", icon: TrendingDown },
   { href: "/sales", label: "Vendas", icon: ShoppingCart },

@@ -1,4 +1,4 @@
-import type { Expense, Revenue, Appointment, Product, Sale, Purchase, StockMovement, ExpenseCategory } from './types';
+import type { Expense, Revenue, Appointment, Product, Sale, Purchase, StockMovement, ExpenseCategory, PaymentMethod } from './types';
 
 const today = new Date();
 const yesterday = new Date(today);
@@ -9,24 +9,24 @@ const tomorrow = new Date(today);
 tomorrow.setDate(tomorrow.getDate() + 1);
 
 const revenues: Revenue[] = [
-  { id: 'rev-1', amount: 2450.00, source: 'Projeto Cliente Alpha', date: today.toISOString().split('T')[0] },
-  { id: 'rev-2', amount: 1800.50, source: 'Assinatura SaaS', date: yesterday.toISOString().split('T')[0] },
-  { id: 'rev-3', amount: 320.00, source: 'Chamada de Consultoria', date: yesterday.toISOString().split('T')[0] },
-  { id: 'rev-4', amount: 5000.00, source: 'Projeto Cliente Beta', date: twoDaysAgo.toISOString().split('T')[0] },
-  { id: 'rev-5', amount: 75.00, source: 'Venda de E-book', date: twoDaysAgo.toISOString().split('T')[0] },
-  { id: 'rev-6', amount: 1200, source: 'Projeto Cliente Gamma', date: '2024-06-15' },
-  { id: 'rev-7', amount: 300, source: 'Receita de Anúncios', date: '2024-06-10' },
-  { id: 'rev-8', amount: 2100, source: 'Assinatura SaaS', date: '2024-06-05' },
+  { id: 'rev-1', amount: 2450.00, source: 'Projeto Cliente Alpha', date: today.toISOString().split('T')[0], paymentMethod: 'PIX' },
+  { id: 'rev-2', amount: 1800.50, source: 'Assinatura SaaS', date: yesterday.toISOString().split('T')[0], paymentMethod: 'Cartão' },
+  { id: 'rev-3', amount: 320.00, source: 'Chamada de Consultoria', date: yesterday.toISOString().split('T')[0], paymentMethod: 'PIX' },
+  { id: 'rev-4', amount: 5000.00, source: 'Projeto Cliente Beta', date: twoDaysAgo.toISOString().split('T')[0], paymentMethod: 'Dinheiro' },
+  { id: 'rev-5', amount: 75.00, source: 'Venda de E-book', date: twoDaysAgo.toISOString().split('T')[0], paymentMethod: 'Cartão' },
+  { id: 'rev-6', amount: 1200, source: 'Projeto Cliente Gamma', date: '2024-06-15', paymentMethod: 'PIX' },
+  { id: 'rev-7', amount: 300, source: 'Receita de Anúncios', date: '2024-06-10', paymentMethod: 'Cartão' },
+  { id: 'rev-8', amount: 2100, source: 'Assinatura SaaS', date: '2024-06-05', paymentMethod: 'Cartão' },
 ];
 
 const expenses: Expense[] = [
-  { id: 'exp-1', amount: 350.00, category: 'Software', description: 'Assinatura Figma', date: today.toISOString().split('T')[0] },
-  { id: 'exp-2', amount: 120.00, category: 'Marketing', description: 'Google Ads', date: yesterday.toISOString().split('T')[0] },
-  { id: 'exp-3', amount: 2500.00, category: 'Team', description: 'Pagamento de Freelancer', date: twoDaysAgo.toISOString().split('T')[0] },
-  { id: 'exp-4', amount: 45.00, category: 'Other', description: 'Material de Escritório', date: twoDaysAgo.toISOString().split('T')[0] },
-  { id: 'exp-5', amount: 800.00, category: 'Software', description: 'Custos de Servidor', date: '2024-06-18' },
-  { id: 'exp-6', amount: 1500, category: 'Marketing', description: 'Campanha de Mídia Social', date: '2024-06-12' },
-  { id: 'exp-7', amount: 3000, category: 'Team', description: 'John Doe - Salário', date: '2024-06-01' },
+  { id: 'exp-1', amount: 350.00, category: 'Software', description: 'Assinatura Figma', date: today.toISOString().split('T')[0], paymentMethod: 'Cartão' },
+  { id: 'exp-2', amount: 120.00, category: 'Marketing', description: 'Google Ads', date: yesterday.toISOString().split('T')[0], paymentMethod: 'Cartão' },
+  { id: 'exp-3', amount: 2500.00, category: 'Team', description: 'Pagamento de Freelancer', date: twoDaysAgo.toISOString().split('T')[0], paymentMethod: 'PIX' },
+  { id: 'exp-4', amount: 45.00, category: 'Other', description: 'Material de Escritório', date: twoDaysAgo.toISOString().split('T')[0], paymentMethod: 'Dinheiro' },
+  { id: 'exp-5', amount: 800.00, category: 'Software', description: 'Custos de Servidor', date: '2024-06-18', paymentMethod: 'Cartão' },
+  { id: 'exp-6', amount: 1500, category: 'Marketing', description: 'Campanha de Mídia Social', date: '2024-06-12', paymentMethod: 'PIX' },
+  { id: 'exp-7', amount: 3000, category: 'Team', description: 'John Doe - Salário', date: '2024-06-01', paymentMethod: 'PIX' },
 ];
 
 const appointments: Appointment[] = [
@@ -107,7 +107,7 @@ export function getExpenses() {
   return expenses.map(e => ({
     ...e,
     category: e.category === 'Sales' ? 'Vendas' : e.category === 'Team' ? 'Equipe' : e.category === 'Other' ? 'Outros' : e.category
-  })) as (Omit<Expense, 'category'> & {category: ExpenseCategory})[];
+  })) as (Omit<Expense, 'category'> & {category: ExpenseCategory, paymentMethod?: PaymentMethod})[];
 }
 
 export function getAppointments() {

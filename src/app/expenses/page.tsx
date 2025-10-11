@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import type { ExpenseCategory } from '@/lib/types';
+import type { ExpenseCategory, PaymentMethod } from '@/lib/types';
 
 const expenses = getExpenses();
 
@@ -19,6 +19,7 @@ const formatCurrency = (amount: number) => {
 };
 
 const categories: ExpenseCategory[] = ['Marketing', 'Vendas', 'Software', 'Equipe', 'Outros'];
+const paymentMethods: PaymentMethod[] = ['PIX', 'Cartão', 'Dinheiro'];
 const categoryTranslations: Record<ExpenseCategory, string> = {
   Marketing: 'Marketing',
   Sales: 'Vendas',
@@ -63,6 +64,19 @@ export default function ExpensesPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="paymentMethod">Forma de Pagamento</Label>
+                  <Select>
+                    <SelectTrigger id="paymentMethod">
+                      <SelectValue placeholder="Selecione uma forma" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentMethods.map(method => (
+                        <SelectItem key={method} value={method}>{method}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="date">Data</Label>
                   <Input id="date" type="date" />
                 </div>
@@ -82,6 +96,7 @@ export default function ExpensesPage() {
                   <TableRow>
                     <TableHead>Descrição</TableHead>
                     <TableHead>Categoria</TableHead>
+                    <TableHead>Forma de Pagamento</TableHead>
                     <TableHead>Data</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
                   </TableRow>
@@ -91,6 +106,7 @@ export default function ExpensesPage() {
                     <TableRow key={expense.id}>
                       <TableCell className="font-medium">{expense.description}</TableCell>
                       <TableCell><Badge variant="outline">{categoryTranslations[expense.category]}</Badge></TableCell>
+                      <TableCell><Badge variant="outline">{expense.paymentMethod || 'N/A'}</Badge></TableCell>
                       <TableCell>{new Date(expense.date).toLocaleDateString('pt-BR')}</TableCell>
                       <TableCell className="text-right font-semibold text-red-600">
                         - {formatCurrency(expense.amount)}

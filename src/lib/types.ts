@@ -1,8 +1,11 @@
+export type PaymentMethod = 'PIX' | 'Cartão' | 'Dinheiro';
+
 export type Revenue = {
   id: string;
   amount: number;
   source: string;
   date: string;
+  paymentMethod?: PaymentMethod;
 };
 
 export type ExpenseCategory = 'Marketing' | 'Vendas' | 'Software' | 'Equipe' | 'Outros';
@@ -13,6 +16,7 @@ export type Expense = {
   category: 'Marketing' | 'Sales' | 'Software' | 'Team' | 'Other';
   description: string;
   date: string;
+  paymentMethod?: PaymentMethod;
 };
 
 export type Transaction = (Revenue & { type: 'revenue'; description: string }) | (Omit<Expense, 'category'> & { type: 'expense', category: ExpenseCategory });

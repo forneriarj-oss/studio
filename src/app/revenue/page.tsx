@@ -5,8 +5,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { PaymentMethod } from '@/lib/types';
+import { Badge } from '@/components/ui/badge';
 
 const revenues = getRevenue();
+
+const paymentMethods: PaymentMethod[] = ['PIX', 'Cartão', 'Dinheiro'];
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -37,6 +42,19 @@ export default function RevenuePage() {
                   <Input id="amount" type="number" placeholder="ex: 1500.00" />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="paymentMethod">Forma de Pagamento</Label>
+                  <Select>
+                    <SelectTrigger id="paymentMethod">
+                      <SelectValue placeholder="Selecione uma forma" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentMethods.map(method => (
+                        <SelectItem key={method} value={method}>{method}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="date">Data</Label>
                   <Input id="date" type="date" />
                 </div>
@@ -55,6 +73,7 @@ export default function RevenuePage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Fonte</TableHead>
+                    <TableHead>Forma de Pagamento</TableHead>
                     <TableHead>Data</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
                   </TableRow>
@@ -63,6 +82,7 @@ export default function RevenuePage() {
                   {revenues.map(revenue => (
                     <TableRow key={revenue.id}>
                       <TableCell className="font-medium">{revenue.source}</TableCell>
+                      <TableCell><Badge variant="outline">{revenue.paymentMethod || 'N/A'}</Badge></TableCell>
                       <TableCell>{new Date(revenue.date).toLocaleDateString('pt-BR')}</TableCell>
                       <TableCell className="text-right font-semibold text-green-600">
                         {formatCurrency(revenue.amount)}
