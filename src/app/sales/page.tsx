@@ -230,34 +230,33 @@ export default function SalesPage() {
                    <DialogDescription>Preencha os detalhes abaixo para registrar uma nova venda.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="product">Produto</Label>
-                        <Select onValueChange={(value) => {
-                            const product = products.find(p => p.id === value);
-                            setNewSale({...newSale, productId: value, flavorId: '', unitPrice: product?.salePrice || 0 });
-                        }}>
-                            <SelectTrigger id="product">
-                                <SelectValue placeholder="Selecione um produto" />
-                            </SelectTrigger>
-                            <SelectContent>
-                            {products.map(product => (
-                                <SelectItem key={product.id} value={product.id}>
-                                    {product.name}
-                                </SelectItem>
-                            ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    {selectedProduct && (
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="product">Produto</Label>
+                            <Select onValueChange={(value) => {
+                                const product = products.find(p => p.id === value);
+                                setNewSale({...newSale, productId: value, flavorId: '', unitPrice: product?.salePrice || 0 });
+                            }}>
+                                <SelectTrigger id="product">
+                                    <SelectValue placeholder="Selecione um produto" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                {products.map(product => (
+                                    <SelectItem key={product.id} value={product.id}>
+                                        {product.name}
+                                    </SelectItem>
+                                ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <div className="space-y-2">
                             <Label htmlFor="flavor">Sabor</Label>
-                            <Select onValueChange={(value) => setNewSale({...newSale, flavorId: value})} value={newSale.flavorId}>
+                            <Select onValueChange={(value) => setNewSale({...newSale, flavorId: value})} value={newSale.flavorId} disabled={!selectedProduct}>
                                 <SelectTrigger id="flavor">
                                     <SelectValue placeholder="Selecione um sabor" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                {selectedProduct.flavors.map(flavor => (
+                                {selectedProduct?.flavors.map(flavor => (
                                     <SelectItem key={flavor.id} value={flavor.id} disabled={flavor.stock <= 0}>
                                         {flavor.name} (Estoque: {flavor.stock})
                                     </SelectItem>
@@ -265,8 +264,7 @@ export default function SalesPage() {
                                 </SelectContent>
                             </Select>
                         </div>
-                    )}
-
+                    </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -434,3 +432,5 @@ export default function SalesPage() {
     </TooltipProvider>
   );
 }
+
+    
