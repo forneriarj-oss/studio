@@ -1,3 +1,4 @@
+
 'use client';
 
 import { getRevenue, getExpenses, getSales, getProducts } from '@/lib/data';
@@ -91,7 +92,7 @@ export default function CashFlowPage() {
       startDate,
       endDate
     };
-  }, [timeRange, allRevenues, allExpenses, allSales, isClient]);
+  }, [timeRange, isClient]);
 
   const totalRevenue = filteredRevenues.reduce((acc, curr) => acc + curr.amount, 0);
   const totalExpenses = filteredExpenses.reduce((acc, curr) => acc + curr.amount, 0);
@@ -214,7 +215,7 @@ export default function CashFlowPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Lucro Real (Vendas)</CardTitle>
+            <CardTitle className="text-sm font-medium">Lucro Bruto (Vendas)</CardTitle>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" className="h-4 w-4 text-muted-foreground"><path d="M15 12c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3z"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
           </CardHeader>
           <CardContent>
@@ -287,3 +288,5 @@ export default function CashFlowPage() {
     </div>
   );
 }
+
+    
