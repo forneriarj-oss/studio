@@ -9,12 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Calculator, Info } from 'lucide-react';
+import { PlusCircle, Calculator, Info, DollarSign, ShoppingCart, BarChart } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogTrigger,
   DialogFooter,
   DialogClose,
@@ -105,6 +106,35 @@ export default function SalesPage() {
         commission: 0,
     });
 
+    const getProduct = (productId: string) => {
+        return products.find(p => p.id === productId);
+    }
+    
+    const calculateNetProfit = (sale: Sale) => {
+        const product = getProduct(sale.productId);
+        if (!product) return 0;
+    
+        const totalSalePrice = sale.quantity * sale.unitPrice;
+        const totalCostPrice = sale.quantity * product.cost;
+        const commissionAmount = totalSalePrice * ((sale.commission || 0) / 100);
+    
+        return totalSalePrice - totalCostPrice - commissionAmount;
+    };
+
+    const salesSummary = useMemo(() => {
+        const totalRevenue = sales.reduce((acc, sale) => acc + sale.quantity * sale.unitPrice, 0);
+        const totalNetProfit = sales.reduce((acc, sale) => acc + calculateNetProfit(sale), 0);
+        const totalSales = sales.length;
+        const averageTicket = totalSales > 0 ? totalRevenue / totalSales : 0;
+
+        return {
+            totalRevenue,
+            totalNetProfit,
+            totalSales,
+            averageTicket
+        }
+    }, [sales]);
+
     const handleAddSale = () => {
         const product = products.find(p => p.id === newSale.productId);
 
@@ -134,7 +164,7 @@ export default function SalesPage() {
         const updatedStock = updateStock(newSale.productId, newSale.quantity, 'out');
         
         if (updatedStock) {
-            setSales(prev => [...prev, saleToAdd]);
+            setSales(prev => [saleToAdd, ...prev]);
             setProducts(prevProducts => prevProducts.map(p => 
                 p.id === newSale.productId ? { ...p, quantity: p.quantity - newSale.quantity } : p
             ));
@@ -162,21 +192,6 @@ export default function SalesPage() {
         }
     }
 
-    const getProduct = (productId: string) => {
-        return products.find(p => p.id === productId);
-    }
-    
-    const calculateNetProfit = (sale: Sale) => {
-        const product = getProduct(sale.productId);
-        if (!product) return 0;
-    
-        const totalSalePrice = sale.quantity * sale.unitPrice;
-        const totalCostPrice = sale.quantity * product.cost;
-        const commissionAmount = totalSalePrice * ((sale.commission || 0) / 100);
-    
-        return totalSalePrice - totalCostPrice - commissionAmount;
-    };
-
   return (
     <TooltipProvider>
       <div className="flex flex-col gap-8">
@@ -192,13 +207,14 @@ export default function SalesPage() {
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>Registrar Nova Venda</DialogTitle>
+                   <DialogDescription>Preencha os detalhes abaixo para registrar uma nova venda.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label htmlFor="product">Produto</Label>
                       <Select onValueChange={(value) => {
                           const product = products.find(p => p.id === value);
-                          setNewSale({...newSale, productId: value, unitPrice: product?.cost ? product.cost * 1.3 : 0 });
+                          setNewSale({...newSale, productId: value, unitPrice: product?.cost ? parseFloat((product.cost * 1.3).toFixed(2)) : 0 });
                       }}>
                           <SelectTrigger id="product">
                               <SelectValue placeholder="Selecione um produto" />
@@ -206,51 +222,55 @@ export default function SalesPage() {
                           <SelectContent>
                           {products.map(product => (
                               <SelectItem key={product.id} value={product.id} disabled={product.quantity <= 0}>
-                                  {product.description} {product.quantity <= 0 && '(Sem estoque)'}
+                                  {product.description} (Estoque: {product.quantity})
                               </SelectItem>
                           ))}
                           </SelectContent>
                       </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="quantity">Quantidade</Label>
-                    <Input id="quantity" type="number" value={newSale.quantity} onChange={(e) => setNewSale({...newSale, quantity: parseInt(e.target.value) || 1})} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="unitPrice">Preço Unitário</Label>
-                    <div className="flex items-center gap-2">
-                      <Input id="unitPrice" type="number" value={newSale.unitPrice} onChange={(e) => setNewSale({...newSale, unitPrice: parseFloat(e.target.value) || 0})} className="flex-1" />
-                      <Dialog>
-                          <DialogTrigger asChild>
-                              <Button variant="outline" size="icon" disabled={!newSale.productId}>
-                                  <Calculator className="h-4 w-4" />
-                              </Button>
-                          </DialogTrigger>
-                          {newSale.productId && (
-                             <PricingCalculator 
-                                  product={products.find(p => p.id === newSale.productId)}
-                                  onPriceCalculated={(price) => setNewSale({...newSale, unitPrice: parseFloat(price.toFixed(2))})}
-                             />
-                          )}
-                      </Dialog>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="quantity">Quantidade</Label>
+                        <Input id="quantity" type="number" value={newSale.quantity} onChange={(e) => setNewSale({...newSale, quantity: parseInt(e.target.value) || 1})} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="unitPrice">Preço Unitário</Label>
+                        <div className="flex items-center gap-2">
+                        <Input id="unitPrice" type="number" value={newSale.unitPrice} onChange={(e) => setNewSale({...newSale, unitPrice: parseFloat(e.target.value) || 0})} className="flex-1" />
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <Button variant="outline" size="icon" disabled={!newSale.productId}>
+                                    <Calculator className="h-4 w-4" />
+                                </Button>
+                            </DialogTrigger>
+                            {newSale.productId && (
+                                <PricingCalculator 
+                                    product={products.find(p => p.id === newSale.productId)}
+                                    onPriceCalculated={(price) => setNewSale({...newSale, unitPrice: parseFloat(price.toFixed(2))})}
+                                />
+                            )}
+                        </Dialog>
+                        </div>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="paymentMethod">Forma de Pagamento</Label>
-                    <Select onValueChange={(value) => setNewSale({...newSale, paymentMethod: value as PaymentMethod})} defaultValue={newSale.paymentMethod}>
-                      <SelectTrigger id="paymentMethod">
-                        <SelectValue placeholder="Selecione uma forma" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {paymentMethods.map(method => (
-                          <SelectItem key={method} value={method}>{method}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="commission">Comissão (%)</Label>
-                    <Input id="commission" type="number" value={newSale.commission} onChange={(e) => setNewSale({...newSale, commission: parseFloat(e.target.value) || 0})} placeholder="ex: 5" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="paymentMethod">Forma de Pagamento</Label>
+                        <Select onValueChange={(value) => setNewSale({...newSale, paymentMethod: value as PaymentMethod})} defaultValue={newSale.paymentMethod}>
+                        <SelectTrigger id="paymentMethod">
+                            <SelectValue placeholder="Selecione uma forma" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {paymentMethods.map(method => (
+                            <SelectItem key={method} value={method}>{method}</SelectItem>
+                            ))}
+                        </SelectContent>
+                        </Select>
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="commission">Comissão (%)</Label>
+                        <Input id="commission" type="number" value={newSale.commission} onChange={(e) => setNewSale({...newSale, commission: parseFloat(e.target.value) || 0})} placeholder="ex: 5" />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="date">Data da Venda</Label>
@@ -258,6 +278,9 @@ export default function SalesPage() {
                   </div>
                 </div>
                 <DialogFooter>
+                   <DialogClose asChild>
+                        <Button variant="outline">Cancelar</Button>
+                    </DialogClose>
                   <DialogClose asChild>
                     <Button type="submit" onClick={handleAddSale}>Salvar Venda</Button>
                   </DialogClose>
@@ -265,10 +288,55 @@ export default function SalesPage() {
               </DialogContent>
             </Dialog>
         </div>
+
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total de Vendas</CardTitle>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{formatCurrency(salesSummary.totalRevenue)}</div>
+                    <p className="text-xs text-muted-foreground">Receita bruta de todas as vendas</p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Lucro Líquido Total</CardTitle>
+                    <DollarSign className="h-4 w-4 text-primary" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold text-primary">{formatCurrency(salesSummary.totalNetProfit)}</div>
+                     <p className="text-xs text-muted-foreground">Receita após custos e comissões</p>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Número de Vendas</CardTitle>
+                    <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{salesSummary.totalSales}</div>
+                    <p className="text-xs text-muted-foreground">Total de transações de venda</p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Ticket Médio</CardTitle>
+                    <BarChart className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{formatCurrency(salesSummary.averageTicket)}</div>
+                    <p className="text-xs text-muted-foreground">Valor médio por transação</p>
+                </CardContent>
+            </Card>
+        </div>
+
+
         <Card>
           <CardHeader>
             <CardTitle>Histórico de Vendas</CardTitle>
-            <CardDescription>Todas as vendas registradas.</CardDescription>
+            <CardDescription>Todas as vendas de produtos acabados registradas.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -295,7 +363,7 @@ export default function SalesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sales.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(sale => {
+                {sales.map(sale => {
                   const total = sale.quantity * sale.unitPrice;
                   const netProfit = calculateNetProfit(sale);
                   return (
@@ -321,3 +389,5 @@ export default function SalesPage() {
     </TooltipProvider>
   );
 }
+
+    
