@@ -15,17 +15,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Loader } from "lucide-react";
 import Image from 'next/image';
-import { useUser } from "@/firebase";
+import { useUser, useAuth } from "@/firebase";
 import { handleSignOut } from "@/firebase/auth/service";
 import { useRouter } from "next/navigation";
 
 export function Header() {
   const { isMobile } = useSidebar();
   const { user, isUserLoading } = useUser();
+  const auth = useAuth();
   const router = useRouter();
 
   const onSignOut = async () => {
-    await handleSignOut(useAuth());
+    await handleSignOut(auth);
     router.push('/auth');
   }
 
