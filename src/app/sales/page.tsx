@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { getFinishedProducts, updateStock } from '@/lib/data';
-import type { Sale, FinishedProduct, PaymentMethod, Flavor } from '@/lib/types';
+import { getFinishedProducts, updateStock, addRevenue } from '@/lib/data';
+import type { Sale, FinishedProduct, PaymentMethod, Flavor, Revenue } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -131,9 +131,6 @@ export default function SalesPage() {
             date: new Date().toISOString().split('T')[0], // Use current date
             paymentMethod: newSale.paymentMethod,
             location: newSale.location,
-            // Add delivery fee to the total sale value implicitly. For reports, this might need more detail later.
-            // A simple way is to consider the unit price as the total divided by quantity.
-            // unitPrice: finalSalePrice / newSale.quantity
         };
 
         const updatedStock = updateStock(newSale.productId, newSale.quantity, 'out', newSale.flavorId);
@@ -144,9 +141,19 @@ export default function SalesPage() {
                 p.id === newSale.productId ? { ...p, flavors: p.flavors.map(f => f.id === newSale.flavorId ? {...f, stock: f.stock - newSale.quantity} : f) } : p
             ));
 
+            const revenueFromSale: Revenue = {
+              id: `rev-sale-${saleToAdd.id}`,
+              amount: finalSalePrice,
+              source: `Venda - ${product.name} (${flavor.name})`,
+              date: saleToAdd.date,
+              paymentMethod: saleToAdd.paymentMethod,
+            };
+            addRevenue(revenueFromSale);
+
+
              toast({
                 title: 'Venda registrada!',
-                description: `Estoque do produto atualizado.`,
+                description: `Estoque do produto atualizado e receita registrada.`,
             });
             
             setIsDialogOpen(false);

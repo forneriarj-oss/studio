@@ -149,6 +149,10 @@ export function getRevenue() {
   return revenues;
 }
 
+export function addRevenue(revenue: Revenue) {
+  revenues = [revenue, ...revenues];
+}
+
 export function getExpenses() {
   return expenses.map(e => ({
     ...e,
