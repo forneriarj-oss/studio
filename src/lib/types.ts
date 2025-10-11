@@ -25,3 +25,14 @@ export type Appointment = {
   attendees: string[];
   description: string;
 };
+
+export type Product = {
+  id: string;
+  code: string;
+  description: string;
+  unit: string;
+  cost: number;
+  supplier: string;
+  quantity: number;
+  minStock: number;
+};

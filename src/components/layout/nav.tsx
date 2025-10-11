@@ -7,7 +7,7 @@ import {
   TrendingUp,
   TrendingDown,
   Calendar,
-  Wallet,
+  Warehouse,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -21,6 +21,7 @@ const navItems = [
   { href: "/revenue", label: "Receita", icon: TrendingUp },
   { href: "/expenses", label: "Despesas", icon: TrendingDown },
   { href: "/calendar", label: "Agenda", icon: Calendar },
+  { href: "/inventory", label: "Estoque", icon: Warehouse },
 ];
 
 export function Nav() {

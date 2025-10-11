@@ -1,4 +1,4 @@
-import type { Expense, Revenue, Appointment } from './types';
+import type { Expense, Revenue, Appointment, Product } from './types';
 
 const today = new Date();
 const yesterday = new Date(today);
@@ -72,6 +72,15 @@ const appointments: Appointment[] = [
   }
 ];
 
+const products: Product[] = [
+    { id: 'prod-1', code: 'NTB-001', description: 'Notebook Pro 15"', unit: 'pç', cost: 7500, supplier: 'Fornecedor A', quantity: 15, minStock: 5 },
+    { id: 'prod-2', code: 'MOU-002', description: 'Mouse sem Fio Ergonômico', unit: 'pç', cost: 120, supplier: 'Fornecedor B', quantity: 8, minStock: 10 },
+    { id: 'prod-3', code: 'TEC-003', description: 'Teclado Mecânico RGB', unit: 'pç', cost: 350, supplier: 'Fornecedor A', quantity: 25, minStock: 10 },
+    { id: 'prod-4', code: 'MON-004', description: 'Monitor Ultrawide 34"', unit: 'pç', cost: 2800, supplier: 'Fornecedor C', quantity: 3, minStock: 5 },
+    { id: 'prod-5', code: 'SSD-005', description: 'SSD NVMe 1TB', unit: 'pç', cost: 600, supplier: 'Fornecedor B', quantity: 30, minStock: 15 },
+];
+
+
 export function getRevenue() {
   return revenues;
 }
@@ -85,4 +94,8 @@ export function getExpenses() {
 
 export function getAppointments() {
   return appointments;
+}
+
+export function getProducts() {
+    return products;
 }
