@@ -86,26 +86,29 @@ let finishedProducts: FinishedProduct[] = [
   { 
     id: 'fp-1', 
     sku: 'PA-BRIG-01', 
-    name: 'Bolo de Brigadeiro', 
+    name: 'Pastel Comum', 
+    category: 'Pastel',
+    unit: 'UN',
     recipe: [], 
-    finalCost: 25.50, 
-    salePrice: 50.00,
+    finalCost: 3.00, 
+    salePrice: 8.00,
     flavors: [
-      { id: 'flav-1', name: 'Tradicional', stock: 10 },
-      { id: 'flav-2', name: 'Branco', stock: 5 },
+      { id: 'flav-1', name: 'Carne', stock: 10 },
+      { id: 'flav-2', name: 'Queijo', stock: 10 },
     ]
   },
   { 
     id: 'fp-2', 
     sku: 'PA-CEN-01', 
-    name: 'Bolo de Cenoura com Chocolate', 
+    name: 'Pastel Comum', 
+    category: 'Pastel',
+    unit: 'UN',
     recipe: [], 
-    finalCost: 22.00, 
-    salePrice: 45.00,
+    finalCost: 3.20, 
+    salePrice: 8.00,
     flavors: [
-      { id: 'flav-3', name: 'Com Cobertura', stock: 8 },
-      { id: 'flav-4', name: 'Sem Cobertura', stock: 4 },
-      { id: 'flav-5', name: 'Vulcão', stock: 3 },
+      { id: 'flav-3', name: 'Frango', stock: 5 },
+      { id: 'flav-4', name: 'Calabresa', stock: 5 },
     ]
   }
 ];
@@ -217,7 +220,7 @@ export function updateStock(productId: string, quantity: number, type: 'in' | 'o
             rawMaterials[rawMaterialIndex].quantity += quantity;
         } else {
             if (rawMaterials[rawMaterialIndex].quantity < quantity) return false;
-            rawMaterials[rawMaterialIndex].quantity -= quantity;
+            rawMaterials[raw-material].quantity -= quantity;
         }
     } else { // It's a finished product
         const product = finishedProducts[finishedProductIndex];

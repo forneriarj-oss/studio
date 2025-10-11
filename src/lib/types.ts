@@ -53,6 +53,7 @@ export type Sale = {
   date: string;
   paymentMethod?: PaymentMethod;
   commission?: number; // Commission percentage
+  location?: string;
 };
 
 export type Purchase = {
@@ -100,6 +101,8 @@ export type FinishedProduct = {
   id: string;
   sku: string;
   name: string;
+  category: string;
+  unit: string;
   recipe: RecipeItem[];
   finalCost: number;
   salePrice: number;

@@ -6,14 +6,8 @@ import type { FinishedProduct } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
+import { PlusCircle, Edit, Trash2, Wand } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 const formatCurrency = (amount: number) => {
@@ -33,8 +27,8 @@ export default function FinishedProductsPage() {
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Produtos Acabados</h1>
-        <Button asChild>
+        <h1 className="text-3xl font-bold tracking-tight">Produtos</h1>
+        <Button asChild className="bg-green-600 hover:bg-green-700">
           <Link href="/finished-products/new">
             <PlusCircle className="mr-2 h-4 w-4" />
             Novo Produto
@@ -44,62 +38,59 @@ export default function FinishedProductsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Lista de Produtos Acabados</CardTitle>
-          <CardDescription>Gerencie seus produtos finais prontos para venda.</CardDescription>
+          <CardTitle>Lista de Produtos</CardTitle>
+          <CardDescription>Gerencie seus produtos cadastrados.</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 flex items-center gap-2">
+            <span className="text-sm font-medium">Filtrar por Categoria:</span>
+            <Select defaultValue="todos">
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Todas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas</SelectItem>
+                <SelectItem value="pastel">Pastel</SelectItem>
+                <SelectItem value="bolo">Bolo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>SKU</TableHead>
-                <TableHead>Nome do Produto</TableHead>
-                <TableHead className="text-right">Custo Final</TableHead>
-                <TableHead className="text-right">Preço de Venda</TableHead>
-                <TableHead className="text-center">Estoque Total</TableHead>
-                <TableHead className="w-[80px]">Ações</TableHead>
+                <TableHead>Descrição</TableHead>
+                <TableHead>Categoria</TableHead>
+                <TableHead>Estoque Total</TableHead>
+                <TableHead>Custo</TableHead>
+                <TableHead>Preço</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {products.map(product => (
-                <Accordion type="single" collapsible key={product.id} asChild>
-                  <AccordionItem value={product.id} asChild>
-                  <>
-                    <TableRow>
-                      <TableCell className="font-mono">{product.sku}</TableCell>
-                      <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(product.finalCost)}</TableCell>
-                      <TableCell className="text-right font-semibold text-green-600">{formatCurrency(product.salePrice)}</TableCell>
-                      <TableCell className="text-center font-bold">{totalStockByProduct(product)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button variant="outline" size="icon" className="h-8 w-8">
+                 <TableRow key={product.id}>
+                    <TableCell className="font-medium">{product.name.toUpperCase()}</TableCell>
+                    <TableCell>{product.category.toUpperCase()}</TableCell>
+                    <TableCell>{`${totalStockByProduct(product)} ${product.unit}`}</TableCell>
+                    <TableCell>{formatCurrency(product.finalCost)}</TableCell>
+                    <TableCell>{formatCurrency(product.salePrice)}</TableCell>
+                    <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                        <Button variant="outline" size="sm">
+                            <Wand className="mr-2 h-4 w-4" />
+                            Produzir
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
                             <Edit className="h-4 w-4" />
                             <span className="sr-only">Editar</span>
-                          </Button>
-                          <AccordionTrigger className="p-2 hover:bg-muted rounded-md [&[data-state=open]>svg]:rotate-90" />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow className="bg-muted/50 hover:bg-muted/50">
-                        <TableCell colSpan={6} className="p-0">
-                            <AccordionContent>
-                                <div className="p-4">
-                                  <h4 className="font-semibold mb-2">Estoque por Sabor:</h4>
-                                  <div className="grid grid-cols-3 gap-2">
-                                  {product.flavors.map(flavor => (
-                                    <div key={flavor.id} className="flex justify-between items-center text-sm p-2 bg-background rounded-md">
-                                        <span>{flavor.name}</span>
-                                        <Badge variant="secondary">{flavor.stock}</Badge>
-                                    </div>
-                                  ))}
-                                  </div>
-                                </div>
-                            </AccordionContent>
-                        </TableCell>
-                    </TableRow>
-                  </>
-                  </AccordionItem>
-                </Accordion>
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                            <span className="sr-only">Excluir</span>
+                        </Button>
+                    </div>
+                    </TableCell>
+                </TableRow>
               ))}
             </TableBody>
           </Table>
