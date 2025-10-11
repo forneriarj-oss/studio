@@ -42,35 +42,33 @@ export function Nav() {
     return null; // Não mostra nada se não houver usuário
   }
 
-  const permittedNavItems = allNavItems.filter(item => {
-    // Caso 1: Usuário é anônimo (visitante)
-    if (user.isAnonymous) {
-      // Visitantes só podem ver o painel
-      return item.permission === 'dashboard';
-    }
+  // Define as permissões com base no tipo de usuário
+  let userPermissions: string[] = [];
 
-    // Caso 2: Usuário logado com e-mail
-    if (user.email) {
-      const appUser = getUserByEmail(user.email);
-      const userRole = appUser ? getRoleById(appUser.roleId) : null;
-      
-      // Se não houver um papel definido para o e-mail, mostre apenas o painel.
-      if (!userRole) {
-        return item.permission === 'dashboard';
-      }
-
-      // Se o papel for admin (permissão '*'), mostre tudo.
-      if (userRole.permissions.includes('*')) {
-        return true;
-      }
-      
-      // Se for outro papel, verifique se a permissão do item está na lista de permissões do papel.
-      return userRole.permissions.includes(item.permission);
-    }
+  if (user.isAnonymous) {
+    // Permissão para visitante anônimo
+    userPermissions = ['dashboard'];
+  } else if (user.email) {
+    // Lógica para usuário autenticado com e-mail
+    const appUser = getUserByEmail(user.email);
+    const userRole = appUser ? getRoleById(appUser.roleId) : null;
     
-    // Fallback para qualquer outro caso (não deveria acontecer)
-    return false;
-  });
+    if (userRole) {
+      if (userRole.permissions.includes('*')) {
+        // Administrador tem todas as permissões
+        userPermissions = allNavItems.map(item => item.permission);
+      } else {
+        // Outros papéis têm permissões específicas
+        userPermissions = userRole.permissions;
+      }
+    } else {
+        // Fallback para usuário logado sem um papel definido: só vê o painel
+        userPermissions = ['dashboard'];
+    }
+  }
+
+  // Filtra os itens de navegação com base nas permissões do usuário
+  const permittedNavItems = allNavItems.filter(item => userPermissions.includes(item.permission));
 
   return (
     <SidebarMenu>
