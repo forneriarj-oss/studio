@@ -3,7 +3,7 @@ import { useState, useMemo, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getRawMaterials } from '@/lib/data';
-import type { RawMaterial, RecipeItem, Flavor } from '@/lib/types';
+import type { RawMaterial, RecipeItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getPriceSuggestion } from './actions';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -31,14 +32,14 @@ export default function NewFinishedProductPage() {
   const [priceSuggestion, setPriceSuggestion] = useState<{ price: number; justification: string } | null>(null);
 
   const [productName, setProductName] = useState('');
-  const [sku, setSku] = useState('');
+  const [category, setCategory] = useState('');
+  const [unit, setUnit] = useState('UN');
+  
   const [recipe, setRecipe] = useState<RecipeItem[]>([]);
+  const [newRecipeItem, setNewRecipeItem] = useState<{ id: string, qty: number | '' }>({ id: '', qty: 0 });
+
   const [manualCost, setManualCost] = useState<number | ''>('');
   const [salePrice, setSalePrice] = useState<number | ''>('');
-  
-  const [flavors, setFlavors] = useState<Omit<Flavor, 'id'>[]>([]);
-  const [newFlavorName, setNewFlavorName] = useState('');
-  const [newFlavorStock, setNewFlavorStock] = useState<number | ''>('');
 
   const calculatedCost = useMemo(() => {
     return recipe.reduce((total, item) => {
@@ -49,45 +50,33 @@ export default function NewFinishedProductPage() {
 
   const finalCost = manualCost !== '' ? manualCost : calculatedCost;
 
-  const handleAddRecipeItem = (materialId: string) => {
-    if (materialId && !recipe.find(item => item.rawMaterialId === materialId)) {
-      setRecipe([...recipe, { rawMaterialId: materialId, quantity: 1 }]);
-    }
-  };
+  const handleAddRecipeItem = () => {
+    const materialId = newRecipeItem.id;
+    const quantity = Number(newRecipeItem.qty);
 
-  const handleUpdateRecipeQuantity = (materialId: string, quantity: number) => {
-    setRecipe(recipe.map(item => item.rawMaterialId === materialId ? { ...item, quantity } : item));
+    if (materialId && quantity > 0) {
+      if (recipe.find(item => item.rawMaterialId === materialId)) {
+        toast({
+          variant: 'destructive',
+          title: 'Item já existe na receita.'
+        });
+        return;
+      }
+      setRecipe([...recipe, { rawMaterialId: materialId, quantity: quantity }]);
+      setNewRecipeItem({ id: '', qty: 0 }); // Reset form
+    } else {
+        toast({
+          variant: 'destructive',
+          title: 'Dados inválidos',
+          description: 'Selecione uma matéria-prima e insira uma quantidade válida.',
+        });
+    }
   };
 
   const handleRemoveRecipeItem = (materialId: string) => {
     setRecipe(recipe.filter(item => item.rawMaterialId !== materialId));
   };
 
-  const handleAddFlavor = () => {
-    if (newFlavorName && newFlavorStock !== '' && newFlavorStock >= 0) {
-      if (flavors.find(f => f.name.toLowerCase() === newFlavorName.toLowerCase())) {
-        toast({
-          variant: 'destructive',
-          title: 'Sabor já existe',
-          description: 'Este sabor já foi adicionado à lista.',
-        });
-        return;
-      }
-      setFlavors([...flavors, { name: newFlavorName, stock: newFlavorStock }]);
-      setNewFlavorName('');
-      setNewFlavorStock('');
-    } else {
-       toast({
-          variant: 'destructive',
-          title: 'Dados inválidos',
-          description: 'Por favor, preencha o nome e o estoque do sabor.',
-        });
-    }
-  };
-
-  const handleRemoveFlavor = (name: string) => {
-    setFlavors(flavors.filter(flavor => flavor.name !== name));
-  };
 
   const getMaterialDescription = (id: string) => {
     return rawMaterials.find(m => m.id === id)?.description || 'N/A';
@@ -95,22 +84,22 @@ export default function NewFinishedProductPage() {
 
   const handleSaveProduct = () => {
     // Basic Validation
-    if (!productName || !salePrice || flavors.length === 0) {
+    if (!productName || !salePrice || salePrice <= 0 || finalCost < 0 ) {
        toast({
           variant: 'destructive',
           title: 'Campos obrigatórios incompletos',
-          description: 'Preencha o nome do produto, o preço de venda e adicione pelo menos um sabor.',
+          description: 'Preencha a descrição, custo e preço de venda.',
         });
       return;
     }
     // In a real app, this would save to a database.
     console.log({
-      sku,
       name: productName,
+      category,
+      unit,
       recipe,
       finalCost,
       salePrice,
-      flavors: flavors.map((f, i) => ({...f, id: `flavor-${Date.now()}-${i}`}))
     });
     toast({
       title: 'Produto Salvo!',
@@ -124,7 +113,7 @@ export default function NewFinishedProductPage() {
       toast({
         variant: 'destructive',
         title: 'Dados insuficientes',
-        description: 'É necessário um nome para o produto e um custo maior que zero.',
+        description: 'É necessário uma descrição para o produto e um custo maior que zero.',
       });
       return;
     }
@@ -165,39 +154,53 @@ export default function NewFinishedProductPage() {
         <Button variant="outline" size="icon" className="h-8 w-8" asChild>
             <Link href="/finished-products"><ArrowLeft className="h-4 w-4" /></Link>
         </Button>
-        <h1 className="text-3xl font-bold tracking-tight">Novo Produto Acabado</h1>
+        <div>
+            <h1 className="text-3xl font-bold tracking-tight">Novo Produto</h1>
+            <p className="text-muted-foreground">Preencha os detalhes do produto. Campos com * são obrigatórios.</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        <div className="lg:col-span-2 flex flex-col gap-8">
-            {/* Basic Info */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Informações Básicas</CardTitle>
-                </CardHeader>
-                <CardContent className="grid md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                        <Label htmlFor="product-name">Nome do Produto</Label>
-                        <Input id="product-name" placeholder="Ex: Bolo de Chocolate" value={productName} onChange={e => setProductName(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="sku">Código (SKU)</Label>
-                        <Input id="sku" placeholder="Ex: BOLO-CHOC-01" value={sku} onChange={e => setSku(e.target.value)} />
-                    </div>
-                </CardContent>
-            </Card>
+      <div className="flex flex-col gap-8">
+        <div className="space-y-2">
+            <Label htmlFor="product-description">Descrição *</Label>
+            <Textarea id="product-description" placeholder="Ex: Bolo de Chocolate" value={productName} onChange={e => setProductName(e.target.value)} />
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+                <Label htmlFor="category">Categoria</Label>
+                <div className="flex gap-2">
+                    <Select value={category} onValueChange={setCategory}>
+                        <SelectTrigger id="category">
+                            <SelectValue placeholder="Selecione uma categoria" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="bolo">Bolo</SelectItem>
+                            <SelectItem value="pastel">Pastel</SelectItem>
+                            <SelectItem value="bebida">Bebida</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Button variant="outline" size="icon"><PlusCircle className="h-4 w-4" /></Button>
+                </div>
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="unit">Unidade *</Label>
+                <Input id="unit" placeholder="Ex: UN, KG, L" value={unit} onChange={e => setUnit(e.target.value.toUpperCase())} />
+            </div>
+        </div>
 
-            {/* Recipe */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Composição do Produto (Receita)</CardTitle>
-                    <CardDescription>Adicione as matérias-primas que compõem este produto.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex gap-2 mb-4">
-                        <Select onValueChange={handleAddRecipeItem}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Selecione uma matéria-prima" />
+        <Card>
+            <CardHeader>
+                <CardTitle>Composição do Produto (Receita)</CardTitle>
+                <CardDescription>Adicione os insumos para calcular o custo de produção.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="flex flex-col md:flex-row gap-2 mb-4">
+                    <div className="flex-1 space-y-1">
+                        <Label htmlFor="raw-material">Matéria-Prima</Label>
+                        <Select value={newRecipeItem.id} onValueChange={(value) => setNewRecipeItem({...newRecipeItem, id: value})}>
+                            <SelectTrigger id="raw-material">
+                                <SelectValue placeholder="Selecione um insumo" />
                             </SelectTrigger>
                             <SelectContent>
                                 {rawMaterials.map(material => (
@@ -208,7 +211,22 @@ export default function NewFinishedProductPage() {
                             </SelectContent>
                         </Select>
                     </div>
-                    <Table>
+                    <div className="w-full md:w-24 space-y-1">
+                        <Label htmlFor="quantity">Qtde.</Label>
+                        <Input 
+                            id="quantity"
+                            type="number" 
+                            value={newRecipeItem.qty} 
+                            onChange={e => setNewRecipeItem({...newRecipeItem, qty: e.target.value === '' ? '' : Number(e.target.value)})}
+                        />
+                    </div>
+                    <div className="self-end">
+                        <Button onClick={handleAddRecipeItem} className="w-full md:w-auto bg-green-600 hover:bg-green-700">Adicionar</Button>
+                    </div>
+                </div>
+                
+                {recipe.length > 0 ? (
+                     <Table>
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Matéria-Prima</TableHead>
@@ -218,124 +236,68 @@ export default function NewFinishedProductPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {recipe.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={4} className="text-center h-24">Nenhum item na receita.</TableCell>
-                                </TableRow>
-                            ) : (
-                                recipe.map(item => {
-                                    const material = rawMaterials.find(m => m.id === item.rawMaterialId);
-                                    return (
-                                        <TableRow key={item.rawMaterialId}>
-                                            <TableCell className="font-medium">{material?.description}</TableCell>
-                                            <TableCell>
-                                                <Input 
-                                                    type="number" 
-                                                    value={item.quantity} 
-                                                    onChange={e => handleUpdateRecipeQuantity(item.rawMaterialId, parseFloat(e.target.value) || 0)}
-                                                    className="h-8"
-                                                />
-                                            </TableCell>
-                                            <TableCell className="text-right">{formatCurrency((material?.cost || 0) * item.quantity)}</TableCell>
-                                            <TableCell>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRemoveRecipeItem(item.rawMaterialId)}>
-                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
-
-            {/* Flavors and Stock */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Gestão de Sabores e Estoque</CardTitle>
-                    <CardDescription>Adicione variações do produto, como sabores, e gerencie o estoque inicial para cada um.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                     <div className="flex gap-2 mb-4">
-                        <Input placeholder="Nome do Sabor" value={newFlavorName} onChange={e => setNewFlavorName(e.target.value)} />
-                        <Input type="number" placeholder="Estoque Inicial" className="w-[150px]" value={newFlavorStock} onChange={e => setNewFlavorStock(e.target.value === '' ? '' : Number(e.target.value))} />
-                        <Button onClick={handleAddFlavor}><PlusCircle className="mr-2 h-4 w-4" /> Adicionar</Button>
-                    </div>
-                     <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Sabor</TableHead>
-                                <TableHead className="w-[120px]">Estoque</TableHead>
-                                <TableHead className="w-[50px]"></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {flavors.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={3} className="text-center h-24">Nenhum sabor adicionado.</TableCell>
-                                </TableRow>
-                            ) : (
-                                flavors.map(flavor => (
-                                    <TableRow key={flavor.name}>
-                                        <TableCell className="font-medium">{flavor.name}</TableCell>
-                                        <TableCell>{flavor.stock}</TableCell>
+                            {recipe.map(item => {
+                                const material = rawMaterials.find(m => m.id === item.rawMaterialId);
+                                return (
+                                    <TableRow key={item.rawMaterialId}>
+                                        <TableCell className="font-medium">{material?.description}</TableCell>
+                                        <TableCell>{item.quantity} {material?.unit}</TableCell>
+                                        <TableCell className="text-right">{formatCurrency((material?.cost || 0) * item.quantity)}</TableCell>
                                         <TableCell>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRemoveFlavor(flavor.name)}>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRemoveRecipeItem(item.rawMaterialId)}>
                                                 <Trash2 className="h-4 w-4 text-destructive" />
                                             </Button>
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            )}
+                                );
+                            })}
                         </TableBody>
                     </Table>
-                </CardContent>
-            </Card>
+                ) : (
+                    <div className="text-center text-muted-foreground py-8">Nenhum insumo na receita.</div>
+                )}
+            </CardContent>
+        </Card>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+             <div className="space-y-2 p-3 bg-muted rounded-md">
+                <Label>Custo Calculado (Receita)</Label>
+                <p className="text-2xl font-bold">{formatCurrency(calculatedCost)}</p>
+            </div>
+            <div className="space-y-2">
+                {/* Empty div for layout purposes */}
+            </div>
+             <div className="space-y-2">
+                <Label htmlFor="manual-cost">Custo Manual/Final *</Label>
+                <Input id="manual-cost" type="number" placeholder="Substitui o custo calculado" value={manualCost} onChange={e => setManualCost(e.target.value === '' ? '' : Number(e.target.value))} />
+            </div>
+             <div className="space-y-2">
+                <Label htmlFor="sale-price">Preço de Venda *</Label>
+                <div className="flex gap-2">
+                    <Input id="sale-price" type="number" placeholder="Ex: 50.00" value={salePrice} onChange={e => setSalePrice(e.target.value === '' ? '' : Number(e.target.value))}/>
+                     <Button variant="outline" size="icon" onClick={handleSuggestPrice} disabled={isPending}>
+                        <Wand2 className={`h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
+                    </Button>
+                </div>
+            </div>
         </div>
-        <div className="lg:col-span-1 flex flex-col gap-8 sticky top-24">
-            {/* Cost and Price */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Custo e Preço</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2 p-3 bg-muted rounded-md">
-                        <Label>Custo Calculado (Receita)</Label>
-                        <p className="text-2xl font-bold">{formatCurrency(calculatedCost)}</p>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="manual-cost">Custo Manual/Final (Opcional)</Label>
-                        <Input id="manual-cost" type="number" placeholder="Substitui o custo calculado" value={manualCost} onChange={e => setManualCost(e.target.value === '' ? '' : Number(e.target.value))} />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="sale-price">Preço de Venda</Label>
-                        <div className="flex gap-2">
-                            <Input id="sale-price" type="number" placeholder="Ex: 50.00" value={salePrice} onChange={e => setSalePrice(e.target.value === '' ? '' : Number(e.target.value))}/>
-                             <Button variant="outline" size="icon" onClick={handleSuggestPrice} disabled={isPending}>
-                                <Wand2 className={`h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
-                            </Button>
-                        </div>
-                    </div>
-                    
-                    {isPending && (
-                        <div className="space-y-2 pt-2">
-                           <Skeleton className="h-4 w-1/3" />
-                           <Skeleton className="h-8 w-full" />
-                        </div>
-                    )}
-                    {priceSuggestion && !isPending && (
-                        <div className="pt-2">
-                            <Badge>Sugestão da IA</Badge>
-                            <p className="text-sm text-muted-foreground mt-2">{priceSuggestion.justification}</p>
-                        </div>
-                    )}
 
-                </CardContent>
-            </Card>
-            <Button size="lg" className="w-full" onClick={handleSaveProduct}>Salvar Produto Acabado</Button>
+        {isPending && (
+            <div className="space-y-2 pt-2">
+               <Skeleton className="h-4 w-1/3" />
+               <Skeleton className="h-8 w-full" />
+            </div>
+        )}
+        {priceSuggestion && !isPending && (
+            <div className="pt-2">
+                <Badge>Sugestão da IA</Badge>
+                <p className="text-sm text-muted-foreground mt-2">{priceSuggestion.justification}</p>
+            </div>
+        )}
+        
+        <div className="flex justify-end gap-2 pt-8">
+            <Button variant="outline" onClick={() => router.back()}>Cancelar</Button>
+            <Button size="lg" onClick={handleSaveProduct}>Salvar Produto</Button>
         </div>
       </div>
     </div>
