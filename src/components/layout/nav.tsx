@@ -43,13 +43,33 @@ export function Nav() {
   const userRole = appUser ? getRoleById(appUser.roleId) : null;
 
   const hasPermission = (permission: string) => {
+    // If there's no role (e.g. anonymous user), they have no special permissions
     if (!userRole) return false;
+    // Admin has all permissions
     if (userRole.permissions.includes('*')) return true;
+    // Check if the role's permissions array includes the required permission
     return userRole.permissions.includes(permission);
   };
   
-  // Always show dashboard for any logged-in user
-  const permittedNavItems = allNavItems.filter(item => item.permission === 'dashboard' || hasPermission(item.permission));
+  // Show dashboard for any logged-in user, and other items based on permissions.
+  // For anonymous users, this will only show the dashboard if they are logged in anonymously.
+  // For email users, it checks their specific role.
+  const permittedNavItems = allNavItems.filter(item => {
+      // The dashboard is a special case, visible to any authenticated user.
+      if (item.permission === 'dashboard') {
+          return !!user;
+      }
+      return hasPermission(item.permission);
+  });
+  
+  // A fallback for anonymous users to ensure they at least see the dashboard
+  if (user?.isAnonymous && permittedNavItems.length === 0) {
+      const dashboardItem = allNavItems.find(item => item.href === '/');
+      if (dashboardItem) {
+          permittedNavItems.push(dashboardItem);
+      }
+  }
+
 
   return (
     <SidebarMenu>
