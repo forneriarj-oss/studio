@@ -1,7 +1,7 @@
 
 'use client';
 import { useState } from 'react';
-import { getPurchases, getProducts } from '@/lib/data';
+import { getPurchases, getProducts, updateStock } from '@/lib/data';
 import type { Purchase, Product } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -19,9 +19,10 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { useToast } from '@/hooks/use-toast';
 
 const initialPurchases = getPurchases();
-const products = getProducts();
+const initialProducts = getProducts();
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -32,6 +33,8 @@ const formatCurrency = (amount: number) => {
 
 export default function PurchasesPage() {
     const [purchases, setPurchases] = useState<Purchase[]>(initialPurchases);
+    const [products, setProducts] = useState<Product[]>(initialProducts);
+    const { toast } = useToast();
     const [newPurchase, setNewPurchase] = useState({
         productId: '',
         quantity: 1,
@@ -40,19 +43,48 @@ export default function PurchasesPage() {
     });
 
     const handleAddPurchase = () => {
-        // In a real app, you'd also update product stock
+        if (!newPurchase.productId || newPurchase.quantity <= 0 || newPurchase.unitCost < 0) {
+            toast({
+                variant: 'destructive',
+                title: 'Erro',
+                description: 'Por favor, preencha todos os campos corretamente.',
+            });
+            return;
+        }
+
         const purchaseToAdd: Purchase = {
             id: `purch-${Date.now()}`,
             ...newPurchase
         };
-        setPurchases([...purchases, purchaseToAdd]);
-        // Reset form
-        setNewPurchase({
-            productId: '',
-            quantity: 1,
-            unitCost: 0,
-            date: new Date().toISOString().split('T')[0]
-        });
+
+        const updatedStock = updateStock(newPurchase.productId, newPurchase.quantity, 'in');
+
+        if (updatedStock) {
+            setPurchases(prev => [...prev, purchaseToAdd]);
+            
+            setProducts(prevProducts => prevProducts.map(p => 
+                p.id === newPurchase.productId ? { ...p, quantity: p.quantity + newPurchase.quantity } : p
+            ));
+            
+            toast({
+                title: 'Compra registrada!',
+                description: `Estoque do produto atualizado.`,
+            });
+
+            // Reset form
+            setNewPurchase({
+                productId: '',
+                quantity: 1,
+                unitCost: 0,
+                date: new Date().toISOString().split('T')[0]
+            });
+        } else {
+             toast({
+                variant: 'destructive',
+                title: 'Erro',
+                description: 'Não foi possível atualizar o estoque.',
+            });
+        }
     }
 
     const getProductDescription = (productId: string) => {
@@ -126,7 +158,7 @@ export default function PurchasesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {purchases.map(purchase => (
+              {purchases.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(purchase => (
                 <TableRow key={purchase.id}>
                   <TableCell className="font-medium">{getProductDescription(purchase.productId)}</TableCell>
                   <TableCell>{new Date(purchase.date).toLocaleDateString('pt-BR')}</TableCell>

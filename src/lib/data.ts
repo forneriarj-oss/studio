@@ -8,7 +8,7 @@ twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 const tomorrow = new Date(today);
 tomorrow.setDate(tomorrow.getDate() + 1);
 
-const revenues: Revenue[] = [
+let revenues: Revenue[] = [
   { id: 'rev-1', amount: 2450.00, source: 'Projeto Cliente Alpha', date: today.toISOString().split('T')[0], paymentMethod: 'PIX' },
   { id: 'rev-2', amount: 1800.50, source: 'Assinatura SaaS', date: yesterday.toISOString().split('T')[0], paymentMethod: 'Cartão' },
   { id: 'rev-3', amount: 320.00, source: 'Chamada de Consultoria', date: yesterday.toISOString().split('T')[0], paymentMethod: 'PIX' },
@@ -19,7 +19,7 @@ const revenues: Revenue[] = [
   { id: 'rev-8', amount: 2100, source: 'Assinatura SaaS', date: '2024-06-05', paymentMethod: 'Cartão' },
 ];
 
-const expenses: Expense[] = [
+let expenses: Expense[] = [
   { id: 'exp-1', amount: 350.00, category: 'Software', description: 'Assinatura Figma', date: today.toISOString().split('T')[0], paymentMethod: 'Cartão' },
   { id: 'exp-2', amount: 120.00, category: 'Marketing', description: 'Google Ads', date: yesterday.toISOString().split('T')[0], paymentMethod: 'Cartão' },
   { id: 'exp-3', amount: 2500.00, category: 'Team', description: 'Pagamento de Freelancer', date: twoDaysAgo.toISOString().split('T')[0], paymentMethod: 'PIX' },
@@ -72,7 +72,7 @@ const appointments: Appointment[] = [
   }
 ];
 
-const products: Product[] = [
+let products: Product[] = [
     { id: 'prod-1', code: 'NTB-001', description: 'Notebook Pro 15"', unit: 'pç', cost: 7500, supplier: 'Fornecedor A', quantity: 15, minStock: 5 },
     { id: 'prod-2', code: 'MOU-002', description: 'Mouse sem Fio Ergonômico', unit: 'pç', cost: 120, supplier: 'Fornecedor B', quantity: 8, minStock: 10 },
     { id: 'prod-3', code: 'TEC-003', description: 'Teclado Mecânico RGB', unit: 'pç', cost: 350, supplier: 'Fornecedor A', quantity: 25, minStock: 10 },
@@ -80,17 +80,17 @@ const products: Product[] = [
     { id: 'prod-5', code: 'SSD-005', description: 'SSD NVMe 1TB', unit: 'pç', cost: 600, supplier: 'Fornecedor B', quantity: 30, minStock: 15 },
 ];
 
-const sales: Sale[] = [
+let sales: Sale[] = [
     { id: 'sale-1', productId: 'prod-1', quantity: 1, unitPrice: 9500, date: today.toISOString().split('T')[0] },
     { id: 'sale-2', productId: 'prod-3', quantity: 2, unitPrice: 450, date: yesterday.toISOString().split('T')[0] },
 ];
 
-const purchases: Purchase[] = [
+let purchases: Purchase[] = [
     { id: 'purch-1', productId: 'prod-2', quantity: 10, unitCost: 110, date: twoDaysAgo.toISOString().split('T')[0] },
     { id: 'purch-2', productId: 'prod-4', quantity: 5, unitCost: 2700, date: twoDaysAgo.toISOString().split('T')[0] },
 ];
 
-const stockMovements: StockMovement[] = [
+let stockMovements: StockMovement[] = [
     ...products.map(p => ({ id: `sm-init-${p.id}`, productId: p.id, type: 'in' as const, quantity: p.quantity, date: '2024-01-01', source: 'initial' as const })),
     { id: 'sm-1', productId: 'prod-1', type: 'out', quantity: 1, date: today.toISOString().split('T')[0], source: 'sale' },
     { id: 'sm-2', productId: 'prod-3', type: 'out', quantity: 2, date: yesterday.toISOString().split('T')[0], source: 'sale' },
@@ -128,4 +128,35 @@ export function getPurchases() {
 
 export function getStockMovements() {
     return stockMovements;
+}
+
+// This is a mock function. In a real app, this would update a database.
+export function updateStock(productId: string, quantity: number, type: 'in' | 'out'): boolean {
+    const productIndex = products.findIndex(p => p.id === productId);
+    if (productIndex === -1) {
+        return false;
+    }
+
+    const newStockMovement: StockMovement = {
+        id: `sm-${Date.now()}`,
+        productId,
+        quantity,
+        type,
+        date: new Date().toISOString().split('T')[0],
+        source: type === 'in' ? 'purchase' : 'sale'
+    };
+
+    stockMovements.push(newStockMovement);
+
+    if (type === 'in') {
+        products[productIndex].quantity += quantity;
+    } else {
+        if (products[productIndex].quantity < quantity) {
+            // Should not happen if checked before calling, but as a safeguard.
+            return false; 
+        }
+        products[productIndex].quantity -= quantity;
+    }
+
+    return true;
 }

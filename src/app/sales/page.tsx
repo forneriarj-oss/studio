@@ -1,7 +1,7 @@
 
 'use client';
 import { useState } from 'react';
-import { getSales, getProducts } from '@/lib/data';
+import { getSales, getProducts, updateStock } from '@/lib/data';
 import type { Sale, Product } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -19,9 +19,11 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { useToast } from '@/hooks/use-toast';
+
 
 const initialSales = getSales();
-const products = getProducts();
+const initialProducts = getProducts();
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -32,6 +34,8 @@ const formatCurrency = (amount: number) => {
 
 export default function SalesPage() {
     const [sales, setSales] = useState<Sale[]>(initialSales);
+    const [products, setProducts] = useState<Product[]>(initialProducts);
+    const { toast } = useToast();
     const [newSale, setNewSale] = useState({
         productId: '',
         quantity: 1,
@@ -40,19 +44,58 @@ export default function SalesPage() {
     });
 
     const handleAddSale = () => {
-        // In a real app, you'd also update product stock
+        const product = products.find(p => p.id === newSale.productId);
+
+        if (!newSale.productId || newSale.quantity <= 0 || newSale.unitPrice < 0) {
+            toast({
+                variant: 'destructive',
+                title: 'Erro',
+                description: 'Por favor, preencha todos os campos corretamente.',
+            });
+            return;
+        }
+
+        if (!product || product.quantity < newSale.quantity) {
+             toast({
+                variant: 'destructive',
+                title: 'Erro de Estoque',
+                description: 'Quantidade em estoque insuficiente para esta venda.',
+            });
+            return;
+        }
+
         const saleToAdd: Sale = {
             id: `sale-${Date.now()}`,
             ...newSale
         };
-        setSales([...sales, saleToAdd]);
-        // Reset form
-        setNewSale({
-            productId: '',
-            quantity: 1,
-            unitPrice: 0,
-            date: new Date().toISOString().split('T')[0]
-        });
+
+        const updatedStock = updateStock(newSale.productId, newSale.quantity, 'out');
+        
+        if (updatedStock) {
+            setSales(prev => [...prev, saleToAdd]);
+            setProducts(prevProducts => prevProducts.map(p => 
+                p.id === newSale.productId ? { ...p, quantity: p.quantity - newSale.quantity } : p
+            ));
+
+             toast({
+                title: 'Venda registrada!',
+                description: `Estoque do produto atualizado.`,
+            });
+            
+            // Reset form
+            setNewSale({
+                productId: '',
+                quantity: 1,
+                unitPrice: 0,
+                date: new Date().toISOString().split('T')[0]
+            });
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Erro',
+                description: 'Não foi possível atualizar o estoque.',
+            });
+        }
     }
 
     const getProductDescription = (productId: string) => {
@@ -77,13 +120,18 @@ export default function SalesPage() {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="product" className="text-right">Produto</Label>
-                    <Select onValueChange={(value) => setNewSale({...newSale, productId: value})}>
+                    <Select onValueChange={(value) => {
+                        const product = products.find(p => p.id === value);
+                        setNewSale({...newSale, productId: value, unitPrice: product?.cost ? product.cost * 1.3 : 0 });
+                    }}>
                         <SelectTrigger id="product" className="col-span-3">
                             <SelectValue placeholder="Selecione um produto" />
                         </SelectTrigger>
                         <SelectContent>
                         {products.map(product => (
-                            <SelectItem key={product.id} value={product.id}>{product.description}</SelectItem>
+                            <SelectItem key={product.id} value={product.id} disabled={product.quantity <= 0}>
+                                {product.description} {product.quantity <= 0 && '(Sem estoque)'}
+                            </SelectItem>
                         ))}
                         </SelectContent>
                     </Select>
@@ -126,7 +174,7 @@ export default function SalesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sales.map(sale => (
+              {sales.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(sale => (
                 <TableRow key={sale.id}>
                   <TableCell className="font-medium">{getProductDescription(sale.productId)}</TableCell>
                   <TableCell>{new Date(sale.date).toLocaleDateString('pt-BR')}</TableCell>
