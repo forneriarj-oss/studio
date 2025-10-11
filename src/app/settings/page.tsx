@@ -6,8 +6,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SettingsPage() {
+    const { toast } = useToast();
     const [taxes, setTaxes] = useState({
         icms: '0',
         iss: '0',
@@ -31,6 +33,15 @@ export default function SettingsPage() {
     
     const handleInputChange = (setter: React.Dispatch<React.SetStateAction<any>>, field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
         setter((prev: any) => ({ ...prev, [field]: event.target.value }));
+    };
+
+    const handleSaveChanges = () => {
+        // Em um aplicativo real, aqui você salvaria os dados em um banco de dados ou estado persistente.
+        // Por enquanto, apenas exibimos uma notificação de sucesso.
+        toast({
+            title: 'Configurações Salvas!',
+            description: 'Suas alterações foram salvas com sucesso.',
+        });
     };
 
   return (
@@ -128,7 +139,7 @@ export default function SettingsPage() {
                 </CardContent>
             </Card>
             <div className="flex justify-end">
-                <Button>Salvar Alterações</Button>
+                <Button onClick={handleSaveChanges}>Salvar Alterações</Button>
             </div>
           </div>
         </TabsContent>
