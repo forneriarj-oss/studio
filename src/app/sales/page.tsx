@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { getFinishedProducts, updateStock } from '@/lib/data';
 import type { Sale, FinishedProduct, PaymentMethod, Flavor } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Calculator } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -50,6 +49,7 @@ export default function SalesPage() {
         date: '',
         paymentMethod: 'PIX' as PaymentMethod,
         commission: 0,
+        location: ''
     });
     
     useEffect(() => {
@@ -70,7 +70,7 @@ export default function SalesPage() {
         const product = products.find(p => p.id === newSale.productId);
         const flavor = getFlavor(product, newSale.flavorId);
 
-        if (!newSale.productId || !newSale.flavorId || newSale.quantity <= 0 || newSale.unitPrice < 0) {
+        if (!newSale.productId || !newSale.flavorId || newSale.quantity <= 0 ) {
             toast({
                 variant: 'destructive',
                 title: 'Erro',
@@ -90,7 +90,12 @@ export default function SalesPage() {
 
         const saleToAdd: Sale = {
             id: `sale-${Date.now()}`,
-            ...newSale
+            productId: newSale.productId,
+            flavorId: newSale.flavorId,
+            quantity: newSale.quantity,
+            unitPrice: newSale.unitPrice,
+            date: new Date().toISOString().split('T')[0], // Use current date
+            paymentMethod: newSale.paymentMethod,
         };
 
         const updatedStock = updateStock(newSale.productId, newSale.quantity, 'out', newSale.flavorId);
@@ -125,6 +130,7 @@ export default function SalesPage() {
             date: new Date().toISOString().split('T')[0],
             paymentMethod: 'PIX',
             commission: 0,
+            location: ''
         });
         setIsDialogOpen(true);
     };
@@ -186,67 +192,63 @@ export default function SalesPage() {
         
         <DialogContent className="sm:max-w-md">
             <DialogHeader>
-                <DialogTitle>Registrar Nova Venda</DialogTitle>
-                <DialogDescription>Preencha os detalhes abaixo para registrar a venda de {selectedProductForDialog?.name}.</DialogDescription>
+                <DialogTitle className="uppercase">Registrar Venda: {selectedProductForDialog?.name}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="flavor">Sabor</Label>
-                        <Select onValueChange={(value) => setNewSale({...newSale, flavorId: value})} value={newSale.flavorId}>
-                            <SelectTrigger id="flavor">
-                                <SelectValue placeholder="Selecione um sabor" />
-                            </SelectTrigger>
-                            <SelectContent>
-                            {selectedProductForDialog?.flavors.map(flavor => (
-                                <SelectItem key={flavor.id} value={flavor.id} disabled={flavor.stock <= 0}>
-                                    {flavor.name} (Estoque: {flavor.stock})
-                                </SelectItem>
-                            ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="quantity">Quantidade</Label>
-                        <Input id="quantity" type="number" value={newSale.quantity} onChange={(e) => setNewSale({...newSale, quantity: parseInt(e.target.value) || 1})} />
-                    </div>
-                </div>
+              <div className="grid grid-cols-[100px_1fr] items-center gap-4">
+                  <Label htmlFor="flavor" className="text-right">Sabor</Label>
+                  <Select onValueChange={(value) => setNewSale({...newSale, flavorId: value})} value={newSale.flavorId}>
+                      <SelectTrigger id="flavor">
+                          <SelectValue placeholder="Selecione um sabor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                      {selectedProductForDialog?.flavors.map(flavor => (
+                          <SelectItem key={flavor.id} value={flavor.id} disabled={flavor.stock <= 0}>
+                              {flavor.name} (Estoque: {flavor.stock})
+                          </SelectItem>
+                      ))}
+                      </SelectContent>
+                  </Select>
+              </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="unitPrice">Preço Unitário</Label>
-                         <Input id="unitPrice" type="number" value={newSale.unitPrice} onChange={(e) => setNewSale({...newSale, unitPrice: parseFloat(e.target.value) || 0})} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="paymentMethod">Forma de Pagamento</Label>
-                        <Select onValueChange={(value) => setNewSale({...newSale, paymentMethod: value as PaymentMethod})} defaultValue={newSale.paymentMethod}>
-                        <SelectTrigger id="paymentMethod">
-                            <SelectValue placeholder="Selecione uma forma" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {paymentMethods.map(method => (
-                            <SelectItem key={method} value={method}>{method}</SelectItem>
-                            ))}
-                        </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                     <div className="space-y-2">
-                        <Label htmlFor="commission">Comissão (%)</Label>
-                        <Input id="commission" type="number" value={newSale.commission} onChange={(e) => setNewSale({...newSale, commission: parseFloat(e.target.value) || 0})} placeholder="ex: 5" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="date">Data da Venda</Label>
-                        <Input id="date" type="date" value={newSale.date} onChange={(e) => setNewSale({...newSale, date: e.target.value})} />
-                    </div>
-                </div>
+              <div className="grid grid-cols-[100px_1fr] items-center gap-4">
+                  <Label htmlFor="quantity" className="text-right">Quantidade</Label>
+                  <Input id="quantity" type="number" value={newSale.quantity} onChange={(e) => setNewSale({...newSale, quantity: parseInt(e.target.value) || 1})} />
+              </div>
+              
+              <div className="grid grid-cols-[100px_1fr] items-center gap-4">
+                  <Label htmlFor="paymentMethod" className="text-right">Método</Label>
+                  <Select onValueChange={(value) => setNewSale({...newSale, paymentMethod: value as PaymentMethod})} defaultValue={newSale.paymentMethod}>
+                  <SelectTrigger id="paymentMethod">
+                      <SelectValue placeholder="Selecione o pagamento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                      {paymentMethods.map(method => (
+                      <SelectItem key={method} value={method}>{method}</SelectItem>
+                      ))}
+                  </SelectContent>
+                  </Select>
+              </div>
+
+              <div className="grid grid-cols-[100px_1fr] items-center gap-4">
+                  <Label htmlFor="location" className="text-right">Local</Label>
+                  <Select onValueChange={(value) => setNewSale({...newSale, location: value})}>
+                  <SelectTrigger id="location">
+                      <SelectValue placeholder="Selecione o local da venda" />
+                  </SelectTrigger>
+                  <SelectContent>
+                      <SelectItem value="local-a">Local A</SelectItem>
+                      <SelectItem value="local-b">Local B</SelectItem>
+                      <SelectItem value="delivery">Delivery</SelectItem>
+                  </SelectContent>
+                  </Select>
+              </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="gap-2 sm:justify-end">
                 <DialogClose asChild>
                     <Button variant="outline">Cancelar</Button>
                 </DialogClose>
-                <Button type="submit" onClick={handleAddSale}>Salvar Venda</Button>
+                <Button type="submit" onClick={handleAddSale} className="bg-green-600 hover:bg-green-700">Confirmar Venda</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
