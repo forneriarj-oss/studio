@@ -1,32 +1,85 @@
 
 'use client';
-import { getStockMovements, getProducts } from '@/lib/data';
-import type { StockMovement } from '@/lib/types';
+import { getStockMovements, getProducts, getSales } from '@/lib/data';
+import type { StockMovement, Product } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ArrowUp, ArrowDown } from 'lucide-react';
+import { useMemo } from 'react';
 
 const stockMovements = getStockMovements();
 const products = getProducts();
+const sales = getSales();
 
+const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(amount);
+};
 
 export default function ReportsPage() {
 
-    const getProductDescription = (productId: string) => {
-        return products.find(p => p.id === productId)?.description || 'Produto não encontrado';
+    const getProductInfo = (productId: string): Product | undefined => {
+        return products.find(p => p.id === productId);
     }
 
     const recentMovements = stockMovements
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 10);
+    
+    const topSellingProducts = useMemo(() => {
+        const productSales: { [key: string]: { quantity: number; total: number; product: Product } } = {};
+
+        sales.forEach(sale => {
+            const product = getProductInfo(sale.productId);
+            if (product) {
+                if (!productSales[sale.productId]) {
+                    productSales[sale.productId] = { quantity: 0, total: 0, product };
+                }
+                productSales[sale.productId].quantity += sale.quantity;
+                productSales[sale.productId].total += sale.quantity * sale.unitPrice;
+            }
+        });
+        
+        return Object.values(productSales).sort((a, b) => b.quantity - a.quantity);
+    }, []);
 
   return (
     <div className="flex flex-col gap-8">
-        <h1 className="text-3xl font-bold tracking-tight">Relatórios</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Relatórios e Análises</h1>
+
         <Card>
             <CardHeader>
-                <CardTitle>Movimentação de Estoque</CardTitle>
+                <CardTitle>Produtos Mais Vendidos</CardTitle>
+                <CardDescription>Ranking dos seus produtos com base na quantidade vendida.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                 <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Produto</TableHead>
+                            <TableHead className="text-right">Quantidade Vendida</TableHead>
+                            <TableHead className="text-right">Total em Vendas</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {topSellingProducts.map(({product, quantity, total}) => (
+                        <TableRow key={product.id}>
+                            <TableCell className="font-medium">{product.description}</TableCell>
+                            <TableCell className="text-right font-semibold">{quantity}</TableCell>
+                            <TableCell className="text-right font-semibold text-green-600">{formatCurrency(total)}</TableCell>
+                        </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Movimentação Recente de Estoque</CardTitle>
                 <CardDescription>Um registro das entradas e saídas mais recentes do seu estoque.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -43,7 +96,7 @@ export default function ReportsPage() {
                 <TableBody>
                     {recentMovements.map(movement => (
                     <TableRow key={movement.id}>
-                        <TableCell className="font-medium">{getProductDescription(movement.productId)}</TableCell>
+                        <TableCell className="font-medium">{getProductInfo(movement.productId)?.description || 'Produto não encontrado'}</TableCell>
                         <TableCell>{new Date(movement.date).toLocaleDateString('pt-BR')}</TableCell>
                         <TableCell>
                             {movement.type === 'in' ? (
