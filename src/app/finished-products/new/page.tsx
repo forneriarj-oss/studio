@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getRawMaterials } from '@/lib/data';
@@ -10,8 +10,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { X, PlusCircle, Trash2, ArrowLeft } from 'lucide-react';
+import { X, PlusCircle, Trash2, ArrowLeft, Wand2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getPriceSuggestion } from './actions';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -24,6 +27,8 @@ export default function NewFinishedProductPage() {
   const router = useRouter();
   const { toast } = useToast();
   const rawMaterials = getRawMaterials();
+  const [isPending, startTransition] = useTransition();
+  const [priceSuggestion, setPriceSuggestion] = useState<{ price: number; justification: string } | null>(null);
 
   const [productName, setProductName] = useState('');
   const [sku, setSku] = useState('');
@@ -113,7 +118,46 @@ export default function NewFinishedProductPage() {
     })
     router.push('/finished-products');
   };
+  
+  const handleSuggestPrice = () => {
+    if (!productName || finalCost <= 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Dados insuficientes',
+        description: 'É necessário um nome para o produto e um custo maior que zero.',
+      });
+      return;
+    }
 
+    const recipeItemsSummary = recipe.map(item => getMaterialDescription(item.rawMaterialId)).join(', ');
+
+    startTransition(async () => {
+      setPriceSuggestion(null);
+      const result = await getPriceSuggestion({
+        productName,
+        productCost: finalCost,
+        recipeItems: recipeItemsSummary,
+      });
+
+      if (result.error) {
+        toast({
+          variant: 'destructive',
+          title: 'Erro de IA',
+          description: result.error,
+        });
+      } else if (result.suggestion) {
+        setSalePrice(result.suggestion.suggestedPrice);
+        setPriceSuggestion({
+            price: result.suggestion.suggestedPrice,
+            justification: result.suggestion.justification,
+        });
+        toast({
+          title: 'Preço Sugerido!',
+          description: 'A IA sugeriu um preço de venda para você.',
+        });
+      }
+    });
+  };
 
   return (
     <div className="flex flex-col gap-8">
@@ -268,8 +312,27 @@ export default function NewFinishedProductPage() {
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="sale-price">Preço de Venda</Label>
-                        <Input id="sale-price" type="number" placeholder="Ex: 50.00" value={salePrice} onChange={e => setSalePrice(e.target.value === '' ? '' : Number(e.target.value))}/>
+                        <div className="flex gap-2">
+                            <Input id="sale-price" type="number" placeholder="Ex: 50.00" value={salePrice} onChange={e => setSalePrice(e.target.value === '' ? '' : Number(e.target.value))}/>
+                             <Button variant="outline" size="icon" onClick={handleSuggestPrice} disabled={isPending}>
+                                <Wand2 className={`h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
+                            </Button>
+                        </div>
                     </div>
+                    
+                    {isPending && (
+                        <div className="space-y-2 pt-2">
+                           <Skeleton className="h-4 w-1/3" />
+                           <Skeleton className="h-8 w-full" />
+                        </div>
+                    )}
+                    {priceSuggestion && !isPending && (
+                        <div className="pt-2">
+                            <Badge>Sugestão da IA</Badge>
+                            <p className="text-sm text-muted-foreground mt-2">{priceSuggestion.justification}</p>
+                        </div>
+                    )}
+
                 </CardContent>
             </Card>
             <Button size="lg" className="w-full" onClick={handleSaveProduct}>Salvar Produto Acabado</Button>
