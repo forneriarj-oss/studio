@@ -39,41 +39,40 @@ export function Nav() {
   const pathname = usePathname();
   const { user } = useUser();
 
-  const appUser = user?.email ? getUserByEmail(user.email) : null;
-  const userRole = appUser ? getRoleById(appUser.roleId) : null;
-
-  const hasPermission = (permission: string) => {
-    // If user is anonymous, they have basic dashboard access but no special permissions
-    if (user?.isAnonymous) {
-      return permission === 'dashboard';
+  const permittedNavItems = allNavItems.filter(item => {
+    // Se não há usuário, não mostra nada
+    if (!user) {
+      return false;
     }
 
-    // If there's no role (e.g. user not in our mock data), they have no special permissions
-    if (!userRole) return false;
-    
-    // Admin has all permissions
-    if (userRole.permissions.includes('*')) return true;
-    
-    // Check if the role's permissions array includes the required permission
-    return userRole.permissions.includes(permission);
-  };
-  
-  const permittedNavItems = allNavItems.filter(item => {
-      // The dashboard is a special case, visible to any authenticated user.
-      if (item.permission === 'dashboard') {
-          return !!user;
-      }
-      return hasPermission(item.permission);
-  });
-  
-  // A fallback for authenticated users (including anonymous) to ensure they at least see the dashboard
-  if (user && permittedNavItems.length === 0) {
-      const dashboardItem = allNavItems.find(item => item.href === '/');
-      if (dashboardItem) {
-          permittedNavItems.push(dashboardItem);
-      }
-  }
+    // Caso especial para o painel, visível para qualquer usuário logado
+    if (item.permission === 'dashboard') {
+      return true;
+    }
 
+    // Se o usuário é anônimo, ele só pode ver o painel (já tratado acima)
+    if (user.isAnonymous) {
+      return false;
+    }
+
+    // Se o usuário não é anônimo, ele deve ter um e-mail.
+    // Buscamos o usuário e seu papel nos dados mockados.
+    const appUser = user.email ? getUserByEmail(user.email) : null;
+    const userRole = appUser ? getRoleById(appUser.roleId) : null;
+
+    // Se não encontramos um papel para o usuário, ele não tem permissões especiais.
+    if (!userRole) {
+      return false;
+    }
+    
+    // Admin tem todas as permissões.
+    if (userRole.permissions.includes('*')) {
+      return true;
+    }
+    
+    // Verifica se o papel do usuário inclui a permissão necessária para o item.
+    return userRole.permissions.includes(item.permission);
+  });
 
   return (
     <SidebarMenu>
@@ -94,4 +93,3 @@ export function Nav() {
     </SidebarMenu>
   );
 }
-
