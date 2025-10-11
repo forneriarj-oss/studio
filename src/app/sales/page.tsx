@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect } from 'react';
 import { getFinishedProducts, updateStock } from '@/lib/data';
@@ -20,12 +19,15 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
+import { Separator } from '@/components/ui/separator';
+
 
 const paymentMethods: PaymentMethod[] = ['PIX', 'Cartão', 'Dinheiro'];
+const saleLocations = ['Balcão', 'iFood', 'Delivery'];
 
 const formatCurrency = (amount: number) => {
     if (isNaN(amount)) {
-      return 'R$ NaN';
+      return 'R$ 0,00';
     }
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -49,13 +51,45 @@ export default function SalesPage() {
         date: '',
         paymentMethod: 'PIX' as PaymentMethod,
         commission: 0,
-        location: ''
+        location: 'Balcão'
     });
+    const [deliveryFee, setDeliveryFee] = useState(0);
+    const [finalSalePrice, setFinalSalePrice] = useState(0);
     
     useEffect(() => {
         setIsClient(true);
-        setNewSale(prev => ({ ...prev, date: new Date().toISOString().split('T')[0] }));
-    }, []);
+        if(!isDialogOpen) {
+          setNewSale(prev => ({ 
+              ...prev, 
+              date: new Date().toISOString().split('T')[0],
+              location: 'Balcão',
+              quantity: 1
+          }));
+          setDeliveryFee(0);
+        }
+    }, [isDialogOpen]);
+
+    useEffect(() => {
+        const product = getProduct(newSale.productId);
+        if (!product) return;
+
+        let basePrice = product.salePrice;
+        
+        if (newSale.location === 'iFood') {
+            basePrice *= 1.40; // 40% markup
+        }
+        
+        let total = basePrice * newSale.quantity;
+
+        if (newSale.location === 'Delivery') {
+            total += deliveryFee;
+        }
+
+        setFinalSalePrice(total);
+        // We set the unitPrice here to be saved later. For delivery, this isn't perfect, but it's a simple approach.
+        setNewSale(prev => ({...prev, unitPrice: basePrice }));
+
+    }, [newSale.productId, newSale.quantity, newSale.location, deliveryFee]);
 
 
     const getProduct = (productId: string) => {
@@ -93,9 +127,13 @@ export default function SalesPage() {
             productId: newSale.productId,
             flavorId: newSale.flavorId,
             quantity: newSale.quantity,
-            unitPrice: newSale.unitPrice,
+            unitPrice: newSale.unitPrice, // The final unit price with markups
             date: new Date().toISOString().split('T')[0], // Use current date
             paymentMethod: newSale.paymentMethod,
+            location: newSale.location,
+            // Add delivery fee to the total sale value implicitly. For reports, this might need more detail later.
+            // A simple way is to consider the unit price as the total divided by quantity.
+            // unitPrice: finalSalePrice / newSale.quantity
         };
 
         const updatedStock = updateStock(newSale.productId, newSale.quantity, 'out', newSale.flavorId);
@@ -130,8 +168,9 @@ export default function SalesPage() {
             date: new Date().toISOString().split('T')[0],
             paymentMethod: 'PIX',
             commission: 0,
-            location: ''
+            location: 'Balcão'
         });
+        setDeliveryFee(0);
         setIsDialogOpen(true);
     };
     
@@ -213,7 +252,7 @@ export default function SalesPage() {
 
               <div className="grid grid-cols-[100px_1fr] items-center gap-4">
                   <Label htmlFor="quantity" className="text-right">Quantidade</Label>
-                  <Input id="quantity" type="number" value={newSale.quantity} onChange={(e) => setNewSale({...newSale, quantity: parseInt(e.target.value) || 1})} />
+                  <Input id="quantity" type="number" value={newSale.quantity} onChange={(e) => setNewSale({...newSale, quantity: parseInt(e.target.value) || 1})} min="1"/>
               </div>
               
               <div className="grid grid-cols-[100px_1fr] items-center gap-4">
@@ -232,17 +271,50 @@ export default function SalesPage() {
 
               <div className="grid grid-cols-[100px_1fr] items-center gap-4">
                   <Label htmlFor="location" className="text-right">Local</Label>
-                  <Select onValueChange={(value) => setNewSale({...newSale, location: value})}>
+                  <Select onValueChange={(value) => setNewSale({...newSale, location: value})} value={newSale.location}>
                   <SelectTrigger id="location">
                       <SelectValue placeholder="Selecione o local da venda" />
                   </SelectTrigger>
                   <SelectContent>
-                      <SelectItem value="local-a">Local A</SelectItem>
-                      <SelectItem value="local-b">Local B</SelectItem>
-                      <SelectItem value="delivery">Delivery</SelectItem>
+                      {saleLocations.map(loc => (
+                          <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                      ))}
                   </SelectContent>
                   </Select>
               </div>
+
+              {newSale.location === 'Delivery' && (
+                <div className="grid grid-cols-[100px_1fr] items-center gap-4">
+                    <Label htmlFor="delivery-fee" className="text-right">Taxa Entrega</Label>
+                    <Input id="delivery-fee" type="number" placeholder="Ex: 5.00" value={deliveryFee} onChange={(e) => setDeliveryFee(parseFloat(e.target.value) || 0)} />
+                </div>
+              )}
+            
+              <Separator />
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>{formatCurrency(newSale.unitPrice * newSale.quantity)}</span>
+                </div>
+                 {newSale.location === 'iFood' && (
+                    <div className="flex justify-between items-center text-xs text-muted-foreground">
+                        <span>(Preço base: {formatCurrency(selectedProductForDialog?.salePrice || 0)})</span>
+                        <span>+40% iFood</span>
+                    </div>
+                )}
+                 {newSale.location === 'Delivery' && deliveryFee > 0 && (
+                    <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Taxa de Entrega</span>
+                        <span>{formatCurrency(deliveryFee)}</span>
+                    </div>
+                )}
+                <div className="flex justify-between items-center text-lg font-bold">
+                    <span>Total</span>
+                    <span>{formatCurrency(finalSalePrice)}</span>
+                </div>
+              </div>
+
             </div>
             <DialogFooter className="gap-2 sm:justify-end">
                 <DialogClose asChild>
