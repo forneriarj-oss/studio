@@ -193,14 +193,14 @@ export default function SalesPage() {
                 <DialogHeader>
                   <DialogTitle>Registrar Nova Venda</DialogTitle>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="product" className="text-right">Produto</Label>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="product">Produto</Label>
                       <Select onValueChange={(value) => {
                           const product = products.find(p => p.id === value);
                           setNewSale({...newSale, productId: value, unitPrice: product?.cost ? product.cost * 1.3 : 0 });
                       }}>
-                          <SelectTrigger id="product" className="col-span-3">
+                          <SelectTrigger id="product">
                               <SelectValue placeholder="Selecione um produto" />
                           </SelectTrigger>
                           <SelectContent>
@@ -212,13 +212,13 @@ export default function SalesPage() {
                           </SelectContent>
                       </Select>
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="quantity" className="text-right">Quantidade</Label>
-                    <Input id="quantity" type="number" value={newSale.quantity} onChange={(e) => setNewSale({...newSale, quantity: parseInt(e.target.value) || 1})} className="col-span-3" />
+                  <div className="space-y-2">
+                    <Label htmlFor="quantity">Quantidade</Label>
+                    <Input id="quantity" type="number" value={newSale.quantity} onChange={(e) => setNewSale({...newSale, quantity: parseInt(e.target.value) || 1})} />
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="unitPrice" className="text-right">Preço Unit.</Label>
-                    <div className="col-span-3 flex items-center gap-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="unitPrice">Preço Unitário</Label>
+                    <div className="flex items-center gap-2">
                       <Input id="unitPrice" type="number" value={newSale.unitPrice} onChange={(e) => setNewSale({...newSale, unitPrice: parseFloat(e.target.value) || 0})} className="flex-1" />
                       <Dialog>
                           <DialogTrigger asChild>
@@ -235,10 +235,10 @@ export default function SalesPage() {
                       </Dialog>
                     </div>
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="paymentMethod" className="text-right">Pagamento</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="paymentMethod">Forma de Pagamento</Label>
                     <Select onValueChange={(value) => setNewSale({...newSale, paymentMethod: value as PaymentMethod})} defaultValue={newSale.paymentMethod}>
-                      <SelectTrigger id="paymentMethod" className="col-span-3">
+                      <SelectTrigger id="paymentMethod">
                         <SelectValue placeholder="Selecione uma forma" />
                       </SelectTrigger>
                       <SelectContent>
@@ -248,13 +248,13 @@ export default function SalesPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="commission" className="text-right">Comissão (%)</Label>
-                    <Input id="commission" type="number" value={newSale.commission} onChange={(e) => setNewSale({...newSale, commission: parseFloat(e.target.value) || 0})} className="col-span-3" placeholder="ex: 5" />
+                  <div className="space-y-2">
+                    <Label htmlFor="commission">Comissão (%)</Label>
+                    <Input id="commission" type="number" value={newSale.commission} onChange={(e) => setNewSale({...newSale, commission: parseFloat(e.target.value) || 0})} placeholder="ex: 5" />
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="date" className="text-right">Data</Label>
-                    <Input id="date" type="date" value={newSale.date} onChange={(e) => setNewSale({...newSale, date: e.target.value})} className="col-span-3" />
+                  <div className="space-y-2">
+                    <Label htmlFor="date">Data da Venda</Label>
+                    <Input id="date" type="date" value={newSale.date} onChange={(e) => setNewSale({...newSale, date: e.target.value})} />
                   </div>
                 </div>
                 <DialogFooter>
@@ -321,5 +321,8 @@ export default function SalesPage() {
     </TooltipProvider>
   );
 }
+
+    
+
 
     
