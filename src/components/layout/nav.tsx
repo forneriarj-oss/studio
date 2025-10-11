@@ -30,7 +30,7 @@ const allNavItems = [
     { href: '/cash-flow', label: 'Caixa', icon: Landmark },
     { href: '/revenue', label: 'Receitas', icon: DollarSign },
     { href: '/expenses', label: 'Despesas', icon: DollarSign },
-    { href: '/finished-products', label: 'Produtos Acabados', icon: Component },
+    { href: '/finished-products', label: 'Produtos', icon: Component },
     { href: '/inventory', label: 'Matérias-Primas', icon: Warehouse },
     { href: '/purchases', label: 'Compras', icon: Package },
     { href: '/reports', label: 'Relatórios', icon: FileText },
