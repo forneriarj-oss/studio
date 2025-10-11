@@ -227,7 +227,7 @@ export default function NewFinishedProductPage() {
 
         <Card>
             <CardHeader>
-                <CardTitle>Composição do Produto (Receita)</CardTitle>
+                <CardTitle>Composição do Produto (Incluir Matérias-Primas)</CardTitle>
                 <CardDescription>Adicione os insumos para calcular o custo de produção.</CardDescription>
             </CardHeader>
             <CardContent>
