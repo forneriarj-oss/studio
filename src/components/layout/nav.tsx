@@ -11,32 +11,32 @@ import {
   Landmark,
   FileText,
   Settings,
+  Calendar,
+  DollarSign,
+  Users,
 } from 'lucide-react';
 import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { useUser } from '@/firebase';
 
 const allNavItems = [
-  { href: '/', label: 'Painel', icon: LayoutDashboard },
-  { href: '/inventory', label: 'Produtos', icon: Box },
-  { href: '/#', label: 'Matérias-Primas', icon: Component }, // Placeholder link
-  { href: '/sales', label: 'Vendas', icon: ShoppingCart },
-  { href: '/purchases', label: 'Compras', icon: Package },
-  { href: '/cash-flow', label: 'Caixa', icon: Landmark },
-  { href: '/reports', label: 'Relatórios', icon: FileText },
-  { href: '/#', label: 'Configurações', icon: Settings }, // Placeholder link
-];
+    { href: '/', label: 'Painel', icon: LayoutDashboard },
+    { href: '/calendar', label: 'Agenda', icon: Calendar },
+    { href: '/sales', label: 'Vendas', icon: ShoppingCart },
+    { href: '/cash-flow', label: 'Caixa', icon: Landmark },
+    { href: '/revenue', label: 'Receitas', icon: DollarSign },
+    { href: '/expenses', label: 'Despesas', icon: DollarSign },
+    { href: '/inventory', label: 'Estoque', icon: Box },
+    { href: '/purchases', label: 'Compras', icon: Package },
+    { href: '/reports', label: 'Relatórios', icon: FileText },
+    { href: '/users', label: 'Usuários', icon: Users }, // Placeholder link
+    { href: '/settings', label: 'Configurações', icon: Settings }, // Placeholder link
+  ];
 
 export function Nav() {
   const pathname = usePathname();
-  const { user } = useUser();
-
-  if (!user) {
-    return null; // Não mostra nada se não houver usuário
-  }
 
   return (
     <SidebarMenu>
