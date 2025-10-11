@@ -12,15 +12,7 @@ tomorrow.setDate(tomorrow.getDate() + 1);
 
 let revenues: Revenue[] = [];
 
-let expenses: Expense[] = [
-  { id: 'exp-1', amount: 350.00, category: 'Software', description: 'Assinatura Figma', date: today.toISOString().split('T')[0], paymentMethod: 'Cartão' },
-  { id: 'exp-2', amount: 120.00, category: 'Marketing', description: 'Google Ads', date: yesterday.toISOString().split('T')[0], paymentMethod: 'Cartão' },
-  { id: 'exp-3', amount: 2500.00, category: 'Team', description: 'Pagamento de Freelancer', date: twoDaysAgo.toISOString().split('T')[0], paymentMethod: 'PIX' },
-  { id: 'exp-4', amount: 45.00, category: 'Other', description: 'Material de Escritório', date: twoDaysAgo.toISOString().split('T')[0], paymentMethod: 'Dinheiro' },
-  { id: 'exp-5', amount: 800.00, category: 'Software', description: 'Custos de Servidor', date: '2024-06-18', paymentMethod: 'Cartão' },
-  { id: 'exp-6', amount: 1500, category: 'Marketing', description: 'Campanha de Mídia Social', date: '2024-06-12', paymentMethod: 'PIX' },
-  { id: 'exp-7', amount: 3000, category: 'Team', description: 'John Doe - Salário', date: '2024-06-01', paymentMethod: 'PIX' },
-];
+let expenses: Expense[] = [];
 
 let appointments: Appointment[] = [
   { 
