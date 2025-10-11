@@ -3,12 +3,23 @@
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { Revenue, Expense } from '@/lib/types';
-import { ChartTooltipContent } from '@/components/ui/chart';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 
 interface RevenueChartProps {
   revenue: Revenue[];
   expenses: Expense[];
 }
+
+const chartConfig = {
+  revenue: {
+    label: 'Revenue',
+    color: 'hsl(var(--chart-1))',
+  },
+  expenses: {
+    label: 'Expenses',
+    color: 'hsl(var(--chart-2))',
+  },
+} satisfies ChartConfig;
 
 export function RevenueChart({ revenue, expenses }: RevenueChartProps) {
   const monthlyData: { [key: string]: { revenue: number; expenses: number } } = {};
@@ -46,31 +57,33 @@ export function RevenueChart({ revenue, expenses }: RevenueChartProps) {
         <CardDescription>Revenue and expenses for the last 6 months.</CardDescription>
       </CardHeader>
       <CardContent className="pl-2">
-        <ResponsiveContainer width="100%" height={350}>
-          <BarChart data={chartData}>
-            <XAxis
-              dataKey="month"
-              stroke="#888888"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              stroke="#888888"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(value) => `$${value / 1000}k`}
-            />
-            <Tooltip
-                content={<ChartTooltipContent />}
-                cursor={{ fill: 'hsl(var(--muted))' }}
-            />
-            <Legend />
-            <Bar dataKey="revenue" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="expenses" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        <ChartContainer config={chartConfig} className="min-h-[350px] w-full">
+          <ResponsiveContainer width="100%" height={350}>
+            <BarChart data={chartData}>
+              <XAxis
+                dataKey="month"
+                stroke="#888888"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                stroke="#888888"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(value) => `$${value / 1000}k`}
+              />
+              <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent indicator="dot" />}
+              />
+              <Legend />
+              <Bar dataKey="revenue" fill="var(--color-revenue)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartContainer>
       </CardContent>
     </Card>
   );
