@@ -47,6 +47,8 @@ export type Sale = {
   quantity: number;
   unitPrice: number;
   date: string;
+  paymentMethod?: PaymentMethod;
+  commission?: number; // Commission percentage
 };
 
 export type Purchase = {
