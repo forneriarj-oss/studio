@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { getSales, getExpenses, getRevenue } from '@/lib/data';
+import { Trash2 } from 'lucide-react';
 
 export default function SettingsPage() {
     const { toast } = useToast();
@@ -31,18 +33,52 @@ export default function SettingsPage() {
 
     const [profitMargin, setProfitMargin] = useState('30');
     
+    // State for categories
+    const [categories, setCategories] = useState(['Bolo', 'Pastel', 'Bebida']);
+    const [newCategory, setNewCategory] = useState('');
+
     const handleInputChange = (setter: React.Dispatch<React.SetStateAction<any>>, field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
         setter((prev: any) => ({ ...prev, [field]: event.target.value }));
     };
 
     const handleSaveChanges = () => {
-        // Em um aplicativo real, aqui você salvaria os dados em um banco de dados ou estado persistente.
-        // Por enquanto, apenas exibimos uma notificação de sucesso.
         toast({
             title: 'Configurações Salvas!',
             description: 'Suas alterações foram salvas com sucesso.',
         });
     };
+
+    const handleAddCategory = () => {
+        if (newCategory.trim() === '') {
+            toast({ variant: 'destructive', title: 'Erro', description: 'O nome da categoria não pode estar vazio.' });
+            return;
+        }
+        if (categories.some(cat => cat.toLowerCase() === newCategory.toLowerCase())) {
+            toast({ variant: 'destructive', title: 'Erro', description: 'Essa categoria já existe.' });
+            return;
+        }
+        setCategories(prev => [...prev, newCategory.trim()]);
+        setNewCategory('');
+        toast({ title: 'Sucesso', description: `Categoria "${newCategory.trim()}" adicionada.` });
+    };
+
+    const handleRemoveCategory = (categoryToRemove: string) => {
+        setCategories(prev => prev.filter(cat => cat !== categoryToRemove));
+        toast({ title: 'Sucesso', description: `Categoria "${categoryToRemove}" removida.` });
+    };
+
+    const handleExport = (data: any[], fileName: string) => {
+        const jsonString = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${fileName}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast({ title: 'Exportação Concluída', description: `Os dados foram salvos em ${fileName}.json` });
+    };
+
 
   return (
     <div className="flex flex-col gap-8">
@@ -147,10 +183,36 @@ export default function SettingsPage() {
             <Card className="mt-6">
                 <CardHeader>
                     <CardTitle>Gerenciar Categorias</CardTitle>
-                    <CardDescription>Adicione, edite ou remova categorias de produtos.</CardDescription>
+                    <CardDescription>Adicione, visualize e remova categorias de produtos.</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground">Funcionalidade de gerenciamento de categorias em desenvolvimento.</p>
+                <CardContent className="space-y-6">
+                    <div>
+                        <Label htmlFor="new-category">Nova Categoria</Label>
+                        <div className="flex gap-2 mt-2">
+                            <Input 
+                                id="new-category" 
+                                placeholder="ex: Sobremesas"
+                                value={newCategory}
+                                onChange={(e) => setNewCategory(e.target.value)}
+                            />
+                            <Button onClick={handleAddCategory}>Adicionar</Button>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 className="text-md font-medium mb-2">Categorias Atuais</h3>
+                        <div className="space-y-2 rounded-md border p-4">
+                            {categories.length > 0 ? categories.map(cat => (
+                                <div key={cat} className="flex items-center justify-between">
+                                    <span>{cat}</span>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRemoveCategory(cat)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </div>
+                            )) : (
+                                <p className="text-sm text-muted-foreground text-center">Nenhuma categoria cadastrada.</p>
+                            )}
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
         </TabsContent>
@@ -158,14 +220,35 @@ export default function SettingsPage() {
             <Card className="mt-6">
                 <CardHeader>
                     <CardTitle>Configurações Avançadas</CardTitle>
-                    <CardDescription>Parâmetros avançados do sistema.</CardDescription>
+                    <CardDescription>Exporte seus dados do sistema.</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground">Funcionalidade de configurações avançadas em desenvolvimento.</p>
+                <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between rounded-md border p-4">
+                        <div>
+                            <h3 className="font-semibold">Exportar Dados de Vendas</h3>
+                            <p className="text-sm text-muted-foreground">Baixe um arquivo JSON com todas as vendas registradas.</p>
+                        </div>
+                        <Button variant="outline" onClick={() => handleExport(getSales(), 'vendas')}>Exportar</Button>
+                    </div>
+                    <div className="flex items-center justify-between rounded-md border p-4">
+                        <div>
+                            <h3 className="font-semibold">Exportar Dados de Despesas</h3>
+                            <p className="text-sm text-muted-foreground">Baixe um arquivo JSON com todas as despesas registradas.</p>
+                        </div>
+                        <Button variant="outline" onClick={() => handleExport(getExpenses(), 'despesas')}>Exportar</Button>
+                    </div>
+                    <div className="flex items-center justify-between rounded-md border p-4">
+                        <div>
+                            <h3 className="font-semibold">Exportar Dados de Receitas</h3>
+                            <p className="text-sm text-muted-foreground">Baixe um arquivo JSON com todas as receitas registradas.</p>
+                        </div>
+                        <Button variant="outline" onClick={() => handleExport(getRevenue(), 'receitas')}>Exportar</Button>
+                    </div>
                 </CardContent>
             </Card>
         </TabsContent>
       </Tabs>
     </div>
   );
-}
+
+    
