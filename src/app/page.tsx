@@ -6,6 +6,8 @@ import { getSales, getFinishedProducts, getRawMaterials, getRevenue } from '@/li
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertCircle, Loader } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import type { Sale, FinishedProduct, RawMaterial, Revenue } from '@/lib/types';
@@ -98,6 +100,21 @@ export default function Home() {
       cmv: costOfGoodsSold
     };
   }, [filteredData, allProducts]);
+
+  const detailedCmvData = useMemo(() => {
+    return filteredData.sales.map(sale => {
+      const product = allProducts.find(p => p.id === sale.productId);
+      const flavor = product?.flavors.find(f => f.id === sale.flavorId);
+      const cost = product ? product.finalCost : 0;
+      return {
+        ...sale,
+        productName: product?.name || 'N/A',
+        flavorName: flavor?.name || 'N/A',
+        unitCost: cost,
+        totalCost: cost * sale.quantity
+      }
+    }).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [filteredData.sales, allProducts]);
 
   const lowStockProducts = useMemo(() => {
     return allProducts.flatMap(p => p.flavors.filter(f => f.stock <= 5).map(f => ({ ...p, flavorName: f.name, stock: f.stock })))
@@ -228,7 +245,44 @@ export default function Home() {
             <Card className="md:col-span-3">
                 <CardHeader className="pb-2 flex-row items-center justify-between">
                     <CardTitle className="text-sm font-medium">CMV (Custo Mercadoria Vendida)</CardTitle>
-                    <Button variant="link" size="sm">Ver CMV Detalhado</Button>
+                     <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="link" size="sm">Ver CMV Detalhado</Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-3xl">
+                            <DialogHeader>
+                                <DialogTitle>CMV Detalhado ({timeRange === 'month' ? 'Este Mês' : timeRange === 'week' ? 'Esta Semana' : 'Hoje'})</DialogTitle>
+                            </DialogHeader>
+                            <div className="max-h-[60vh] overflow-y-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Data</TableHead>
+                                            <TableHead>Produto</TableHead>
+                                            <TableHead>Qtde.</TableHead>
+                                            <TableHead>Custo Unit.</TableHead>
+                                            <TableHead className="text-right">Custo Total (CMV)</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {detailedCmvData.length > 0 ? detailedCmvData.map(sale => (
+                                            <TableRow key={sale.id}>
+                                                <TableCell>{new Date(sale.date).toLocaleDateString('pt-BR')}</TableCell>
+                                                <TableCell>{sale.productName} ({sale.flavorName})</TableCell>
+                                                <TableCell>{sale.quantity}</TableCell>
+                                                <TableCell>{formatCurrency(sale.unitCost)}</TableCell>
+                                                <TableCell className="text-right font-medium">{formatCurrency(sale.totalCost)}</TableCell>
+                                            </TableRow>
+                                        )) : (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="h-24 text-center">Nenhuma venda no período.</TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
                 </CardHeader>
                 <CardContent>
                     <p className="text-2xl font-bold">{formatCurrency(cmv)}</p>
@@ -343,3 +397,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
