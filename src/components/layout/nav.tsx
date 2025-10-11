@@ -26,7 +26,7 @@ import {
 const allNavItems = [
     { href: '/', label: 'Painel', icon: LayoutDashboard },
     { href: '/calendar', label: 'Agenda', icon: Calendar },
-    { href: '/sales', label: 'Vendas de Produtos Acabados', icon: ShoppingCart },
+    { href: '/sales', label: 'Vendas', icon: ShoppingCart },
     { href: '/cash-flow', label: 'Caixa', icon: Landmark },
     { href: '/revenue', label: 'Receitas', icon: DollarSign },
     { href: '/expenses', label: 'Despesas', icon: DollarSign },
