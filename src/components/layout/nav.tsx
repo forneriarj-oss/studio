@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -33,7 +34,7 @@ const allNavItems = [
     { href: '/inventory', label: 'Matérias-Primas', icon: Warehouse },
     { href: '/purchases', label: 'Compras', icon: Package },
     { href: '/reports', label: 'Relatórios', icon: FileText },
-    { href: '/#', label: 'Configurações', icon: Settings }, // Placeholder link
+    { href: '/settings', label: 'Configurações', icon: Settings },
   ];
 
 export function Nav() {
