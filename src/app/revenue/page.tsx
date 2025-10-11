@@ -9,38 +9,38 @@ import { Label } from '@/components/ui/label';
 const revenues = getRevenue();
 
 const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'BRL',
     }).format(amount);
   };
 
 export default function RevenuePage() {
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-3xl font-bold tracking-tight">Revenue</h1>
+      <h1 className="text-3xl font-bold tracking-tight">Receita</h1>
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="lg:col-span-1">
           <Card>
             <CardHeader>
-              <CardTitle>Add Revenue</CardTitle>
-              <CardDescription>Log a new source of income.</CardDescription>
+              <CardTitle>Adicionar Receita</CardTitle>
+              <CardDescription>Registre uma nova fonte de renda.</CardDescription>
             </CardHeader>
             <CardContent>
               <form className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="source">Source</Label>
-                  <Input id="source" placeholder="e.g., Client Project" />
+                  <Label htmlFor="source">Fonte</Label>
+                  <Input id="source" placeholder="ex: Projeto de Cliente" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="amount">Amount</Label>
-                  <Input id="amount" type="number" placeholder="e.g., 1500.00" />
+                  <Label htmlFor="amount">Valor</Label>
+                  <Input id="amount" type="number" placeholder="ex: 1500.00" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="date">Date</Label>
+                  <Label htmlFor="date">Data</Label>
                   <Input id="date" type="date" />
                 </div>
-                <Button className="w-full">Add Revenue</Button>
+                <Button className="w-full">Adicionar Receita</Button>
               </form>
             </CardContent>
           </Card>
@@ -48,22 +48,22 @@ export default function RevenuePage() {
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>All Revenue</CardTitle>
+              <CardTitle>Toda a Receita</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Fonte</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {revenues.map(revenue => (
                     <TableRow key={revenue.id}>
                       <TableCell className="font-medium">{revenue.source}</TableCell>
-                      <TableCell>{new Date(revenue.date).toLocaleDateString()}</TableCell>
+                      <TableCell>{new Date(revenue.date).toLocaleDateString('pt-BR')}</TableCell>
                       <TableCell className="text-right font-semibold text-green-600">
                         {formatCurrency(revenue.amount)}
                       </TableCell>

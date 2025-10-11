@@ -24,7 +24,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+      <h1 className="text-3xl font-bold tracking-tight">Painel</h1>
       <OverviewCards />
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2">
@@ -34,11 +34,11 @@ export default function Home() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg font-medium">
-                Upcoming Appointments
+                Próximos Compromissos
               </CardTitle>
               <Button asChild size="sm" variant="outline">
                 <Link href="/calendar">
-                  View All
+                  Ver Todos
                   <ArrowUpRight className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
@@ -49,7 +49,7 @@ export default function Home() {
                   {upcomingAppointments.map((app: Appointment) => (
                     <div key={app.id} className="flex items-center space-x-4">
                       <div className="flex flex-col items-center justify-center p-2 bg-muted rounded-md w-16">
-                         <span className="text-sm font-medium text-muted-foreground">{new Date(app.date).toLocaleDateString('en-US', { month: 'short' })}</span>
+                         <span className="text-sm font-medium text-muted-foreground">{new Date(app.date).toLocaleDateString('pt-BR', { month: 'short' })}</span>
                          <span className="text-xl font-bold">{new Date(app.date).getDate()}</span>
                       </div>
                       <div>
@@ -60,7 +60,7 @@ export default function Home() {
                   ))}
                 </div>
               ) : (
-                 <p className="text-sm text-muted-foreground text-center py-8">No upcoming appointments.</p>
+                 <p className="text-sm text-muted-foreground text-center py-8">Nenhum compromisso futuro.</p>
               )}
             </CardContent>
           </Card>

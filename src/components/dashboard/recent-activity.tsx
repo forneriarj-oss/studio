@@ -19,26 +19,26 @@ export function RecentActivity() {
     .slice(0, 5);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'BRL',
     }).format(amount);
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Recent Activity</CardTitle>
-        <CardDescription>A log of your most recent financial transactions.</CardDescription>
+        <CardTitle>Atividade Recente</CardTitle>
+        <CardDescription>Um registro de suas transações financeiras mais recentes.</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Type</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
+              <TableHead>Tipo</TableHead>
+              <TableHead>Descrição</TableHead>
+              <TableHead>Data</TableHead>
+              <TableHead className="text-right">Valor</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -48,18 +48,18 @@ export function RecentActivity() {
                   {transaction.type === 'revenue' ? (
                     <Badge variant="secondary" className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                       <TrendingUp className="mr-1 h-4 w-4" />
-                      Revenue
+                      Receita
                     </Badge>
                   ) : (
                     <Badge variant="secondary" className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200">
                       <TrendingDown className="mr-1 h-4 w-4" />
-                      Expense
+                      Despesa
                     </Badge>
                   )}
                 </TableCell>
                 <TableCell className="font-medium">{transaction.description}</TableCell>
                 <TableCell className="text-muted-foreground">
-                  {new Date(transaction.date).toLocaleDateString()}
+                  {new Date(transaction.date).toLocaleDateString('pt-BR')}
                 </TableCell>
                 <TableCell className={`text-right font-semibold ${transaction.type === 'revenue' ? 'text-green-600' : 'text-red-600'}`}>
                   {transaction.type === 'revenue' ? '+' : '-'}

@@ -5,17 +5,17 @@ export type Revenue = {
   date: string;
 };
 
-export type ExpenseCategory = 'Marketing' | 'Sales' | 'Software' | 'Team' | 'Other';
+export type ExpenseCategory = 'Marketing' | 'Vendas' | 'Software' | 'Equipe' | 'Outros';
 
 export type Expense = {
   id: string;
   amount: number;
-  category: ExpenseCategory;
+  category: 'Marketing' | 'Sales' | 'Software' | 'Team' | 'Other';
   description: string;
   date: string;
 };
 
-export type Transaction = (Revenue & { type: 'revenue'; description: string }) | (Expense & { type: 'expense' });
+export type Transaction = (Revenue & { type: 'revenue'; description: string }) | (Omit<Expense, 'category'> & { type: 'expense', category: ExpenseCategory });
 
 export type Appointment = {
   id: string;

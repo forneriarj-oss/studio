@@ -38,7 +38,7 @@ export function CalendarClient({ appointments }: CalendarClientProps) {
       if (result.error) {
         toast({
           variant: 'destructive',
-          title: 'Error',
+          title: 'Erro',
           description: result.error,
         });
         setSummary(null);
@@ -58,6 +58,7 @@ export function CalendarClient({ appointments }: CalendarClientProps) {
               selected={date}
               onSelect={setDate}
               className="w-full"
+              locale={require('date-fns/locale/pt-BR')}
             />
           </CardContent>
         </Card>
@@ -68,15 +69,15 @@ export function CalendarClient({ appointments }: CalendarClientProps) {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>
-                  Appointments for {date ? date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '...'}
+                  Compromissos para {date ? date.toLocaleDateString('pt-BR', { weekday: 'long', month: 'long', day: 'numeric' }) : '...'}
                 </CardTitle>
                 <CardDescription>
-                  {selectedDayAppointments.length} event{selectedDayAppointments.length !== 1 ? 's' : ''} scheduled.
+                  {selectedDayAppointments.length} evento{selectedDayAppointments.length !== 1 ? 's' : ''} agendado{selectedDayAppointments.length !== 1 ? 's' : ''}.
                 </CardDescription>
               </div>
               <Button onClick={handleGenerateSummary} disabled={isPending || selectedDayAppointments.length === 0}>
                 <Wand2 className="mr-2 h-4 w-4" />
-                {isPending ? 'Generating...' : 'Daily Summary'}
+                {isPending ? 'Gerando...' : 'Resumo do Dia'}
               </Button>
             </div>
           </CardHeader>
@@ -91,7 +92,7 @@ export function CalendarClient({ appointments }: CalendarClientProps) {
               )}
               {!isPending && summary && (
                 <div className="prose prose-sm dark:prose-invert max-w-none rounded-lg bg-muted p-4">
-                  <h3 className='text-base font-semibold mt-0'>Talking Points & Summary</h3>
+                  <h3 className='text-base font-semibold mt-0'>Pontos de Discussão e Resumo</h3>
                   <p>{summary}</p>
                 </div>
               )}
@@ -117,7 +118,7 @@ export function CalendarClient({ appointments }: CalendarClientProps) {
               )}
               {!isPending && !summary && selectedDayAppointments.length === 0 && (
                 <div className="flex h-[200px] items-center justify-center text-center">
-                  <p className="text-muted-foreground">No appointments for this day. <br/> Select another day or click "Daily Summary" for an empty state message.</p>
+                  <p className="text-muted-foreground">Nenhum compromisso para este dia. <br/> Selecione outro dia ou clique em "Resumo do Dia" para uma mensagem de estado vazio.</p>
                 </div>
               )}
             </ScrollArea>

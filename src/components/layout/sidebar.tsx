@@ -26,7 +26,7 @@ export function AppSidebar() {
       <SidebarFooter>
         <Button variant="ghost" className="w-full justify-start gap-2">
           <LogOut size={16} />
-          <span>Logout</span>
+          <span>Sair</span>
         </Button>
       </SidebarFooter>
     </>

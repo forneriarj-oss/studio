@@ -17,10 +17,10 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/revenue", label: "Revenue", icon: TrendingUp },
-  { href: "/expenses", label: "Expenses", icon: TrendingDown },
-  { href: "/calendar", label: "Calendar", icon: Calendar },
+  { href: "/", label: "Painel", icon: LayoutDashboard },
+  { href: "/revenue", label: "Receita", icon: TrendingUp },
+  { href: "/expenses", label: "Despesas", icon: TrendingDown },
+  { href: "/calendar", label: "Agenda", icon: Calendar },
 ];
 
 export function Nav() {

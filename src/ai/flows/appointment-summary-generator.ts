@@ -15,7 +15,7 @@ const AppointmentSummaryInputSchema = z.object({
   calendarData: z
     .string()
     .describe(
-      'A string containing the user calendar data in JSON format.  Include the date, time, attendees and any description for each appointment.'
+      'Uma string contendo os dados do calendário do usuário em formato JSON. Inclua a data, hora, participantes e qualquer descrição para cada compromisso.'
     ),
 });
 export type AppointmentSummaryInput = z.infer<typeof AppointmentSummaryInputSchema>;
@@ -23,7 +23,7 @@ export type AppointmentSummaryInput = z.infer<typeof AppointmentSummaryInputSche
 const AppointmentSummaryOutputSchema = z.object({
   summary: z
     .string()
-    .describe('A concise summary of the days appointments including relevant talking points.'),
+    .describe('Um resumo conciso dos compromissos do dia, incluindo pontos de discussão relevantes.'),
 });
 export type AppointmentSummaryOutput = z.infer<typeof AppointmentSummaryOutputSchema>;
 
@@ -37,13 +37,13 @@ const prompt = ai.definePrompt({
   name: 'appointmentSummaryPrompt',
   input: {schema: AppointmentSummaryInputSchema},
   output: {schema: AppointmentSummaryOutputSchema},
-  prompt: `You are an AI assistant designed to summarize a user\'s calendar appointments for the day.
+  prompt: `Você é um assistente de IA projetado para resumir os compromissos do calendário de um usuário para o dia.
 
-  The user will provide calendar data in JSON format.  Each record contains the appointment time, attendees, and description.
+  O usuário fornecerá os dados do calendário em formato JSON. Cada registro contém a hora do compromisso, os participantes e a descrição.
 
-  Your job is to create a concise summary of the appointments, focusing on key talking points and any preparation needed.
+  Seu trabalho é criar um resumo conciso dos compromissos, focando nos principais pontos de discussão e em qualquer preparação necessária.
 
-  Calendar Data: {{{calendarData}}} `,
+  Dados do Calendário: {{{calendarData}}} `,
 });
 
 const appointmentSummaryFlow = ai.defineFlow(

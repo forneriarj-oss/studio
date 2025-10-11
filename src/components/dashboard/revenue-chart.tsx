@@ -12,11 +12,11 @@ interface RevenueChartProps {
 
 const chartConfig = {
   revenue: {
-    label: 'Revenue',
+    label: 'Receita',
     color: 'hsl(var(--chart-1))',
   },
   expenses: {
-    label: 'Expenses',
+    label: 'Despesas',
     color: 'hsl(var(--chart-2))',
   },
 } satisfies ChartConfig;
@@ -53,8 +53,8 @@ export function RevenueChart({ revenue, expenses }: RevenueChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Overview</CardTitle>
-        <CardDescription>Revenue and expenses for the last 6 months.</CardDescription>
+        <CardTitle>Visão Geral</CardTitle>
+        <CardDescription>Receita e despesas dos últimos 6 meses.</CardDescription>
       </CardHeader>
       <CardContent className="pl-2">
         <ChartContainer config={chartConfig} className="min-h-[350px] w-full">
@@ -72,7 +72,7 @@ export function RevenueChart({ revenue, expenses }: RevenueChartProps) {
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(value) => `$${value / 1000}k`}
+                tickFormatter={(value) => `R$${value / 1000}k`}
               />
               <ChartTooltip
                   cursor={false}
