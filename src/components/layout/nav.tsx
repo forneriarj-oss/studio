@@ -1,36 +1,33 @@
+'use client';
 
-"use client";
-
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
-  TrendingUp,
-  TrendingDown,
-  Calendar,
-  Warehouse,
+  Box,
+  Component,
   ShoppingCart,
   Package,
-  FileText,
   Landmark,
-} from "lucide-react";
+  FileText,
+  Settings,
+} from 'lucide-react';
 import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-} from "@/components/ui/sidebar";
-import { useUser } from "@/firebase";
+} from '@/components/ui/sidebar';
+import { useUser } from '@/firebase';
 
 const allNavItems = [
-  { href: "/", label: "Painel", icon: LayoutDashboard, permission: "dashboard" },
-  { href: "/cash-flow", label: "Caixa", icon: Landmark, permission: "cash-flow" },
-  { href: "/revenue", label: "Receita", icon: TrendingUp, permission: "revenue" },
-  { href: "/expenses", label: "Despesas", icon: TrendingDown, permission: "expenses" },
-  { href: "/sales", label: "Vendas", icon: ShoppingCart, permission: "sales" },
-  { href: "/purchases", label: "Compras", icon: Package, permission: "purchases" },
-  { href: "/calendar", label: "Agenda", icon: Calendar, permission: "calendar" },
-  { href: "/inventory", label: "Estoque", icon: Warehouse, permission: "inventory" },
-  { href: "/reports", label: "Relatórios", icon: FileText, permission: "reports" },
+  { href: '/', label: 'Painel', icon: LayoutDashboard },
+  { href: '/inventory', label: 'Produtos', icon: Box },
+  { href: '/#', label: 'Matérias-Primas', icon: Component }, // Placeholder link
+  { href: '/sales', label: 'Vendas', icon: ShoppingCart },
+  { href: '/purchases', label: 'Compras', icon: Package },
+  { href: '/cash-flow', label: 'Caixa', icon: Landmark },
+  { href: '/reports', label: 'Relatórios', icon: FileText },
+  { href: '/#', label: 'Configurações', icon: Settings }, // Placeholder link
 ];
 
 export function Nav() {
@@ -43,9 +40,9 @@ export function Nav() {
 
   return (
     <SidebarMenu>
-      {allNavItems.map((item) => (
+      {allNavItems.map(item => (
         <SidebarMenuItem key={item.href}>
-           <SidebarMenuButton
+          <SidebarMenuButton
             asChild
             isActive={pathname === item.href}
             tooltip={item.label}
