@@ -42,13 +42,10 @@ export default function PurchasesPage() {
         date: new Date().toISOString().split('T')[0]
     });
     const [newProduct, setNewProduct] = useState({
-        code: "",
         description: "",
         unit: "",
         cost: 0,
-        supplier: "",
         quantity: 0,
-        minStock: 10,
     });
     const [isNewProductDialogOpen, setIsNewProductDialogOpen] = useState(false);
 
@@ -99,21 +96,30 @@ export default function PurchasesPage() {
     }
     
     const handleAddProduct = () => {
+        if (!newProduct.description || !newProduct.unit || newProduct.cost < 0 || newProduct.quantity < 0) {
+          toast({
+            variant: "destructive",
+            title: "Campos obrigatórios incompletos",
+            description: "Por favor, preencha todos os campos obrigatórios.",
+          });
+          return;
+        }
         const productToAdd: RawMaterial = {
           id: `prod-${Date.now()}`,
+          code: `CODE-${Date.now()}`,
+          supplier: 'N/A',
+          minStock: 10,
           ...newProduct
         };
         setProducts([...products, productToAdd]);
-        // Reset form and close dialog
+        
         setNewProduct({
-          code: "",
           description: "",
           unit: "",
           cost: 0,
-          supplier: "",
           quantity: 0,
-          minStock: 10,
         });
+
         setIsNewProductDialogOpen(false);
         toast({
             title: 'Matéria-Prima Adicionada!',
@@ -160,29 +166,38 @@ export default function PurchasesPage() {
                             </DialogTrigger>
                             <DialogContent className="sm:max-w-md">
                                 <DialogHeader>
-                                    <DialogTitle>Adicionar Nova Matéria-Prima</DialogTitle>
+                                    <DialogTitle>Nova Matéria-Prima</DialogTitle>
+                                    <DialogDescription>Preencha os detalhes do insumo. Campos com * são obrigatórios.</DialogDescription>
                                 </DialogHeader>
                                 <div className="grid gap-4 py-4">
-                                    {/* New Raw Material Form Fields */}
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                      <Label htmlFor="new-code" className="text-right">Código</Label>
-                                      <Input id="new-code" value={newProduct.code} onChange={(e) => setNewProduct({...newProduct, code: e.target.value})} className="col-span-3" />
+                                    <div className="space-y-2">
+                                      <Label htmlFor="new-description">Nome *</Label>
+                                      <Input id="new-description" placeholder="Ex: Farinha de Trigo" value={newProduct.description} onChange={(e) => setNewProduct({...newProduct, description: e.target.value})} />
                                     </div>
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                      <Label htmlFor="new-description" className="text-right">Descrição</Label>
-                                      <Input id="new-description" value={newProduct.description} onChange={(e) => setNewProduct({...newProduct, description: e.target.value})} className="col-span-3" />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="new-unit">Unidade *</Label>
+                                            <Select value={newProduct.unit} onValueChange={(value) => setNewProduct({...newProduct, unit: value})}>
+                                                <SelectTrigger id="new-unit">
+                                                    <SelectValue placeholder="Selecione"/>
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="UN">Unidade (UN)</SelectItem>
+                                                    <SelectItem value="KG">Quilograma (KG)</SelectItem>
+                                                    <SelectItem value="G">Grama (G)</SelectItem>
+                                                    <SelectItem value="L">Litro (L)</SelectItem>
+                                                    <SelectItem value="ML">Mililitro (ML)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="new-quantity">Estoque Atual *</Label>
+                                            <Input id="new-quantity" type="number" value={newProduct.quantity} onChange={(e) => setNewProduct({...newProduct, quantity: parseInt(e.target.value) || 0})} />
+                                        </div>
                                     </div>
-                                     <div className="grid grid-cols-4 items-center gap-4">
-                                      <Label htmlFor="new-unit" className="text-right">Unidade</Label>
-                                      <Input id="new-unit" value={newProduct.unit} onChange={(e) => setNewProduct({...newProduct, unit: e.target.value})} className="col-span-3" />
-                                    </div>
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                      <Label htmlFor="new-cost" className="text-right">Custo</Label>
-                                      <Input id="new-cost" type="number" value={newProduct.cost} onChange={(e) => setNewProduct({...newProduct, cost: parseFloat(e.target.value) || 0})} className="col-span-3" />
-                                    </div>
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                      <Label htmlFor="new-quantity" className="text-right">Qtd. Inicial</Label>
-                                      <Input id="new-quantity" type="number" value={newProduct.quantity} onChange={(e) => setNewProduct({...newProduct, quantity: parseInt(e.target.value) || 0})} className="col-span-3" />
+                                    <div className="space-y-2">
+                                      <Label htmlFor="new-cost">Custo por Unidade *</Label>
+                                      <Input id="new-cost" type="number" placeholder="0" value={newProduct.cost} onChange={(e) => setNewProduct({...newProduct, cost: parseFloat(e.target.value) || 0})} />
                                     </div>
                                 </div>
                                 <DialogFooter>
