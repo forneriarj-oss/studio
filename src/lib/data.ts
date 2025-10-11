@@ -98,8 +98,8 @@ let finishedProducts: FinishedProduct[] = [
 ];
 
 let sales: Sale[] = [
-    { id: 'sale-1', productId: 'prod-1', quantity: 1, unitPrice: 9500, date: today.toISOString().split('T')[0] },
-    { id: 'sale-2', productId: 'prod-3', quantity: 2, unitPrice: 450, date: yesterday.toISOString().split('T')[0] },
+    { id: 'sale-1', productId: 'prod-1', quantity: 1, unitPrice: 9500, date: today.toISOString().split('T')[0], paymentMethod: 'PIX' },
+    { id: 'sale-2', productId: 'prod-3', quantity: 2, unitPrice: 450, date: yesterday.toISOString().split('T')[0], paymentMethod: 'Cartão' },
 ];
 
 let purchases: Purchase[] = [

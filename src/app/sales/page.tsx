@@ -54,7 +54,7 @@ function PricingCalculator({ product, onPriceCalculated }: { product: RawMateria
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Calculadora de Precificação Inteligente</DialogTitle>
-                 <CardDescription>Calcule o preço de venda ideal para '{product?.description}'.</CardDescription>
+                 <DialogDescription>Calcule o preço de venda ideal para '{product?.description}'.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
                  <div className="p-4 rounded-md bg-muted">
@@ -307,7 +307,7 @@ export default function SalesPage() {
                       <TableCell className="text-right font-semibold text-green-600">
                         {formatCurrency(total)}
                       </TableCell>
-                      <TableCell className={`text-right font-semibold ${netProfit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                      <TableCell className={`text-right font-semibold ${netProfit >= 0 ? 'text-primary' : 'text-destructive'}`}>
                         {formatCurrency(netProfit)}
                       </TableCell>
                     </TableRow>
@@ -321,8 +321,3 @@ export default function SalesPage() {
     </TooltipProvider>
   );
 }
-
-    
-
-
-    

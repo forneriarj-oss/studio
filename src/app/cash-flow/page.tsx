@@ -92,7 +92,7 @@ export default function CashFlowPage() {
       startDate,
       endDate
     };
-  }, [timeRange, isClient]);
+  }, [timeRange, isClient, allRevenues, allExpenses, allSales]);
 
   const totalRevenue = filteredRevenues.reduce((acc, curr) => acc + curr.amount, 0);
   const totalExpenses = filteredExpenses.reduce((acc, curr) => acc + curr.amount, 0);
@@ -288,5 +288,3 @@ export default function CashFlowPage() {
     </div>
   );
 }
-
-    
