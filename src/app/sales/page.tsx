@@ -1,6 +1,6 @@
 
 'use client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { getSales, getProducts, updateStock } from '@/lib/data';
 import type { Sale, Product } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Calculator } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
 
-
 const initialSales = getSales();
 const initialProducts = getProducts();
 
@@ -31,6 +30,65 @@ const formatCurrency = (amount: number) => {
       currency: 'BRL',
     }).format(amount);
 };
+
+function PricingCalculator({ product, onPriceCalculated }: { product: Product | undefined, onPriceCalculated: (price: number) => void }) {
+    const [taxPercent, setTaxPercent] = useState(10);
+    const [feePercent, setFeePercent] = useState(5);
+    const [profitMargin, setProfitMargin] = useState(30);
+
+    const suggestedPrice = useMemo(() => {
+        if (!product) return 0;
+        const cost = product.cost;
+        const taxes = cost * (taxPercent / 100);
+        const fees = cost * (feePercent / 100);
+        
+        if (1 - (profitMargin / 100) === 0) return Infinity;
+        
+        const finalPrice = (cost + taxes + fees) / (1 - (profitMargin / 100));
+        return finalPrice;
+    }, [product, taxPercent, feePercent, profitMargin]);
+
+    return (
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Calculadora de Precificação Inteligente</DialogTitle>
+                 <CardDescription>Calcule o preço de venda ideal para '{product?.description}'.</CardDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+                 <div className="p-4 rounded-md bg-muted">
+                    <Label>Preço de Custo do Produto</Label>
+                    <p className="text-2xl font-bold">{formatCurrency(product?.cost || 0)}</p>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="taxPercent">Impostos (ICMS, PIS, etc.) (%)</Label>
+                    <Input id="taxPercent" type="number" value={taxPercent} onChange={e => setTaxPercent(parseFloat(e.target.value) || 0)} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="feePercent">Taxas de Plataforma/Cartão (%)</Label>
+                    <Input id="feePercent" type="number" value={feePercent} onChange={e => setFeePercent(parseFloat(e.target.value) || 0)} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="profitMargin">Margem de Lucro Desejada (%)</Label>
+                    <Input id="profitMargin" type="number" value={profitMargin} onChange={e => setProfitMargin(parseFloat(e.target.value) || 0)} />
+                </div>
+                <div className="p-4 rounded-md border text-center">
+                    <Label>Preço de Venda Sugerido</Label>
+                    <p className="text-3xl font-bold text-primary">{isFinite(suggestedPrice) ? formatCurrency(suggestedPrice) : 'Inválido'}</p>
+                    <p className='text-xs text-muted-foreground'>(Custo + Impostos + Taxas) / (1 - Margem de Lucro)</p>
+                </div>
+            </div>
+            <DialogFooter>
+                <DialogClose asChild>
+                    <Button variant="outline">Cancelar</Button>
+                </DialogClose>
+                <DialogClose asChild>
+                    <Button onClick={() => onPriceCalculated(suggestedPrice)}>Usar este Preço</Button>
+                </DialogClose>
+            </DialogFooter>
+        </DialogContent>
+    );
+}
+
 
 export default function SalesPage() {
     const [sales, setSales] = useState<Sale[]>(initialSales);
@@ -142,7 +200,22 @@ export default function SalesPage() {
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="unitPrice" className="text-right">Preço Unit.</Label>
-                  <Input id="unitPrice" type="number" value={newSale.unitPrice} onChange={(e) => setNewSale({...newSale, unitPrice: parseFloat(e.target.value) || 0})} className="col-span-3" />
+                  <div className="col-span-3 flex items-center gap-2">
+                    <Input id="unitPrice" type="number" value={newSale.unitPrice} onChange={(e) => setNewSale({...newSale, unitPrice: parseFloat(e.target.value) || 0})} className="flex-1" />
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" size="icon" disabled={!newSale.productId}>
+                                <Calculator className="h-4 w-4" />
+                            </Button>
+                        </DialogTrigger>
+                        {newSale.productId && (
+                           <PricingCalculator 
+                                product={products.find(p => p.id === newSale.productId)}
+                                onPriceCalculated={(price) => setNewSale({...newSale, unitPrice: price})}
+                           />
+                        )}
+                    </Dialog>
+                  </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="date" className="text-right">Data</Label>
