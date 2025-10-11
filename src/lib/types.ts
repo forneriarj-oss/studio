@@ -1,3 +1,4 @@
+
 export type PaymentMethod = 'PIX' | 'Cartão' | 'Dinheiro';
 
 export type Revenue = {
@@ -67,3 +68,15 @@ export type StockMovement = {
   date: string;
   source: 'purchase' | 'sale' | 'initial';
 };
+
+export type Role = {
+  id: 'admin' | 'caixa' | 'estoque' | 'vendedor';
+  name: string;
+  permissions: string[];
+}
+
+export type User = {
+  id: string;
+  email: string;
+  roleId: Role['id'];
+}
