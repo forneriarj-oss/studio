@@ -1,3 +1,7 @@
+'use client';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { useUser } from '@/firebase';
 import { OverviewCards } from '@/components/dashboard/overview-cards';
 import { RevenueChart } from '@/components/dashboard/revenue-chart';
 import { RecentActivity } from '@/components/dashboard/recent-activity';
@@ -5,10 +9,19 @@ import { getExpenses, getRevenue, getAppointments } from '@/lib/data';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, Loader } from 'lucide-react';
 import { Appointment } from '@/lib/types';
 
 export default function Home() {
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/auth');
+    }
+  }, [user, isUserLoading, router]);
+
   const revenue = getRevenue();
   const expenses = getExpenses();
   const appointments = getAppointments();
@@ -21,6 +34,15 @@ export default function Home() {
     appDate.setHours(0, 0, 0, 0);
     return appDate >= today;
   }).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 3);
+
+  if (isUserLoading || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader className="h-16 w-16 animate-spin" />
+      </div>
+    );
+  }
+
 
   return (
     <div className="flex flex-col gap-8">

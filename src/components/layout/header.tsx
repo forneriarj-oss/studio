@@ -13,56 +13,63 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search } from "lucide-react";
+import { Loader } from "lucide-react";
 import Image from 'next/image';
-import { getImageById } from "@/lib/placeholder-images";
+import { useUser } from "@/firebase";
+import { handleSignOut } from "@/firebase/auth/service";
+import { useRouter } from "next/navigation";
 
 export function Header() {
   const { isMobile } = useSidebar();
-  const userAvatar = getImageById('user-avatar');
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+
+  const onSignOut = async () => {
+    await handleSignOut(useAuth());
+    router.push('/auth');
+  }
+
+  const getInitials = (name: string | null | undefined) => {
+    if (!name) return 'U';
+    const names = name.split(' ');
+    if (names.length > 1) {
+      return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
+    }
+    return names[0][0].toUpperCase();
+  }
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6">
       {isMobile && <SidebarTrigger />}
       <div className="flex w-full items-center gap-4">
-        {/* The search can be enabled later */}
-        {/* <form className="hidden flex-1 sm:flex-initial sm:hidden md:flex">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search..."
-              className="pl-8 sm:w-[300px] md:w-[200px] lg:w-[300px] bg-background"
-            />
-          </div>
-        </form> */}
         <div className="flex-1" />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <Avatar className="h-8 w-8">
-                {userAvatar && (
-                  <Image
-                    src={userAvatar.imageUrl}
-                    alt={userAvatar.description}
-                    width={32}
-                    height={32}
-                    data-ai-hint={userAvatar.imageHint}
-                  />
-                )}
-                <AvatarFallback>BV</AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>Configurações</DropdownMenuItem>
-            <DropdownMenuItem>Suporte</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>Sair</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {isUserLoading ? (
+          <Loader className="h-6 w-6 animate-spin" />
+        ) : user ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <Avatar className="h-8 w-8">
+                  {user.photoURL ? (
+                    <AvatarImage src={user.photoURL} alt={user.displayName || 'User Avatar'} />
+                  ) : (
+                     <AvatarFallback>{getInitials(user.displayName || user.email)}</AvatarFallback>
+                  )}
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>{user.displayName || user.email}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>Configurações</DropdownMenuItem>
+              <DropdownMenuItem>Suporte</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onSignOut}>Sair</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+           <Button onClick={() => router.push('/auth')}>Login</Button>
+        )}
       </div>
     </header>
   );
