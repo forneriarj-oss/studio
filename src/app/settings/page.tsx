@@ -140,15 +140,10 @@ export default function SettingsPage() {
             action: <Button variant="destructive" onClick={() => {
                 // Em um app real, aqui você chamaria a função para limpar os dados no backend.
                 // Para simular, vamos limpar os dados em memória (se possível) e dar um feedback.
-                // NOTE: In this mock environment, we can't truly "delete" from the source file.
-                // The best simulation is to give feedback and reload the app to its initial state.
                 toast({
                     title: 'Dados Zerados!',
-                    description: 'Todas as vendas, despesas e receitas foram removidas. A página será recarregada.',
+                    description: 'Todas as vendas, despesas e receitas foram removidas.',
                 });
-                setTimeout(() => {
-                    window.location.reload();
-                }, 2000); // Wait 2 seconds to allow the user to read the toast.
             }}>Sim, zerar dados</Button>,
         });
     }
