@@ -31,7 +31,7 @@ let expenses: Expense[] = [
   { id: 'exp-7', amount: 3000, category: 'Team', description: 'John Doe - Salário', date: '2024-06-01', paymentMethod: 'PIX' },
 ];
 
-const appointments: Appointment[] = [
+let appointments: Appointment[] = [
   { 
     id: 'app-1', 
     title: 'Reunião Diária', 
@@ -220,7 +220,7 @@ export function updateStock(productId: string, quantity: number, type: 'in' | 'o
             rawMaterials[rawMaterialIndex].quantity += quantity;
         } else {
             if (rawMaterials[rawMaterialIndex].quantity < quantity) return false;
-            rawMaterials[raw-material].quantity -= quantity;
+            rawMaterials[rawMaterialIndex].quantity -= quantity;
         }
     } else { // It's a finished product
         const product = finishedProducts[finishedProductIndex];
@@ -242,4 +242,13 @@ export function updateStock(productId: string, quantity: number, type: 'in' | 'o
 
 export function getProducts() {
     return rawMaterials;
+}
+
+export function resetAllData() {
+    revenues = [];
+    expenses = [];
+    sales = [];
+    purchases = [];
+    stockMovements = [];
+    // We keep master data like rawMaterials and finishedProducts
 }

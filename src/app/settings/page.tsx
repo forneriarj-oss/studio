@@ -1,19 +1,21 @@
 
 'use client';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { getSales, getExpenses, getRevenue, getFinishedProducts } from '@/lib/data';
+import { getSales, getExpenses, getRevenue, getFinishedProducts, resetAllData } from '@/lib/data';
 import { Trash2, AlertCircle } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 export default function SettingsPage() {
     const { toast } = useToast();
+    const router = useRouter();
     const [taxes, setTaxes] = useState({
         icms: '0',
         iss: '0',
@@ -138,12 +140,12 @@ export default function SettingsPage() {
             title: 'Você tem certeza?',
             description: 'Esta ação não pode ser desfeita. Isso excluirá permanentemente todos os dados de vendas, despesas e receitas.',
             action: <Button variant="destructive" onClick={() => {
-                // Em um app real, aqui você chamaria a função para limpar os dados no backend.
-                // Para simular, vamos limpar os dados em memória (se possível) e dar um feedback.
+                resetAllData();
                 toast({
                     title: 'Dados Zerados!',
                     description: 'Todas as vendas, despesas e receitas foram removidas.',
                 });
+                router.push('/settings');
             }}>Sim, zerar dados</Button>,
         });
     }
