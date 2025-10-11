@@ -40,10 +40,11 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
     unit: "",
     cost: 0,
     quantity: 0,
+    minStock: 10,
+    supplier: 'N/A'
   });
 
   const handleAddProduct = () => {
-    // Validação
     if (!newProduct.description || !newProduct.unit || newProduct.cost < 0 || newProduct.quantity < 0) {
       toast({
         variant: "destructive",
@@ -55,19 +56,18 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
 
     const productToAdd: RawMaterial = {
       id: `prod-${Date.now()}`,
-      code: `CODE-${Date.now()}`, // Gerar código temporário
-      supplier: 'N/A', // Fornecedor padrão
-      minStock: 10, // Estoque mínimo padrão
+      code: `CODE-${Date.now()}`,
       ...newProduct
     };
-    setProducts([...products, productToAdd]);
+    setProducts(prev => [productToAdd, ...prev].sort((a,b) => a.description.localeCompare(b.description)));
     
-    // Reset form and close dialog
     setNewProduct({
       description: "",
       unit: "",
       cost: 0,
       quantity: 0,
+      minStock: 10,
+      supplier: 'N/A'
     });
 
     toast({
