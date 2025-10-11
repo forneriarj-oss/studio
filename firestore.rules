@@ -1,96 +1,113 @@
 /**
- * @fileOverview Firestore Security Rules for BizView application.
+ * @fileoverview Firestore Security Rules for a user-centric ERP application.
  *
  * Core Philosophy:
- * This ruleset enforces a role-based access control model with user-specific data segregation.
- * Each user is associated with a role that defines their permissions. Access to user data
- * is restricted to the user themselves or an administrator.
+ * This ruleset enforces a strict user-ownership model, ensuring that each user can only
+ * access their own data related to expenses, revenues, and appointments.  No listing of all
+ * users is allowed.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profiles. Each user can only access their own profile.
- * - /roles/{roleId}: Stores role definitions. Only accessible by administrators.
- * - /users/{userId}/activity_logs/{logId}: Stores activity logs for each user.
- *   Only the user themselves or administrators can access these logs.
+ * All data is nested under /users/{userId}, with subcollections for expenses, revenues, and
+ * appointments.
  *
  * Key Security Decisions:
- * - Users can only create their own user document (self-registration).
- * - Users can only read/write their own activity logs.
- * - Listing of users is not allowed.
- * - Roles can only be managed by administrators (not implemented in this version, assuming no client-side role management).
+ * - User data is completely isolated. Users can only access data under their own UID.
+ * - Listing of all users is disallowed.
+ * - All write operations require a valid, authenticated user.
+ *
+ * Denormalization for Authorization:
+ *  The user ID is part of the document path (/users/{userId}/...), making it simple to
+ *  validate ownership using the `isOwner()` helper function.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description Controls access to user profiles.
-     * @path /users/{userId}
-     * @allow (create) - User creates their own profile if auth.uid matches userId.
-     * @allow (get, update, delete) - User can access their own profile.
-     * @deny (create) - User attempts to create a profile with a mismatched userId.
-     * @deny (get, update, delete) - User attempts to access another user's profile.
-     * @principle Enforces document ownership for writes.
-     */
-    match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
+    // Helper function to check if the request is authenticated.
+    function isSignedIn() {
+      return request.auth != null;
+    }
 
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
+    // Helper function to check if the authenticated user ID matches the requested user ID.
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
 
-      function isExistingOwner(userId) {
-          return isOwner(userId) && resource != null;
-      }
-
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-      allow get: if isOwner(userId);
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
-      allow list: if false;
+    // Helper function to check if the authenticated user ID matches the existing document's owner ID.
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Controls access to role definitions.
-     * @path /roles/{roleId}
-     * @allow (get, list) - Allows public read.
-     * @allow (create, update, delete) - No client side operations supported.
-     * @deny (create, update, delete) - Denies any attempt for the client to modify the roles.
-     * @principle Restricts role management to server-side.
+     * @description Secures access to user-specific expense records.
+     * @path /users/{userId}/expenses/{expenseId}
+     * @allow (create) Authenticated user with UID 'user123' can create a new expense record under /users/user123/expenses.
+     * @allow (update) Authenticated user with UID 'user123' can update an existing expense record under /users/user123/expenses/expense456.
+     * @allow (delete) Authenticated user with UID 'user123' can delete an existing expense record under /users/user123/expenses/expense456.
+     * @allow (get) Authenticated user with UID 'user123' can get expense record under /users/user123/expenses/expense456.
+     * @allow (list) Authenticated user with UID 'user123' can list expense records under /users/user123/expenses.
+     * @deny (create) Authenticated user with UID 'user456' cannot create an expense record under /users/user123/expenses.
+     * @deny (update) Authenticated user with UID 'user456' cannot update an expense record under /users/user123/expenses/expense456.
+     * @deny (delete) Authenticated user with UID 'user456' cannot delete an expense record under /users/user123/expenses/expense456.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
-    match /roles/{roleId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
-    }
-
-    /**
-     * @description Controls access to activity logs for each user.
-     * @path /users/{userId}/activity_logs/{logId}
-     * @allow (create) - User can create their own activity log.
-     * @allow (get, update, delete) - User can access their own activity logs.
-     * @deny (create) - User attempts to create an activity log for another user.
-     * @deny (get, update, delete) - User attempts to access another user's activity logs.
-     * @principle Enforces document ownership for writes.
-     */
-    match /users/{userId}/activity_logs/{logId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-        function isExistingOwner(userId) {
-          return isOwner(userId) && resource != null;
-      }
-
-      allow create: if isSignedIn() && isOwner(userId);
+    match /users/{userId}/expenses/{expenseId} {
+      // Read rules: get and list
       allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+
+      // Write rules: create, update, delete
+      allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Secures access to user-specific revenue records.
+     * @path /users/{userId}/revenues/{revenueId}
+     * @allow (create) Authenticated user with UID 'user123' can create a new revenue record under /users/user123/revenues.
+     * @allow (update) Authenticated user with UID 'user123' can update an existing revenue record under /users/user123/revenues/revenue456.
+     * @allow (delete) Authenticated user with UID 'user123' can delete an existing revenue record under /users/user123/revenues/revenue456.
+     * @allow (get) Authenticated user with UID 'user123' can get revenue record under /users/user123/revenues/revenue456.
+     * @allow (list) Authenticated user with UID 'user123' can list revenue records under /users/user123/revenues.
+     * @deny (create) Authenticated user with UID 'user456' cannot create a revenue record under /users/user123/revenues.
+     * @deny (update) Authenticated user with UID 'user456' cannot update a revenue record under /users/user123/revenues/revenue456.
+     * @deny (delete) Authenticated user with UID 'user456' cannot delete a revenue record under /users/user123/revenues/revenue456.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     */
+    match /users/{userId}/revenues/{revenueId} {
+      // Read rules: get and list
+      allow get: if isOwner(userId);
       allow list: if isOwner(userId);
+
+      // Write rules: create, update, delete
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Secures access to user-specific appointment records.
+     * @path /users/{userId}/appointments/{appointmentId}
+     * @allow (create) Authenticated user with UID 'user123' can create a new appointment record under /users/user123/appointments.
+     * @allow (update) Authenticated user with UID 'user123' can update an existing appointment record under /users/user123/appointments/appointment456.
+     * @allow (delete) Authenticated user with UID 'user123' can delete an existing appointment record under /users/user123/appointments/appointment456.
+     * @allow (get) Authenticated user with UID 'user123' can get appointment record under /users/user123/appointments/appointment456.
+     * @allow (list) Authenticated user with UID 'user123' can list appointment records under /users/user123/appointments.
+     * @deny (create) Authenticated user with UID 'user456' cannot create an appointment record under /users/user123/appointments.
+     * @deny (update) Authenticated user with UID 'user456' cannot update an appointment record under /users/user123/appointments/appointment456.
+     * @deny (delete) Authenticated user with UID 'user456' cannot delete an appointment record under /users/user123/appointments/appointment456.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     */
+    match /users/{userId}/appointments/{appointmentId} {
+      // Read rules: get and list
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+
+      // Write rules: create, update, delete
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
   }
 }

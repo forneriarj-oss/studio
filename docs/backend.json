@@ -1,107 +1,112 @@
 {
   "entities": {
-    "User": {
+    "Expense": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "User",
+      "title": "Expense",
       "type": "object",
-      "description": "Represents a user in the system, storing basic profile information and linking to access control.",
+      "description": "Represents an expense record.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the User entity."
+          "description": "Unique identifier for the expense."
         },
-        "username": {
-          "type": "string",
-          "description": "The username of the user."
+        "amount": {
+          "type": "number",
+          "description": "The amount of the expense."
         },
-        "email": {
+        "date": {
           "type": "string",
-          "description": "The email address of the user.",
-          "format": "email"
-        },
-        "firstName": {
-          "type": "string",
-          "description": "The first name of the user."
-        },
-        "lastName": {
-          "type": "string",
-          "description": "The last name of the user."
-        },
-        "roleId": {
-          "type": "string",
-          "description": "Reference to Role. (Relationship: User 1:1 Role)"
-        }
-      },
-      "required": [
-        "id",
-        "username",
-        "email",
-        "firstName",
-        "lastName",
-        "roleId"
-      ]
-    },
-    "Role": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Role",
-      "type": "object",
-      "description": "Defines the roles and associated permissions for users within the system.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Role entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the role (e.g., Administrator, Caixa, Estoque, Vendedor)."
-        },
-        "permissions": {
-          "type": "array",
-          "description": "A list of permissions associated with this role.",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "permissions"
-      ]
-    },
-    "ActivityLog": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ActivityLog",
-      "type": "object",
-      "description": "Stores logs of user activities for auditing and security purposes.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the ActivityLog entry."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N ActivityLog) The ID of the user who performed the action."
-        },
-        "timestamp": {
-          "type": "string",
-          "description": "The date and time the action was performed.",
+          "description": "The date the expense was incurred.",
           "format": "date-time"
         },
-        "action": {
+        "category": {
           "type": "string",
-          "description": "A description of the action that was performed (e.g., 'logged in', 'created expense', 'updated product')."
+          "description": "The category of the expense (e.g., 'Rent', 'Utilities')."
         },
-        "details": {
+        "description": {
           "type": "string",
-          "description": "Additional details about the action performed, such as the data that was modified."
+          "description": "A description of the expense."
         }
       },
       "required": [
         "id",
-        "userId",
-        "timestamp",
-        "action"
+        "amount",
+        "date",
+        "category",
+        "description"
+      ]
+    },
+    "Revenue": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Revenue",
+      "type": "object",
+      "description": "Represents a revenue record.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the revenue."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The amount of the revenue."
+        },
+        "date": {
+          "type": "string",
+          "description": "The date the revenue was received.",
+          "format": "date-time"
+        },
+        "source": {
+          "type": "string",
+          "description": "The source of the revenue (e.g., 'Sales', 'Services')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the revenue."
+        }
+      },
+      "required": [
+        "id",
+        "amount",
+        "date",
+        "source",
+        "description"
+      ]
+    },
+    "Appointment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Appointment",
+      "type": "object",
+      "description": "Represents a scheduled appointment.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the appointment."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the appointment."
+        },
+        "startTime": {
+          "type": "string",
+          "description": "The start time of the appointment.",
+          "format": "date-time"
+        },
+        "endTime": {
+          "type": "string",
+          "description": "The end time of the appointment.",
+          "format": "date-time"
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the appointment."
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "startTime",
+        "endTime",
+        "description"
       ]
     }
   },
@@ -114,58 +119,66 @@
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}",
+        "path": "/users/{userId}/expenses/{expenseId}",
         "definition": {
-          "entityName": "User",
+          "entityName": "Expense",
           "schema": {
-            "$ref": "#/backend/entities/User"
+            "$ref": "#/backend/entities/Expense"
           },
-          "description": "Stores user profiles.  Accessed by the user themselves or administrators. Includes denormalized 'roleId' from the Role document.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/roles/{roleId}",
-        "definition": {
-          "entityName": "Role",
-          "schema": {
-            "$ref": "#/backend/entities/Role"
-          },
-          "description": "Stores role definitions. Accessible only by administrators.",
-          "params": [
-            {
-              "name": "roleId",
-              "description": "The unique identifier for the role."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/activity_logs/{logId}",
-        "definition": {
-          "entityName": "ActivityLog",
-          "schema": {
-            "$ref": "#/backend/entities/ActivityLog"
-          },
-          "description": "Stores activity logs for each user. Accessible only by the user themselves or administrators.",
+          "description": "Stores expense records for each user. The userId path parameter ensures data isolation and simplifies security rules based on user ownership.",
           "params": [
             {
               "name": "userId",
               "description": "The unique identifier for the user."
             },
             {
-              "name": "logId",
-              "description": "The unique identifier for the activity log entry."
+              "name": "expenseId",
+              "description": "The unique identifier for the expense."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/revenues/{revenueId}",
+        "definition": {
+          "entityName": "Revenue",
+          "schema": {
+            "$ref": "#/backend/entities/Revenue"
+          },
+          "description": "Stores revenue records for each user. The userId path parameter ensures data isolation and simplifies security rules based on user ownership.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "revenueId",
+              "description": "The unique identifier for the revenue."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/appointments/{appointmentId}",
+        "definition": {
+          "entityName": "Appointment",
+          "schema": {
+            "$ref": "#/backend/entities/Appointment"
+          },
+          "description": "Stores appointment records for each user. The userId path parameter ensures data isolation and simplifies security rules based on user ownership.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "appointmentId",
+              "description": "The unique identifier for the appointment."
             }
           ]
         }
       }
     ],
-    "reasoning": "This Firestore structure is designed to support a secure and scalable BizView application with clear access control. The core principle is Authorization Independence, achieved through denormalization where necessary. This eliminates the need for `get()` calls in security rules, crucial for atomic operations and debuggability.\n\n1.  **Users and Roles:** Users are stored with a `roleId` referencing a role. Roles define permissions (Administrator, Caixa, Estoque, Vendedor). This provides a flexible permission system.\n\n2.  **Activity Logs:** Activity logs are stored as subcollections of users (`/users/{userId}/activity_logs/{logId}`), ensuring proper ownership. \n\n3.  **Authorization Independence:** The structure avoids hierarchical authorization. For instance, if access to a document depended on a user's role, the relevant role attributes (e.g., permissions) would be denormalized directly into the document or a dedicated authorization map. In this particular structure, the user's `roleId` is kept at the user level which is fine for most cases. If granular access control per user was needed on logs, `members` field can be introduced on the logs.\n\n4.  **QAPs (Rules are not Filters):** The structure supports secure list operations.  Access to user-specific data is controlled through path-based rules (`/users/{userId}/*`).  Global roles are managed via document existence checks in the `/roles_*` collections, preventing unauthorized access.\n\n5.  **Data Segregation:** User-specific data (activity logs) are stored in subcollections under the user's document, ensuring that only the user (or an admin) can access them. \n\nThis design prioritizes clarity, security, and scalability, making it easier to maintain and debug the application."
+    "reasoning": "The Firestore structure is designed to provide a secure and scalable ERP solution tailored for small businesses, focusing on revenue, expenses, and appointment management. The structure is built around user-specific data segregation and authorization independence. Each user has their own collection for expenses, revenue, and appointments, ensuring data privacy and simplifying security rules. By storing all data under user-specific paths (e.g., `/users/{userId}/expenses/{expenseId}`), authorization is inherently tied to the user's ID, eliminating the need for complex `get()` calls in security rules. This approach ensures atomicity for transactions and batches. This structure supports required QAPs by segregating the data by user, enabling secure list operations within each user's data. Each collection (`expenses`, `revenues`, `appointments`) contains only documents relevant to that specific user, making rules straightforward and efficient. No custom claims are used; authentication relies on `request.auth.uid`. The structure promotes clarity, predictability, and adheres to the principle of structural segregation."
   }
 }
