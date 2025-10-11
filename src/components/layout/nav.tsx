@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -15,7 +14,8 @@ import {
   Calendar,
   DollarSign,
   Users,
-  Warehouse
+  Warehouse,
+  BarChart3
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -30,10 +30,10 @@ const allNavItems = [
     { href: '/cash-flow', label: 'Caixa', icon: Landmark },
     { href: '/revenue', label: 'Receitas', icon: DollarSign },
     { href: '/expenses', label: 'Despesas', icon: DollarSign },
-    { href: '/finished-products', label: 'Produtos', icon: Component },
+    { href: '/products', label: 'Produtos', icon: Component },
     { href: '/inventory', label: 'Matérias-Primas', icon: Warehouse },
     { href: '/purchases', label: 'Compras', icon: Package },
-    { href: '/reports', label: 'Relatórios', icon: FileText },
+    { href: '/reports', label: 'Análise', icon: BarChart3 },
     { href: '/users', label: 'Usuários', icon: Users },
     { href: '/settings', label: 'Configurações', icon: Settings },
   ];
@@ -47,7 +47,7 @@ export function Nav() {
         <SidebarMenuItem key={item.href}>
           <SidebarMenuButton
             asChild
-            isActive={pathname === item.href}
+            isActive={pathname === item.href || (item.href === '/products' && pathname.startsWith('/finished-products'))}
             tooltip={item.label}
           >
             <Link href={item.href}>
