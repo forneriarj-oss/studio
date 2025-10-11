@@ -1,5 +1,6 @@
 
-import type { Expense, Revenue, Appointment, Product, Sale, Purchase, StockMovement, ExpenseCategory, PaymentMethod, Role, User } from './types';
+
+import type { Expense, Revenue, Appointment, RawMaterial, Sale, Purchase, StockMovement, ExpenseCategory, PaymentMethod, Role, User, FinishedProduct } from './types';
 
 const today = new Date();
 const yesterday = new Date(today);
@@ -73,12 +74,27 @@ const appointments: Appointment[] = [
   }
 ];
 
-let products: Product[] = [
+let rawMaterials: RawMaterial[] = [
     { id: 'prod-1', code: 'NTB-001', description: 'Notebook Pro 15"', unit: 'pç', cost: 7500, supplier: 'Fornecedor A', quantity: 15, minStock: 5 },
     { id: 'prod-2', code: 'MOU-002', description: 'Mouse sem Fio Ergonômico', unit: 'pç', cost: 120, supplier: 'Fornecedor B', quantity: 8, minStock: 10 },
     { id: 'prod-3', code: 'TEC-003', description: 'Teclado Mecânico RGB', unit: 'pç', cost: 350, supplier: 'Fornecedor A', quantity: 25, minStock: 10 },
     { id: 'prod-4', code: 'MON-004', description: 'Monitor Ultrawide 34"', unit: 'pç', cost: 2800, supplier: 'Fornecedor C', quantity: 3, minStock: 5 },
     { id: 'prod-5', code: 'SSD-005', description: 'SSD NVMe 1TB', unit: 'pç', cost: 600, supplier: 'Fornecedor B', quantity: 30, minStock: 15 },
+];
+
+let finishedProducts: FinishedProduct[] = [
+  { 
+    id: 'fp-1', 
+    sku: 'PA-BRIG-01', 
+    name: 'Bolo de Brigadeiro', 
+    recipe: [], 
+    finalCost: 25.50, 
+    salePrice: 50.00,
+    flavors: [
+      { id: 'flav-1', name: 'Tradicional', stock: 10 },
+      { id: 'flav-2', name: 'Branco', stock: 5 },
+    ]
+  }
 ];
 
 let sales: Sale[] = [
@@ -92,7 +108,7 @@ let purchases: Purchase[] = [
 ];
 
 let stockMovements: StockMovement[] = [
-    ...products.map(p => ({ id: `sm-init-${p.id}`, productId: p.id, type: 'in' as const, quantity: p.quantity, date: '2024-01-01', source: 'initial' as const })),
+    ...rawMaterials.map(p => ({ id: `sm-init-${p.id}`, productId: p.id, type: 'in' as const, quantity: p.quantity, date: '2024-01-01', source: 'initial' as const })),
     { id: 'sm-1', productId: 'prod-1', type: 'out', quantity: 1, date: today.toISOString().split('T')[0], source: 'sale' },
     { id: 'sm-2', productId: 'prod-3', type: 'out', quantity: 2, date: yesterday.toISOString().split('T')[0], source: 'sale' },
     { id: 'sm-3', productId: 'prod-2', type: 'in', quantity: 10, date: twoDaysAgo.toISOString().split('T')[0], source: 'purchase' },
@@ -128,8 +144,12 @@ export function getAppointments() {
   return appointments;
 }
 
-export function getProducts() {
-    return products;
+export function getRawMaterials() {
+    return rawMaterials;
+}
+
+export function getFinishedProducts() {
+  return finishedProducts;
 }
 
 export function getSales() {
@@ -162,7 +182,7 @@ export function getUserByEmail(email: string): User | undefined {
 
 // This is a mock function. In a real app, this would update a database.
 export function updateStock(productId: string, quantity: number, type: 'in' | 'out'): boolean {
-    const productIndex = products.findIndex(p => p.id === productId);
+    const productIndex = rawMaterials.findIndex(p => p.id === productId);
     if (productIndex === -1) {
         return false;
     }
@@ -179,14 +199,18 @@ export function updateStock(productId: string, quantity: number, type: 'in' | 'o
     stockMovements.push(newStockMovement);
 
     if (type === 'in') {
-        products[productIndex].quantity += quantity;
+        rawMaterials[productIndex].quantity += quantity;
     } else {
-        if (products[productIndex].quantity < quantity) {
+        if (rawMaterials[productIndex].quantity < quantity) {
             // Should not happen if checked before calling, but as a safeguard.
             return false; 
         }
-        products[productIndex].quantity -= quantity;
+        rawMaterials[productIndex].quantity -= quantity;
     }
 
     return true;
+}
+
+export function getProducts() {
+    return rawMaterials;
 }

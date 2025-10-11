@@ -1,4 +1,5 @@
 
+
 export type PaymentMethod = 'PIX' | 'Cartão' | 'Dinheiro';
 
 export type Revenue = {
@@ -31,7 +32,8 @@ export type Appointment = {
   description: string;
 };
 
-export type Product = {
+// Renamed from Product to RawMaterial
+export type RawMaterial = {
   id: string;
   code: string;
   description: string;
@@ -44,7 +46,7 @@ export type Product = {
 
 export type Sale = {
   id: string;
-  productId: string;
+  productId: string; // Can be RawMaterial or FinishedProduct
   quantity: number;
   unitPrice: number;
   date: string;
@@ -54,7 +56,7 @@ export type Sale = {
 
 export type Purchase = {
   id: string;
-  productId: string;
+  productId: string; // Should be RawMaterial
   quantity: number;
   unitCost: number;
   date: string;
@@ -66,7 +68,7 @@ export type StockMovement = {
   type: 'in' | 'out';
   quantity: number;
   date: string;
-  source: 'purchase' | 'sale' | 'initial';
+  source: 'purchase' | 'sale' | 'initial' | 'production';
 };
 
 export type Role = {
@@ -80,3 +82,25 @@ export type User = {
   email: string;
   roleId: Role['id'];
 }
+
+// New types for Finished Products
+export type RecipeItem = {
+  rawMaterialId: string;
+  quantity: number;
+};
+
+export type Flavor = {
+  id: string;
+  name: string;
+  stock: number;
+};
+
+export type FinishedProduct = {
+  id: string;
+  sku: string;
+  name: string;
+  recipe: RecipeItem[];
+  finalCost: number;
+  salePrice: number;
+  flavors: Flavor[];
+};

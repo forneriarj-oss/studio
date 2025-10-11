@@ -1,8 +1,8 @@
 
 'use client';
 import { useState, useMemo } from 'react';
-import { getSales, getProducts, updateStock } from '@/lib/data';
-import type { Sale, Product, PaymentMethod } from '@/lib/types';
+import { getSales, getRawMaterials, updateStock } from '@/lib/data';
+import type { Sale, RawMaterial, PaymentMethod } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const initialSales = getSales();
-const initialProducts = getProducts();
+const initialProducts = getRawMaterials();
 const paymentMethods: PaymentMethod[] = ['PIX', 'Cartão', 'Dinheiro'];
 
 const formatCurrency = (amount: number) => {
@@ -33,7 +33,7 @@ const formatCurrency = (amount: number) => {
     }).format(amount);
 };
 
-function PricingCalculator({ product, onPriceCalculated }: { product: Product | undefined, onPriceCalculated: (price: number) => void }) {
+function PricingCalculator({ product, onPriceCalculated }: { product: RawMaterial | undefined, onPriceCalculated: (price: number) => void }) {
     const [taxPercent, setTaxPercent] = useState(10);
     const [feePercent, setFeePercent] = useState(5);
     const [profitMargin, setProfitMargin] = useState(30);
@@ -94,7 +94,7 @@ function PricingCalculator({ product, onPriceCalculated }: { product: Product | 
 
 export default function SalesPage() {
     const [sales, setSales] = useState<Sale[]>(initialSales);
-    const [products, setProducts] = useState<Product[]>(initialProducts);
+    const [products, setProducts] = useState<RawMaterial[]>(initialProducts);
     const { toast } = useToast();
     const [newSale, setNewSale] = useState({
         productId: '',
@@ -181,7 +181,7 @@ export default function SalesPage() {
     <TooltipProvider>
       <div className="flex flex-col gap-8">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold tracking-tight">Vendas</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Vendas de Produtos Acabados</h1>
            <Dialog>
               <DialogTrigger asChild>
                 <Button>

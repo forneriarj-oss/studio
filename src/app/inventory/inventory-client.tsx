@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Product } from "@/lib/types";
+import type { RawMaterial } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -26,8 +26,8 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-export function InventoryClient({ initialProducts }: { initialProducts: Product[] }) {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+export function InventoryClient({ initialProducts }: { initialProducts: RawMaterial[] }) {
+  const [products, setProducts] = useState<RawMaterial[]>(initialProducts);
   const [newProduct, setNewProduct] = useState({
     code: "",
     description: "",
@@ -39,7 +39,7 @@ export function InventoryClient({ initialProducts }: { initialProducts: Product[
   });
 
   const handleAddProduct = () => {
-    const productToAdd: Product = {
+    const productToAdd: RawMaterial = {
       id: `prod-${Date.now()}`,
       ...newProduct
     };
@@ -62,19 +62,19 @@ export function InventoryClient({ initialProducts }: { initialProducts: Product[
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>Produtos</CardTitle>
-            <CardDescription>Gerencie seus produtos e níveis de estoque.</CardDescription>
+            <CardTitle>Matérias-Primas</CardTitle>
+            <CardDescription>Gerencie suas matérias-primas e níveis de estoque.</CardDescription>
           </div>
           <Dialog>
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="mr-2 h-4 w-4" />
-                Adicionar Produto
+                Adicionar Matéria-Prima
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Adicionar Novo Produto</DialogTitle>
+                <DialogTitle>Adicionar Nova Matéria-Prima</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -108,7 +108,7 @@ export function InventoryClient({ initialProducts }: { initialProducts: Product[
               </div>
               <DialogFooter>
                 <DialogClose asChild>
-                  <Button type="submit" onClick={handleAddProduct}>Salvar Produto</Button>
+                  <Button type="submit" onClick={handleAddProduct}>Salvar Matéria-Prima</Button>
                 </DialogClose>
               </DialogFooter>
             </DialogContent>

@@ -1,8 +1,8 @@
 
 'use client';
 import { useState } from 'react';
-import { getPurchases, getProducts, updateStock } from '@/lib/data';
-import type { Purchase, Product } from '@/lib/types';
+import { getPurchases, getRawMaterials, updateStock } from '@/lib/data';
+import type { Purchase, RawMaterial } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 const initialPurchases = getPurchases();
-const initialProducts = getProducts();
+const initialProducts = getRawMaterials();
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -33,7 +33,7 @@ const formatCurrency = (amount: number) => {
 
 export default function PurchasesPage() {
     const [purchases, setPurchases] = useState<Purchase[]>(initialPurchases);
-    const [products, setProducts] = useState<Product[]>(initialProducts);
+    const [products, setProducts] = useState<RawMaterial[]>(initialProducts);
     const { toast } = useToast();
     const [newPurchase, setNewPurchase] = useState({
         productId: '',
@@ -68,7 +68,7 @@ export default function PurchasesPage() {
             
             toast({
                 title: 'Compra registrada!',
-                description: `Estoque do produto atualizado.`,
+                description: `Estoque da matéria-prima atualizado.`,
             });
 
             // Reset form
@@ -88,7 +88,7 @@ export default function PurchasesPage() {
     }
 
     const getProductDescription = (productId: string) => {
-        return products.find(p => p.id === productId)?.description || 'Produto não encontrado';
+        return products.find(p => p.id === productId)?.description || 'Matéria-prima não encontrada';
     }
 
   return (
@@ -108,10 +108,10 @@ export default function PurchasesPage() {
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="product" className="text-right">Produto</Label>
+                  <Label htmlFor="product" className="text-right">Matéria-Prima</Label>
                     <Select onValueChange={(value) => setNewPurchase({...newPurchase, productId: value})}>
                         <SelectTrigger id="product" className="col-span-3">
-                            <SelectValue placeholder="Selecione um produto" />
+                            <SelectValue placeholder="Selecione uma matéria-prima" />
                         </SelectTrigger>
                         <SelectContent>
                         {products.map(product => (
@@ -144,13 +144,13 @@ export default function PurchasesPage() {
       <Card>
         <CardHeader>
           <CardTitle>Histórico de Compras</CardTitle>
-          <CardDescription>Todas as compras de produtos registradas.</CardDescription>
+          <CardDescription>Todas as compras de matérias-primas registradas.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Produto</TableHead>
+                <TableHead>Matéria-Prima</TableHead>
                 <TableHead>Data</TableHead>
                 <TableHead className="text-right">Quantidade</TableHead>
                 <TableHead className="text-right">Custo Unit.</TableHead>

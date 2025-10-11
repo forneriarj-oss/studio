@@ -1,7 +1,7 @@
 
 'use client';
-import { getStockMovements, getProducts, getSales } from '@/lib/data';
-import type { StockMovement, Product } from '@/lib/types';
+import { getStockMovements, getRawMaterials, getSales } from '@/lib/data';
+import type { StockMovement, RawMaterial } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,7 @@ import { ArrowUp, ArrowDown } from 'lucide-react';
 import { useMemo } from 'react';
 
 const stockMovements = getStockMovements();
-const products = getProducts();
+const products = getRawMaterials();
 const sales = getSales();
 
 const formatCurrency = (amount: number) => {
@@ -21,7 +21,7 @@ const formatCurrency = (amount: number) => {
 
 export default function ReportsPage() {
 
-    const getProductInfo = (productId: string): Product | undefined => {
+    const getProductInfo = (productId: string): RawMaterial | undefined => {
         return products.find(p => p.id === productId);
     }
 
@@ -30,7 +30,7 @@ export default function ReportsPage() {
     .slice(0, 10);
     
     const topSellingProducts = useMemo(() => {
-        const productSales: { [key: string]: { quantity: number; total: number; profit: number; product: Product } } = {};
+        const productSales: { [key: string]: { quantity: number; total: number; profit: number; product: RawMaterial } } = {};
 
         sales.forEach(sale => {
             const product = getProductInfo(sale.productId);
@@ -57,14 +57,14 @@ export default function ReportsPage() {
 
         <Card>
             <CardHeader>
-                <CardTitle>Produtos Mais Vendidos e Rentáveis</CardTitle>
-                <CardDescription>Ranking dos seus produtos com base na quantidade vendida e lucratividade.</CardDescription>
+                <CardTitle>Matérias-Primas Mais Vendidas e Rentáveis</CardTitle>
+                <CardDescription>Ranking de suas matérias-primas com base na quantidade vendida e lucratividade.</CardDescription>
             </CardHeader>
             <CardContent>
                  <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Produto</TableHead>
+                            <TableHead>Matéria-Prima</TableHead>
                             <TableHead className="text-right">Quantidade Vendida</TableHead>
                             <TableHead className="text-right">Total em Vendas</TableHead>
                             <TableHead className="text-right">Lucro Total</TableHead>
@@ -87,13 +87,13 @@ export default function ReportsPage() {
         <Card>
             <CardHeader>
                 <CardTitle>Movimentação Recente de Estoque</CardTitle>
-                <CardDescription>Um registro das entradas e saídas mais recentes do seu estoque.</CardDescription>
+                <CardDescription>Um registro das entradas e saídas mais recentes do seu estoque de matérias-primas.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Produto</TableHead>
+                        <TableHead>Matéria-Prima</TableHead>
                         <TableHead>Data</TableHead>
                         <TableHead>Tipo</TableHead>
                         <TableHead>Origem</TableHead>
@@ -103,7 +103,7 @@ export default function ReportsPage() {
                 <TableBody>
                     {recentMovements.map(movement => (
                     <TableRow key={movement.id}>
-                        <TableCell className="font-medium">{getProductInfo(movement.productId)?.description || 'Produto não encontrado'}</TableCell>
+                        <TableCell className="font-medium">{getProductInfo(movement.productId)?.description || 'Matéria-prima não encontrada'}</TableCell>
                         <TableCell>{new Date(movement.date).toLocaleDateString('pt-BR')}</TableCell>
                         <TableCell>
                             {movement.type === 'in' ? (
@@ -122,7 +122,8 @@ export default function ReportsPage() {
                             {
                                 sale: 'Venda',
                                 purchase: 'Compra',
-                                initial: 'Inicial'
+                                initial: 'Inicial',
+                                production: 'Produção'
                             }[movement.source]
                          }</TableCell>
                         <TableCell className={`text-right font-semibold ${movement.type === 'in' ? 'text-green-600' : 'text-red-600'}`}>
@@ -137,4 +138,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-

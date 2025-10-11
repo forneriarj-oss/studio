@@ -14,6 +14,7 @@ import {
   Calendar,
   DollarSign,
   Users,
+  Warehouse
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -24,15 +25,15 @@ import {
 const allNavItems = [
     { href: '/', label: 'Painel', icon: LayoutDashboard },
     { href: '/calendar', label: 'Agenda', icon: Calendar },
-    { href: '/sales', label: 'Vendas', icon: ShoppingCart },
+    { href: '/sales', label: 'Vendas de Produtos Acabados', icon: ShoppingCart },
     { href: '/cash-flow', label: 'Caixa', icon: Landmark },
     { href: '/revenue', label: 'Receitas', icon: DollarSign },
     { href: '/expenses', label: 'Despesas', icon: DollarSign },
-    { href: '/inventory', label: 'Estoque', icon: Box },
+    { href: '/finished-products', label: 'Produtos Acabados', icon: Component },
+    { href: '/inventory', label: 'Matérias-Primas', icon: Warehouse },
     { href: '/purchases', label: 'Compras', icon: Package },
     { href: '/reports', label: 'Relatórios', icon: FileText },
-    { href: '/users', label: 'Usuários', icon: Users }, // Placeholder link
-    { href: '/settings', label: 'Configurações', icon: Settings }, // Placeholder link
+    { href: '/#', label: 'Configurações', icon: Settings }, // Placeholder link
   ];
 
 export function Nav() {
