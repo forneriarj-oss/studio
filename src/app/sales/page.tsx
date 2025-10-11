@@ -1,8 +1,8 @@
 
 'use client';
 import { useState, useMemo } from 'react';
-import { getSales, getRawMaterials, updateStock } from '@/lib/data';
-import type { Sale, RawMaterial, PaymentMethod } from '@/lib/types';
+import { getSales, getFinishedProducts, updateStock } from '@/lib/data';
+import type { Sale, FinishedProduct, PaymentMethod, Flavor } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const initialSales = getSales();
-const initialProducts = getRawMaterials();
+const initialProducts = getFinishedProducts();
 const paymentMethods: PaymentMethod[] = ['PIX', 'Cartão', 'Dinheiro'];
 
 const formatCurrency = (amount: number) => {
@@ -34,14 +34,14 @@ const formatCurrency = (amount: number) => {
     }).format(amount);
 };
 
-function PricingCalculator({ product, onPriceCalculated }: { product: RawMaterial | undefined, onPriceCalculated: (price: number) => void }) {
+function PricingCalculator({ product, onPriceCalculated }: { product: FinishedProduct | undefined, onPriceCalculated: (price: number) => void }) {
     const [taxPercent, setTaxPercent] = useState(10);
     const [feePercent, setFeePercent] = useState(5);
     const [profitMargin, setProfitMargin] = useState(30);
 
     const suggestedPrice = useMemo(() => {
         if (!product) return 0;
-        const cost = product.cost;
+        const cost = product.finalCost;
         const taxes = cost * (taxPercent / 100);
         const fees = cost * (feePercent / 100);
         
@@ -55,12 +55,12 @@ function PricingCalculator({ product, onPriceCalculated }: { product: RawMateria
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Calculadora de Precificação Inteligente</DialogTitle>
-                 <DialogDescription>Calcule o preço de venda ideal para '{product?.description}'.</DialogDescription>
+                 <DialogDescription>Calcule o preço de venda ideal para '{product?.name}'.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
                  <div className="p-4 rounded-md bg-muted">
                     <Label>Preço de Custo do Produto</Label>
-                    <p className="text-2xl font-bold">{formatCurrency(product?.cost || 0)}</p>
+                    <p className="text-2xl font-bold">{formatCurrency(product?.finalCost || 0)}</p>
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="taxPercent">Impostos (ICMS, PIS, etc.) (%)</Label>
@@ -95,10 +95,11 @@ function PricingCalculator({ product, onPriceCalculated }: { product: RawMateria
 
 export default function SalesPage() {
     const [sales, setSales] = useState<Sale[]>(initialSales);
-    const [products, setProducts] = useState<RawMaterial[]>(initialProducts);
+    const [products, setProducts] = useState<FinishedProduct[]>(initialProducts);
     const { toast } = useToast();
     const [newSale, setNewSale] = useState({
         productId: '',
+        flavorId: '',
         quantity: 1,
         unitPrice: 0,
         date: new Date().toISOString().split('T')[0],
@@ -110,12 +111,16 @@ export default function SalesPage() {
         return products.find(p => p.id === productId);
     }
     
+    const getFlavor = (product: FinishedProduct | undefined, flavorId: string): Flavor | undefined => {
+        return product?.flavors.find(f => f.id === flavorId);
+    }
+
     const calculateNetProfit = (sale: Sale) => {
         const product = getProduct(sale.productId);
         if (!product) return 0;
     
         const totalSalePrice = sale.quantity * sale.unitPrice;
-        const totalCostPrice = sale.quantity * product.cost;
+        const totalCostPrice = sale.quantity * product.finalCost;
         const commissionAmount = totalSalePrice * ((sale.commission || 0) / 100);
     
         return totalSalePrice - totalCostPrice - commissionAmount;
@@ -137,8 +142,9 @@ export default function SalesPage() {
 
     const handleAddSale = () => {
         const product = products.find(p => p.id === newSale.productId);
+        const flavor = getFlavor(product, newSale.flavorId);
 
-        if (!newSale.productId || newSale.quantity <= 0 || newSale.unitPrice < 0) {
+        if (!newSale.productId || !newSale.flavorId || newSale.quantity <= 0 || newSale.unitPrice < 0) {
             toast({
                 variant: 'destructive',
                 title: 'Erro',
@@ -147,11 +153,11 @@ export default function SalesPage() {
             return;
         }
 
-        if (!product || product.quantity < newSale.quantity) {
+        if (!product || !flavor || flavor.stock < newSale.quantity) {
              toast({
                 variant: 'destructive',
                 title: 'Erro de Estoque',
-                description: 'Quantidade em estoque insuficiente para esta venda.',
+                description: 'Quantidade em estoque insuficiente para este sabor.',
             });
             return;
         }
@@ -161,12 +167,12 @@ export default function SalesPage() {
             ...newSale
         };
 
-        const updatedStock = updateStock(newSale.productId, newSale.quantity, 'out');
+        const updatedStock = updateStock(newSale.productId, newSale.quantity, 'out', newSale.flavorId);
         
         if (updatedStock) {
             setSales(prev => [saleToAdd, ...prev]);
             setProducts(prevProducts => prevProducts.map(p => 
-                p.id === newSale.productId ? { ...p, quantity: p.quantity - newSale.quantity } : p
+                p.id === newSale.productId ? { ...p, flavors: p.flavors.map(f => f.id === newSale.flavorId ? {...f, stock: f.stock - newSale.quantity} : f) } : p
             ));
 
              toast({
@@ -177,6 +183,7 @@ export default function SalesPage() {
             // Reset form
             setNewSale({
                 productId: '',
+                flavorId: '',
                 quantity: 1,
                 unitPrice: 0,
                 date: new Date().toISOString().split('T')[0],
@@ -192,12 +199,14 @@ export default function SalesPage() {
         }
     }
 
+    const selectedProduct = getProduct(newSale.productId);
+
   return (
     <TooltipProvider>
       <div className="flex flex-col gap-8">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold tracking-tight">Vendas de Produtos Acabados</h1>
-           <Dialog>
+           <Dialog onOpenChange={(open) => !open && setNewSale({ productId: '', flavorId: '', quantity: 1, unitPrice: 0, date: new Date().toISOString().split('T')[0], paymentMethod: 'PIX', commission: 0 })}>
               <DialogTrigger asChild>
                 <Button>
                   <PlusCircle className="mr-2 h-4 w-4" />
@@ -210,24 +219,44 @@ export default function SalesPage() {
                    <DialogDescription>Preencha os detalhes abaixo para registrar uma nova venda.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="product">Produto</Label>
-                      <Select onValueChange={(value) => {
-                          const product = products.find(p => p.id === value);
-                          setNewSale({...newSale, productId: value, unitPrice: product?.cost ? parseFloat((product.cost * 1.3).toFixed(2)) : 0 });
-                      }}>
-                          <SelectTrigger id="product">
-                              <SelectValue placeholder="Selecione um produto" />
-                          </SelectTrigger>
-                          <SelectContent>
-                          {products.map(product => (
-                              <SelectItem key={product.id} value={product.id} disabled={product.quantity <= 0}>
-                                  {product.description} (Estoque: {product.quantity})
-                              </SelectItem>
-                          ))}
-                          </SelectContent>
-                      </Select>
-                  </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="product">Produto</Label>
+                        <Select onValueChange={(value) => {
+                            const product = products.find(p => p.id === value);
+                            setNewSale({...newSale, productId: value, flavorId: '', unitPrice: product?.salePrice || 0 });
+                        }}>
+                            <SelectTrigger id="product">
+                                <SelectValue placeholder="Selecione um produto" />
+                            </SelectTrigger>
+                            <SelectContent>
+                            {products.map(product => (
+                                <SelectItem key={product.id} value={product.id}>
+                                    {product.name}
+                                </SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {selectedProduct && (
+                        <div className="space-y-2">
+                            <Label htmlFor="flavor">Sabor</Label>
+                            <Select onValueChange={(value) => setNewSale({...newSale, flavorId: value})} value={newSale.flavorId}>
+                                <SelectTrigger id="flavor">
+                                    <SelectValue placeholder="Selecione um sabor" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                {selectedProduct.flavors.map(flavor => (
+                                    <SelectItem key={flavor.id} value={flavor.id} disabled={flavor.stock <= 0}>
+                                        {flavor.name} (Estoque: {flavor.stock})
+                                    </SelectItem>
+                                ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="quantity">Quantidade</Label>
@@ -366,9 +395,14 @@ export default function SalesPage() {
                 {sales.map(sale => {
                   const total = sale.quantity * sale.unitPrice;
                   const netProfit = calculateNetProfit(sale);
+                  const product = getProduct(sale.productId);
+                  const flavorName = getFlavor(product, sale.flavorId || '')?.name;
                   return (
                     <TableRow key={sale.id}>
-                      <TableCell className="font-medium">{getProduct(sale.productId)?.description || 'N/A'}</TableCell>
+                      <TableCell className="font-medium">
+                        {product?.name || 'N/A'}
+                        {flavorName && <span className='text-muted-foreground text-xs ml-1'>({flavorName})</span>}
+                        </TableCell>
                       <TableCell>{new Date(sale.date).toLocaleDateString('pt-BR')}</TableCell>
                       <TableCell className="text-right">{sale.quantity}</TableCell>
                       <TableCell className="text-right">{formatCurrency(sale.unitPrice)}</TableCell>
@@ -389,5 +423,3 @@ export default function SalesPage() {
     </TooltipProvider>
   );
 }
-
-    

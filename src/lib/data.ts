@@ -94,12 +94,25 @@ let finishedProducts: FinishedProduct[] = [
       { id: 'flav-1', name: 'Tradicional', stock: 10 },
       { id: 'flav-2', name: 'Branco', stock: 5 },
     ]
+  },
+  { 
+    id: 'fp-2', 
+    sku: 'PA-CEN-01', 
+    name: 'Bolo de Cenoura com Chocolate', 
+    recipe: [], 
+    finalCost: 22.00, 
+    salePrice: 45.00,
+    flavors: [
+      { id: 'flav-3', name: 'Com Cobertura', stock: 8 },
+      { id: 'flav-4', name: 'Sem Cobertura', stock: 4 },
+      { id: 'flav-5', name: 'Vulcão', stock: 3 },
+    ]
   }
 ];
 
 let sales: Sale[] = [
-    { id: 'sale-1', productId: 'prod-1', quantity: 1, unitPrice: 9500, date: today.toISOString().split('T')[0], paymentMethod: 'PIX' },
-    { id: 'sale-2', productId: 'prod-3', quantity: 2, unitPrice: 450, date: yesterday.toISOString().split('T')[0], paymentMethod: 'Cartão' },
+    { id: 'sale-1', productId: 'fp-1', flavorId: 'flav-1', quantity: 1, unitPrice: 50, date: today.toISOString().split('T')[0], paymentMethod: 'PIX' },
+    { id: 'sale-2', productId: 'fp-2', flavorId: 'flav-3', quantity: 2, unitPrice: 45, date: yesterday.toISOString().split('T')[0], paymentMethod: 'Cartão' },
 ];
 
 let purchases: Purchase[] = [
@@ -181,12 +194,14 @@ export function getUserByEmail(email: string): User | undefined {
 }
 
 // This is a mock function. In a real app, this would update a database.
-export function updateStock(productId: string, quantity: number, type: 'in' | 'out'): boolean {
-    const productIndex = rawMaterials.findIndex(p => p.id === productId);
-    if (productIndex === -1) {
+export function updateStock(productId: string, quantity: number, type: 'in' | 'out', flavorId?: string): boolean {
+    const rawMaterialIndex = rawMaterials.findIndex(p => p.id === productId);
+    const finishedProductIndex = finishedProducts.findIndex(p => p.id === productId);
+
+    if (rawMaterialIndex === -1 && finishedProductIndex === -1) {
         return false;
     }
-
+    
     const newStockMovement: StockMovement = {
         id: `sm-${Date.now()}`,
         productId,
@@ -195,18 +210,29 @@ export function updateStock(productId: string, quantity: number, type: 'in' | 'o
         date: new Date().toISOString().split('T')[0],
         source: type === 'in' ? 'purchase' : 'sale'
     };
-
     stockMovements.push(newStockMovement);
 
-    if (type === 'in') {
-        rawMaterials[productIndex].quantity += quantity;
-    } else {
-        if (rawMaterials[productIndex].quantity < quantity) {
-            // Should not happen if checked before calling, but as a safeguard.
-            return false; 
+    if (rawMaterialIndex !== -1) { // It's a raw material
+        if (type === 'in') {
+            rawMaterials[rawMaterialIndex].quantity += quantity;
+        } else {
+            if (rawMaterials[rawMaterialIndex].quantity < quantity) return false;
+            rawMaterials[rawMaterialIndex].quantity -= quantity;
         }
-        rawMaterials[productIndex].quantity -= quantity;
+    } else { // It's a finished product
+        const product = finishedProducts[finishedProductIndex];
+        const flavorIndex = product.flavors.findIndex(f => f.id === flavorId);
+        
+        if (flavorIndex === -1) return false; // Flavor not found
+        
+        if (type === 'in') {
+             product.flavors[flavorIndex].stock += quantity;
+        } else {
+            if (product.flavors[flavorIndex].stock < quantity) return false;
+            product.flavors[flavorIndex].stock -= quantity;
+        }
     }
+
 
     return true;
 }

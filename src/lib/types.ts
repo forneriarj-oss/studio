@@ -46,7 +46,8 @@ export type RawMaterial = {
 
 export type Sale = {
   id: string;
-  productId: string; // Can be RawMaterial or FinishedProduct
+  productId: string;
+  flavorId?: string; // ID of the flavor for FinishedProduct
   quantity: number;
   unitPrice: number;
   date: string;
