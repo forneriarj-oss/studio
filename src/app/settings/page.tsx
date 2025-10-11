@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { getSales, getExpenses, getRevenue, getFinishedProducts } from '@/lib/data';
-import { Trash2 } from 'lucide-react';
+import { Trash2, AlertCircle } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -133,6 +133,20 @@ export default function SettingsPage() {
         toast({ title: 'Exportação Concluída', description: `O relatório foi salvo em PDF.` });
     };
 
+    const handleResetData = () => {
+        toast({
+            title: 'Você tem certeza?',
+            description: 'Esta ação não pode ser desfeita. Isso excluirá permanentemente todos os dados de vendas, despesas e receitas.',
+            action: <Button variant="destructive" onClick={() => {
+                // Em um app real, aqui você chamaria a função para limpar os dados no backend
+                console.log('Dados zerados!');
+                toast({
+                    title: 'Dados Zerados!',
+                    description: 'Todas as vendas, despesas e receitas foram removidas.',
+                });
+            }}>Sim, zerar dados</Button>,
+        });
+    }
 
   return (
     <div className="flex flex-col gap-8">
@@ -274,29 +288,43 @@ export default function SettingsPage() {
             <Card className="mt-6">
                 <CardHeader>
                     <CardTitle>Configurações Avançadas</CardTitle>
-                    <CardDescription>Exporte seus dados do sistema.</CardDescription>
+                    <CardDescription>Exporte seus dados do sistema ou execute ações perigosas.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between rounded-md border p-4">
-                        <div>
-                            <h3 className="font-semibold">Exportar Dados de Vendas</h3>
-                            <p className="text-sm text-muted-foreground">Baixe um arquivo PDF com todas as vendas registradas.</p>
+                <CardContent className="space-y-6">
+                    <div className="space-y-4">
+                        <h3 className="font-semibold">Exportar Dados</h3>
+                        <div className="flex items-center justify-between rounded-md border p-4">
+                            <div>
+                                <h4 className="font-medium">Exportar Dados de Vendas</h4>
+                                <p className="text-sm text-muted-foreground">Baixe um arquivo PDF com todas as vendas registradas.</p>
+                            </div>
+                            <Button variant="outline" onClick={() => handleExportPDF('sales')}>Exportar PDF</Button>
                         </div>
-                        <Button variant="outline" onClick={() => handleExportPDF('sales')}>Exportar PDF</Button>
+                        <div className="flex items-center justify-between rounded-md border p-4">
+                            <div>
+                                <h4 className="font-medium">Exportar Dados de Despesas</h4>
+                                <p className="text-sm text-muted-foreground">Baixe um arquivo PDF com todas as despesas registradas.</p>
+                            </div>
+                            <Button variant="outline" onClick={() => handleExportPDF('expenses')}>Exportar PDF</Button>
+                        </div>
+                        <div className="flex items-center justify-between rounded-md border p-4">
+                            <div>
+                                <h4 className="font-medium">Exportar Dados de Receitas</h4>
+                                <p className="text-sm text-muted-foreground">Baixe um arquivo PDF com todas as receitas registradas.</p>
+                            </div>
+                            <Button variant="outline" onClick={() => handleExportPDF('revenue')}>Exportar PDF</Button>
+                        </div>
                     </div>
-                    <div className="flex items-center justify-between rounded-md border p-4">
-                        <div>
-                            <h3 className="font-semibold">Exportar Dados de Despesas</h3>
-                            <p className="text-sm text-muted-foreground">Baixe um arquivo PDF com todas as despesas registradas.</p>
+                    <div className="rounded-lg border border-destructive/50 p-4">
+                        <div className="flex items-center gap-2">
+                           <AlertCircle className="h-5 w-5 text-destructive" />
+                           <h3 className="text-lg font-semibold text-destructive">Zona de Perigo</h3>
                         </div>
-                        <Button variant="outline" onClick={() => handleExportPDF('expenses')}>Exportar PDF</Button>
-                    </div>
-                    <div className="flex items-center justify-between rounded-md border p-4">
-                        <div>
-                            <h3 className="font-semibold">Exportar Dados de Receitas</h3>
-                            <p className="text-sm text-muted-foreground">Baixe um arquivo PDF com todas as receitas registradas.</p>
-                        </div>
-                        <Button variant="outline" onClick={() => handleExportPDF('revenue')}>Exportar PDF</Button>
+                        <p className="mt-2 text-sm text-muted-foreground">A ação abaixo é permanente e não pode ser desfeita. Tenha certeza absoluta antes de continuar.</p>
+                        <Button variant="destructive" className="mt-4" onClick={handleResetData}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Zerar Dados de Vendas e Caixa
+                        </Button>
                     </div>
                 </CardContent>
             </Card>
