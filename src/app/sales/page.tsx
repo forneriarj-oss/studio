@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { getSales, getFinishedProducts, updateStock } from '@/lib/data';
 import type { Sale, FinishedProduct, PaymentMethod, Flavor } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -97,15 +97,22 @@ export default function SalesPage() {
     const [sales, setSales] = useState<Sale[]>(initialSales);
     const [products, setProducts] = useState<FinishedProduct[]>(initialProducts);
     const { toast } = useToast();
+    const [isClient, setIsClient] = useState(false);
     const [newSale, setNewSale] = useState({
         productId: '',
         flavorId: '',
         quantity: 1,
         unitPrice: 0,
-        date: new Date().toISOString().split('T')[0],
+        date: '',
         paymentMethod: 'PIX' as PaymentMethod,
         commission: 0,
     });
+    
+    useEffect(() => {
+        setIsClient(true);
+        setNewSale(prev => ({ ...prev, date: new Date().toISOString().split('T')[0] }));
+    }, []);
+
 
     const getProduct = (productId: string) => {
         return products.find(p => p.id === productId);
@@ -200,6 +207,10 @@ export default function SalesPage() {
     }
 
     const selectedProduct = getProduct(newSale.productId);
+    
+    if (!isClient) {
+        return null;
+    }
 
   return (
     <TooltipProvider>
