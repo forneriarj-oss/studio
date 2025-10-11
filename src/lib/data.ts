@@ -1,4 +1,4 @@
-import type { Expense, Revenue, Appointment, Product } from './types';
+import type { Expense, Revenue, Appointment, Product, Sale, Purchase, StockMovement, ExpenseCategory } from './types';
 
 const today = new Date();
 const yesterday = new Date(today);
@@ -80,6 +80,24 @@ const products: Product[] = [
     { id: 'prod-5', code: 'SSD-005', description: 'SSD NVMe 1TB', unit: 'pç', cost: 600, supplier: 'Fornecedor B', quantity: 30, minStock: 15 },
 ];
 
+const sales: Sale[] = [
+    { id: 'sale-1', productId: 'prod-1', quantity: 1, unitPrice: 9500, date: today.toISOString().split('T')[0] },
+    { id: 'sale-2', productId: 'prod-3', quantity: 2, unitPrice: 450, date: yesterday.toISOString().split('T')[0] },
+];
+
+const purchases: Purchase[] = [
+    { id: 'purch-1', productId: 'prod-2', quantity: 10, unitCost: 110, date: twoDaysAgo.toISOString().split('T')[0] },
+    { id: 'purch-2', productId: 'prod-4', quantity: 5, unitCost: 2700, date: twoDaysAgo.toISOString().split('T')[0] },
+];
+
+const stockMovements: StockMovement[] = [
+    ...products.map(p => ({ id: `sm-init-${p.id}`, productId: p.id, type: 'in' as const, quantity: p.quantity, date: '2024-01-01', source: 'initial' as const })),
+    { id: 'sm-1', productId: 'prod-1', type: 'out', quantity: 1, date: today.toISOString().split('T')[0], source: 'sale' },
+    { id: 'sm-2', productId: 'prod-3', type: 'out', quantity: 2, date: yesterday.toISOString().split('T')[0], source: 'sale' },
+    { id: 'sm-3', productId: 'prod-2', type: 'in', quantity: 10, date: twoDaysAgo.toISOString().split('T')[0], source: 'purchase' },
+    { id: 'sm-4', productId: 'prod-4', type: 'in', quantity: 5, date: twoDaysAgo.toISOString().split('T')[0], source: 'purchase' },
+]
+
 
 export function getRevenue() {
   return revenues;
@@ -98,4 +116,16 @@ export function getAppointments() {
 
 export function getProducts() {
     return products;
+}
+
+export function getSales() {
+    return sales;
+}
+
+export function getPurchases() {
+    return purchases;
+}
+
+export function getStockMovements() {
+    return stockMovements;
 }

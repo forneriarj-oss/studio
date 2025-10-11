@@ -36,3 +36,28 @@ export type Product = {
   quantity: number;
   minStock: number;
 };
+
+export type Sale = {
+  id: string;
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+  date: string;
+};
+
+export type Purchase = {
+  id: string;
+  productId: string;
+  quantity: number;
+  unitCost: number;
+  date: string;
+};
+
+export type StockMovement = {
+  id: string;
+  productId: string;
+  type: 'in' | 'out';
+  quantity: number;
+  date: string;
+  source: 'purchase' | 'sale' | 'initial';
+};

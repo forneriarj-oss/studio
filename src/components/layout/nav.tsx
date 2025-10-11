@@ -8,6 +8,9 @@ import {
   TrendingDown,
   Calendar,
   Warehouse,
+  ShoppingCart,
+  Package,
+  FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -20,8 +23,11 @@ const navItems = [
   { href: "/", label: "Painel", icon: LayoutDashboard },
   { href: "/revenue", label: "Receita", icon: TrendingUp },
   { href: "/expenses", label: "Despesas", icon: TrendingDown },
+  { href: "/sales", label: "Vendas", icon: ShoppingCart },
+  { href: "/purchases", label: "Compras", icon: Package },
   { href: "/calendar", label: "Agenda", icon: Calendar },
   { href: "/inventory", label: "Estoque", icon: Warehouse },
+  { href: "/reports", label: "Relatórios", icon: FileText },
 ];
 
 export function Nav() {
@@ -31,7 +37,7 @@ export function Nav() {
     <SidebarMenu>
       {navItems.map((item) => (
         <SidebarMenuItem key={item.href}>
-          <SidebarMenuButton
+           <SidebarMenuButton
             asChild
             isActive={pathname === item.href}
             tooltip={item.label}
