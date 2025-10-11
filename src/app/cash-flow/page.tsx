@@ -4,8 +4,8 @@ import { getRevenue, getExpenses, getSales, getProducts } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useState, useMemo } from 'react';
-import { subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from 'date-fns';
+import { useState, useMemo, useEffect } from 'react';
+import { subDays, startOfWeek, endOfWeek, startOfMonth, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import type { Revenue, Expense, Sale, Product } from '@/lib/types';
@@ -36,6 +36,11 @@ const chartConfig = {
 
 export default function CashFlowPage() {
   const [timeRange, setTimeRange] = useState('7d');
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const allRevenues = getRevenue();
   const allExpenses = getExpenses();
@@ -43,6 +48,16 @@ export default function CashFlowPage() {
   const allProducts = getProducts();
 
   const { filteredRevenues, filteredExpenses, filteredSales, startDate, endDate } = useMemo(() => {
+    if (!isClient) {
+      // Return default/empty state for server-side rendering
+      return {
+        filteredRevenues: [],
+        filteredExpenses: [],
+        filteredSales: [],
+        startDate: new Date(),
+        endDate: new Date(),
+      };
+    }
     const now = new Date();
     let startDate: Date;
     const endDate = new Date();
@@ -76,7 +91,7 @@ export default function CashFlowPage() {
       startDate,
       endDate
     };
-  }, [timeRange, allRevenues, allExpenses, allSales]);
+  }, [timeRange, allRevenues, allExpenses, allSales, isClient]);
 
   const totalRevenue = filteredRevenues.reduce((acc, curr) => acc + curr.amount, 0);
   const totalExpenses = filteredExpenses.reduce((acc, curr) => acc + curr.amount, 0);
@@ -96,6 +111,7 @@ export default function CashFlowPage() {
 
 
   const chartData = useMemo(() => {
+    if (!isClient) return [];
     const data: { [key: string]: { revenue: number; expenses: number } } = {};
     const dayFormat = timeRange === 'this_month' ? 'dd/MM' : 'EEE';
 
@@ -121,7 +137,7 @@ export default function CashFlowPage() {
       revenue: data[key].revenue,
       expenses: data[key].expenses,
     }));
-  }, [filteredRevenues, filteredExpenses, timeRange, startDate, endDate]);
+  }, [filteredRevenues, filteredExpenses, timeRange, startDate, endDate, isClient]);
 
   const summaryByPaymentMethod = useMemo(() => {
     const summary: { [key: string]: { revenue: number; expenses: number } } = {
@@ -147,6 +163,10 @@ export default function CashFlowPage() {
 
     return summary;
   }, [filteredRevenues, filteredExpenses]);
+  
+  if (!isClient) {
+    return null; // or a loading skeleton
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -267,5 +287,3 @@ export default function CashFlowPage() {
     </div>
   );
 }
-
-    
