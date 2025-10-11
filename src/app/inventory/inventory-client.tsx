@@ -117,6 +117,7 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
                                 <SelectItem value="G">Grama (G)</SelectItem>
                                 <SelectItem value="L">Litro (L)</SelectItem>
                                 <SelectItem value="ML">Mililitro (ML)</SelectItem>
+                                <SelectItem value="PORCAO70G">Porção (70g)</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
