@@ -9,7 +9,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, PlusCircle } from "lucide-react";
+import { AlertCircle, PlusCircle, Edit, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -31,18 +42,23 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
+const EMPTY_PRODUCT_STATE = {
+  description: "",
+  unit: "",
+  cost: 0,
+  quantity: 0,
+  minStock: 10,
+  supplier: 'N/A'
+};
+
 export function InventoryClient({ initialProducts }: { initialProducts: RawMaterial[] }) {
   const [products, setProducts] = useState<RawMaterial[]>(initialProducts);
   const [isNewProductDialogOpen, setIsNewProductDialogOpen] = useState(false);
+  const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<RawMaterial | null>(null);
+
   const { toast } = useToast();
-  const [newProduct, setNewProduct] = useState({
-    description: "",
-    unit: "",
-    cost: 0,
-    quantity: 0,
-    minStock: 10,
-    supplier: 'N/A'
-  });
+  const [newProduct, setNewProduct] = useState(EMPTY_PRODUCT_STATE);
 
   const handleAddProduct = () => {
     if (!newProduct.description || !newProduct.unit || newProduct.cost < 0 || newProduct.quantity < 0) {
@@ -61,14 +77,7 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
     };
     setProducts(prev => [productToAdd, ...prev].sort((a,b) => a.description.localeCompare(b.description)));
     
-    setNewProduct({
-      description: "",
-      unit: "",
-      cost: 0,
-      quantity: 0,
-      minStock: 10,
-      supplier: 'N/A'
-    });
+    setNewProduct(EMPTY_PRODUCT_STATE);
 
     toast({
         title: "Matéria-Prima Adicionada!",
@@ -77,6 +86,42 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
 
     setIsNewProductDialogOpen(false);
   };
+  
+  const handleOpenEditDialog = (product: RawMaterial) => {
+    setSelectedProduct(product);
+    setIsEditProductDialogOpen(true);
+  }
+
+  const handleEditProduct = () => {
+    if (!selectedProduct) return;
+
+     if (!selectedProduct.description || !selectedProduct.unit || selectedProduct.cost < 0 || selectedProduct.quantity < 0) {
+      toast({
+        variant: "destructive",
+        title: "Campos obrigatórios incompletos",
+        description: "Por favor, preencha todos os campos com *.",
+      });
+      return;
+    }
+
+    setProducts(prev => prev.map(p => p.id === selectedProduct.id ? selectedProduct : p));
+
+    toast({
+        title: "Matéria-Prima Atualizada!",
+        description: `${selectedProduct.description} foi atualizado com sucesso.`,
+    });
+
+    setIsEditProductDialogOpen(false);
+    setSelectedProduct(null);
+  };
+
+  const handleDeleteProduct = (productId: string) => {
+    setProducts(prev => prev.filter(p => p.id !== productId));
+    toast({
+        title: "Matéria-Prima Removida!",
+        description: `O item foi removido do seu inventário.`,
+    });
+  }
 
 
   return (
@@ -89,7 +134,7 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
           </div>
           <Dialog open={isNewProductDialogOpen} onOpenChange={setIsNewProductDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={() => setNewProduct(EMPTY_PRODUCT_STATE)}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Adicionar Matéria-Prima
               </Button>
@@ -151,6 +196,7 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
                 <TableHead className="text-right">Custo</TableHead>
                 <TableHead className="text-right">Estoque</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -172,12 +218,92 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
                       <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">OK</Badge>
                     )}
                   </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end items-center gap-2">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditDialog(product)}>
+                        <Edit className="h-4 w-4" />
+                        <span className="sr-only">Editar</span>
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                           <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                            <span className="sr-only">Excluir</span>
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esta ação não pode ser desfeita. Isso excluirá permanentemente a matéria-prima.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteProduct(product.id)}>Excluir</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+      
+      {/* Edit Dialog */}
+      {selectedProduct && (
+        <Dialog open={isEditProductDialogOpen} onOpenChange={setIsEditProductDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Editar Matéria-Prima</DialogTitle>
+                    <DialogDescription>Atualize os detalhes do insumo.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-description">Nome *</Label>
+                        <Input id="edit-description" value={selectedProduct.description} onChange={(e) => setSelectedProduct({...selectedProduct, description: e.target.value})} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-unit">Unidade *</Label>
+                            <Select value={selectedProduct.unit} onValueChange={(value) => setSelectedProduct({...selectedProduct, unit: value})}>
+                                <SelectTrigger id="edit-unit">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="UN">Unidade (UN)</SelectItem>
+                                    <SelectItem value="KG">Quilograma (KG)</SelectItem>
+                                    <SelectItem value="G">Grama (G)</SelectItem>
+                                    <SelectItem value="L">Litro (L)</SelectItem>
+                                    <SelectItem value="ML">Mililitro (ML)</SelectItem>
+                                    <SelectItem value="PORCAO70G">Porção (70g)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-quantity">Estoque Atual *</Label>
+                            <Input id="edit-quantity" type="number" value={selectedProduct.quantity} onChange={(e) => setSelectedProduct({...selectedProduct, quantity: parseInt(e.target.value) || 0})} />
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-cost">Custo por Unidade *</Label>
+                        <Input id="edit-cost" type="number" value={selectedProduct.cost} onChange={(e) => setSelectedProduct({...selectedProduct, cost: parseFloat(e.target.value) || 0})} />
+                    </div>
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild>
+                     <Button type="button" variant="outline" onClick={() => setIsEditProductDialogOpen(false)}>Cancelar</Button>
+                  </DialogClose>
+                  <Button type="submit" onClick={handleEditProduct}>Salvar Alterações</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
+
+    
