@@ -87,8 +87,9 @@ export default function SalesPage() {
 
         let basePrice = selectedProductForDialog.salePrice;
         
+        // Example of a markup for iFood - this logic can be expanded
         if (newSale.location === 'iFood') {
-            basePrice *= 1.75; // 75% markup
+            basePrice *= 1.25; // 25% markup for iFood, for example
         }
         
         let total = basePrice * newSale.quantity;
@@ -163,7 +164,7 @@ export default function SalesPage() {
         batch.set(doc(revenuesRef), revenueFromSale);
         
         // 3. Update the product stock
-        const productDocRef = doc(firestore, `users/${user.uid}/finished-products`, product.id);
+        const productDocRef = doc(firestore, `users/${user.uid}/finished-products`, product.id!);
         const newFlavors = product.flavors.map(f => 
             f.id === newSale.flavorId ? { ...f, stock: f.stock - newSale.quantity } : f
         );
@@ -327,7 +328,7 @@ export default function SalesPage() {
                  {newSale.location === 'iFood' && (
                     <div className="flex justify-between items-center text-xs text-muted-foreground">
                         <span>(Preço base: {formatCurrency(selectedProductForDialog?.salePrice || 0)})</span>
-                        <span>+75% iFood</span>
+                        <span>+25% iFood</span>
                     </div>
                 )}
                  {newSale.location === 'Delivery' && deliveryFee > 0 && (

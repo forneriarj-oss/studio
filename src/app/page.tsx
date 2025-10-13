@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircle, Loader } from 'lucide-react';
+import { Loader } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import type { Sale, FinishedProduct, RawMaterial, Revenue } from '@/lib/types';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, eachDayOfInterval } from 'date-fns';
@@ -102,7 +102,8 @@ export default function Home() {
       }
     });
 
-    const profit = revenue - costOfGoodsSold;
+    const profit = (filteredSales?.reduce((acc, sale) => acc + (sale.unitPrice * sale.quantity), 0) || 0) - costOfGoodsSold;
+
 
     return {
       totalRevenue: revenue,
@@ -203,15 +204,15 @@ export default function Home() {
   }, [filteredSales, allProducts]);
 
     const salesByPaymentMethod = useMemo(() => {
-        if (!filteredSales) return [];
-        const data = filteredSales.reduce((acc, sale) => {
+        if (!filteredRevenues) return [];
+        const data = filteredRevenues.reduce((acc, sale) => {
             const method = sale.paymentMethod || 'N/A';
-            acc[method] = (acc[method] || 0) + (sale.unitPrice * sale.quantity);
+            acc[method] = (acc[method] || 0) + sale.amount;
             return acc;
         }, {} as Record<string, number>);
 
         return Object.entries(data).map(([name, value]) => ({name, value}));
-    }, [filteredSales]);
+    }, [filteredRevenues]);
 
 
   if (isUserLoading || !user || !isClient) {
