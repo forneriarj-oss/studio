@@ -34,7 +34,7 @@ export type Appointment = {
 
 // Renamed from Product to RawMaterial
 export type RawMaterial = {
-  id: string;
+  id?: string; // Optional for new documents
   code: string;
   description: string;
   unit: string;

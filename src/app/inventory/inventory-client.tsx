@@ -1,15 +1,14 @@
+'use client';
 
-"use client";
-
-import { useState } from "react";
-import type { RawMaterial } from "@/lib/types";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { AlertCircle, PlusCircle, Edit, Trash2 } from "lucide-react";
+import { useState, useMemo } from 'react';
+import type { RawMaterial } from '@/lib/types';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { AlertCircle, PlusCircle, Edit, Trash2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
 import {
   Dialog,
   DialogContent,
@@ -30,87 +29,95 @@ import {
   DialogFooter,
   DialogClose,
   DialogDescription,
-} from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-
+} from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { addDoc, collection, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
   }).format(amount);
 };
 
 const EMPTY_PRODUCT_STATE = {
-  description: "",
-  unit: "",
+  description: '',
+  unit: '',
   cost: 0,
   quantity: 0,
   minStock: 10,
-  supplier: 'N/A'
+  supplier: 'N/A',
+  code: `CODE-${Date.now()}`,
 };
 
-export function InventoryClient({ initialProducts }: { initialProducts: RawMaterial[] }) {
-  const [products, setProducts] = useState<RawMaterial[]>(initialProducts);
+export function InventoryClient() {
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const rawMaterialsRef = useMemoFirebase(
+    () => (user ? collection(firestore, `users/${user.uid}/raw-materials`) : null),
+    [firestore, user]
+  );
+  const { data: products, isLoading } = useCollection<RawMaterial>(rawMaterialsRef);
+
   const [isNewProductDialogOpen, setIsNewProductDialogOpen] = useState(false);
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<RawMaterial | null>(null);
-  const [editProductForm, setEditProductForm] = useState<RawMaterial | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<RawMaterial & { id: string } | null>(null);
+  const [editProductForm, setEditProductForm] = useState<RawMaterial & { id: string } | null>(null);
 
   const { toast } = useToast();
   const [newProduct, setNewProduct] = useState(EMPTY_PRODUCT_STATE);
 
-  const handleAddProduct = () => {
+  const handleAddProduct = async () => {
     if (!newProduct.description || !newProduct.unit || newProduct.cost < 0 || newProduct.quantity < 0) {
       toast({
-        variant: "destructive",
-        title: "Campos obrigatórios incompletos",
-        description: "Por favor, preencha todos os campos com *.",
+        variant: 'destructive',
+        title: 'Campos obrigatórios incompletos',
+        description: 'Por favor, preencha todos os campos com *.',
       });
       return;
     }
 
-    const productToAdd: RawMaterial = {
-      id: `prod-${Date.now()}`,
-      code: `CODE-${Date.now()}`,
-      ...newProduct
-    };
-    setProducts(prev => [productToAdd, ...prev].sort((a,b) => a.description.localeCompare(b.description)));
-    
+    if (!rawMaterialsRef) return;
+
+    await addDoc(rawMaterialsRef, newProduct);
+
     setNewProduct(EMPTY_PRODUCT_STATE);
 
     toast({
-        title: "Matéria-Prima Adicionada!",
-        description: `${productToAdd.description} foi adicionado ao seu inventário.`,
+      title: 'Matéria-Prima Adicionada!',
+      description: `${newProduct.description} foi adicionado ao seu inventário.`,
     });
 
     setIsNewProductDialogOpen(false);
   };
-  
-  const handleOpenEditDialog = (product: RawMaterial) => {
+
+  const handleOpenEditDialog = (product: RawMaterial & { id: string }) => {
     setSelectedProduct(product);
-    setEditProductForm(product); // Initialize form state for editing
+    setEditProductForm(product);
     setIsEditProductDialogOpen(true);
-  }
+  };
 
-  const handleEditProduct = () => {
-    if (!editProductForm) return;
+  const handleEditProduct = async () => {
+    if (!editProductForm || !user) return;
 
-     if (!editProductForm.description || !editProductForm.unit || editProductForm.cost < 0 || editProductForm.quantity < 0) {
+    if (!editProductForm.description || !editProductForm.unit || editProductForm.cost < 0 || editProductForm.quantity < 0) {
       toast({
-        variant: "destructive",
-        title: "Campos obrigatórios incompletos",
-        description: "Por favor, preencha todos os campos com *.",
+        variant: 'destructive',
+        title: 'Campos obrigatórios incompletos',
+        description: 'Por favor, preencha todos os campos com *.',
       });
       return;
     }
 
-    setProducts(prev => prev.map(p => p.id === editProductForm.id ? editProductForm : p));
+    const docRef = doc(firestore, `users/${user.uid}/raw-materials`, editProductForm.id);
+    const { id, ...dataToUpdate } = editProductForm;
+    await updateDoc(docRef, dataToUpdate);
 
     toast({
-        title: "Matéria-Prima Atualizada!",
-        description: `${editProductForm.description} foi atualizado com sucesso.`,
+      title: 'Matéria-Prima Atualizada!',
+      description: `${editProductForm.description} foi atualizado com sucesso.`,
     });
 
     setIsEditProductDialogOpen(false);
@@ -118,14 +125,15 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
     setEditProductForm(null);
   };
 
-  const handleDeleteProduct = (productId: string) => {
-    setProducts(prev => prev.filter(p => p.id !== productId));
+  const handleDeleteProduct = async (productId: string) => {
+    if (!user) return;
+    const docRef = doc(firestore, `users/${user.uid}/raw-materials`, productId);
+    await deleteDoc(docRef);
     toast({
-        title: "Matéria-Prima Removida!",
-        description: `O item foi removido do seu inventário.`,
+      title: 'Matéria-Prima Removida!',
+      description: `O item foi removido do seu inventário.`,
     });
-  }
-
+  };
 
   return (
     <div className="grid grid-cols-1 gap-8">
@@ -150,38 +158,38 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
               <div className="grid gap-4 py-4">
                 <div className="space-y-2">
                   <Label htmlFor="description">Nome *</Label>
-                  <Input id="description" placeholder="Ex: Farinha de Trigo" value={newProduct.description} onChange={(e) => setNewProduct({...newProduct, description: e.target.value})} />
+                  <Input id="description" placeholder="Ex: Farinha de Trigo" value={newProduct.description} onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="unit">Unidade *</Label>
-                        <Select value={newProduct.unit} onValueChange={(value) => setNewProduct({...newProduct, unit: value})}>
-                            <SelectTrigger id="unit">
-                                <SelectValue placeholder="Selecione"/>
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="UN">Unidade (UN)</SelectItem>
-                                <SelectItem value="KG">Quilograma (KG)</SelectItem>
-                                <SelectItem value="G">Grama (G)</SelectItem>
-                                <SelectItem value="L">Litro (L)</SelectItem>
-                                <SelectItem value="ML">Mililitro (ML)</SelectItem>
-                                <SelectItem value="PORCAO70G">Porção (70g)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="quantity">Estoque Atual *</Label>
-                        <Input id="quantity" type="number" value={newProduct.quantity} onChange={(e) => setNewProduct({...newProduct, quantity: parseInt(e.target.value) || 0})} />
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="unit">Unidade *</Label>
+                    <Select value={newProduct.unit} onValueChange={(value) => setNewProduct({ ...newProduct, unit: value })}>
+                      <SelectTrigger id="unit">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="UN">Unidade (UN)</SelectItem>
+                        <SelectItem value="KG">Quilograma (KG)</SelectItem>
+                        <SelectItem value="G">Grama (G)</SelectItem>
+                        <SelectItem value="L">Litro (L)</SelectItem>
+                        <SelectItem value="ML">Mililitro (ML)</SelectItem>
+                        <SelectItem value="PORCAO70G">Porção (70g)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="quantity">Estoque Atual *</Label>
+                    <Input id="quantity" type="number" value={newProduct.quantity} onChange={(e) => setNewProduct({ ...newProduct, quantity: parseInt(e.target.value) || 0 })} />
+                  </div>
                 </div>
-                 <div className="space-y-2">
+                <div className="space-y-2">
                   <Label htmlFor="cost">Custo por Unidade *</Label>
-                  <Input id="cost" type="number" placeholder="0" value={newProduct.cost} onChange={(e) => setNewProduct({...newProduct, cost: parseFloat(e.target.value) || 0})} />
+                  <Input id="cost" type="number" placeholder="0" value={newProduct.cost} onChange={(e) => setNewProduct({ ...newProduct, cost: parseFloat(e.target.value) || 0 })} />
                 </div>
               </div>
               <DialogFooter>
                 <DialogClose asChild>
-                   <Button type="button" variant="outline">Cancelar</Button>
+                  <Button type="button" variant="outline">Cancelar</Button>
                 </DialogClose>
                 <Button type="submit" onClick={handleAddProduct}>Salvar</Button>
               </DialogFooter>
@@ -203,7 +211,14 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
               </TableRow>
             </TableHeader>
             <TableBody>
-              {products.map(product => (
+              {isLoading && (
+                <TableRow>
+                  <TableCell colSpan={8} className="h-24 text-center">
+                    Carregando matérias-primas...
+                  </TableCell>
+                </TableRow>
+              )}
+              {!isLoading && products?.map(product => (
                 <TableRow key={product.id}>
                   <TableCell className="font-mono">{product.code}</TableCell>
                   <TableCell className="font-medium">{product.description}</TableCell>
@@ -229,7 +244,7 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                           <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
                             <Trash2 className="h-4 w-4 text-destructive" />
                             <span className="sr-only">Excluir</span>
                           </Button>
@@ -255,58 +270,56 @@ export function InventoryClient({ initialProducts }: { initialProducts: RawMater
           </Table>
         </CardContent>
       </Card>
-      
+
       {/* Edit Dialog */}
       {editProductForm && (
         <Dialog open={isEditProductDialogOpen} onOpenChange={setIsEditProductDialogOpen}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>Editar Matéria-Prima</DialogTitle>
-                    <DialogDescription>Atualize os detalhes do insumo.</DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="edit-description">Nome *</Label>
-                        <Input id="edit-description" value={editProductForm.description} onChange={(e) => setEditProductForm({...editProductForm, description: e.target.value})} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="edit-unit">Unidade *</Label>
-                            <Select value={editProductForm.unit} onValueChange={(value) => setEditProductForm(editProductForm ? {...editProductForm, unit: value} : null)}>
-                                <SelectTrigger id="edit-unit">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="UN">Unidade (UN)</SelectItem>
-                                    <SelectItem value="KG">Quilograma (KG)</SelectItem>
-                                    <SelectItem value="G">Grama (G)</SelectItem>
-                                    <SelectItem value="L">Litro (L)</SelectItem>
-                                    <SelectItem value="ML">Mililitro (ML)</SelectItem>
-                                    <SelectItem value="PORCAO70G">Porção (70g)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="edit-quantity">Estoque Atual *</Label>
-                            <Input id="edit-quantity" type="number" value={editProductForm.quantity} onChange={(e) => setEditProductForm(editProductForm ? {...editProductForm, quantity: parseInt(e.target.value) || 0} : null)} />
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="edit-cost">Custo por Unidade *</Label>
-                        <Input id="edit-cost" type="number" value={editProductForm.cost} onChange={(e) => setEditProductForm(editProductForm ? {...editProductForm, cost: parseFloat(e.target.value) || 0} : null)} />
-                    </div>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Editar Matéria-Prima</DialogTitle>
+              <DialogDescription>Atualize os detalhes do insumo.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Nome *</Label>
+                <Input id="edit-description" value={editProductForm.description} onChange={(e) => setEditProductForm({ ...editProductForm, description: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-unit">Unidade *</Label>
+                  <Select value={editProductForm.unit} onValueChange={(value) => setEditProductForm(editProductForm ? { ...editProductForm, unit: value } : null)}>
+                    <SelectTrigger id="edit-unit">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="UN">Unidade (UN)</SelectItem>
+                      <SelectItem value="KG">Quilograma (KG)</SelectItem>
+                      <SelectItem value="G">Grama (G)</SelectItem>
+                      <SelectItem value="L">Litro (L)</SelectItem>
+                      <SelectItem value="ML">Mililitro (ML)</SelectItem>
+                      <SelectItem value="PORCAO70G">Porção (70g)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <DialogFooter>
-                  <DialogClose asChild>
-                     <Button type="button" variant="outline" onClick={() => setIsEditProductDialogOpen(false)}>Cancelar</Button>
-                  </DialogClose>
-                  <Button type="submit" onClick={handleEditProduct}>Salvar Alterações</Button>
-                </DialogFooter>
-            </DialogContent>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-quantity">Estoque Atual *</Label>
+                  <Input id="edit-quantity" type="number" value={editProductForm.quantity} onChange={(e) => setEditProductForm(editProductForm ? { ...editProductForm, quantity: parseInt(e.target.value) || 0 } : null)} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-cost">Custo por Unidade *</Label>
+                <Input id="edit-cost" type="number" value={editProductForm.cost} onChange={(e) => setEditProductForm(editProductForm ? { ...editProductForm, cost: parseFloat(e.target.value) || 0 } : null)} />
+              </div>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline" onClick={() => setIsEditProductDialogOpen(false)}>Cancelar</Button>
+              </DialogClose>
+              <Button type="submit" onClick={handleEditProduct}>Salvar Alterações</Button>
+            </DialogFooter>
+          </DialogContent>
         </Dialog>
       )}
     </div>
   );
 }
-
-    
