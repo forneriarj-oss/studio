@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { handleEmailSignIn, handleEmailSignUp, handleAnonymousSignIn } from '@/firebase/auth/service';
+import { handleAnonymousSignIn } from '@/firebase/auth/service';
 import { Loader } from 'lucide-react';
 import { User, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -28,7 +28,6 @@ async function ensureUserProfile(firestore: any, user: User) {
   const userDoc = await getDoc(userDocRef);
 
   if (!userDoc.exists()) {
-    // Document doesn't exist, create it
     await setDoc(userDocRef, {
       email: user.email,
       displayName: user.displayName || 'Novo Usuário',

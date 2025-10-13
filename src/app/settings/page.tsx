@@ -152,8 +152,6 @@ export default function SettingsPage() {
             // Update Firestore user profile document
             const userDocRef = doc(firestore, `users/${user.uid}`);
             await setDoc(userDocRef, { 
-                uid: user.uid,
-                email: user.email,
                 displayName: displayName, 
                 photoURL: finalPhotoURL 
             }, { merge: true });
