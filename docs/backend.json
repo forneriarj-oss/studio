@@ -6,6 +6,10 @@
       "description": "Represents a user's public profile information.",
       "type": "object",
       "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The user's unique ID."
+        },
         "displayName": {
           "type": "string",
           "description": "The user's display name."
@@ -343,6 +347,9 @@
       "password",
       "anonymous"
     ]
+  },
+  "storage": {
+    "bucket": "studio-4845954183-96505.appspot.com"
   },
   "firestore": {
     "structure": [
