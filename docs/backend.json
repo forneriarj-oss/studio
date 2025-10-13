@@ -56,6 +56,9 @@
         "description": {
           "type": "string",
           "description": "Description of the revenue."
+        },
+        "paymentMethod": {
+          "type": "string"
         }
       },
       "required": ["date", "amount", "source"]
@@ -194,6 +197,21 @@
         }
       },
       "required": ["sku", "name", "category", "unit", "finalCost", "salePrice", "flavors"]
+    },
+     "Sale": {
+      "title": "Sale",
+      "description": "Represents a single sales transaction.",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string" },
+        "flavorId": { "type": "string" },
+        "quantity": { "type": "number" },
+        "unitPrice": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" },
+        "paymentMethod": { "type": "string" },
+        "location": { "type": "string" }
+      },
+      "required": ["productId", "flavorId", "quantity", "unitPrice", "date", "paymentMethod", "location"]
     }
   },
   "auth": {
@@ -252,6 +270,14 @@
             "$ref": "#/entities/FinishedProduct"
           },
           "description": "Stores finished product definitions for a specific user."
+        }
+      },
+      {
+        "path": "/users/{userId}/sales/{saleId}",
+        "definition": {
+          "entityName": "Sale",
+          "schema": { "$ref": "#/entities/Sale" },
+          "description": "Stores individual sales records for a user."
         }
       }
     ]

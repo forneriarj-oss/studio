@@ -3,7 +3,7 @@
 export type PaymentMethod = 'PIX' | 'Cartão' | 'Dinheiro';
 
 export type Revenue = {
-  id: string;
+  id?: string;
   amount: number;
   source: string;
   date: string;
@@ -45,7 +45,7 @@ export type RawMaterial = {
 };
 
 export type Sale = {
-  id: string;
+  id?: string;
   productId: string;
   flavorId?: string; // ID of the flavor for FinishedProduct
   quantity: number;

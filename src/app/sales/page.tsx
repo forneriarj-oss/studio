@@ -1,6 +1,9 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { getFinishedProducts, updateStock, addRevenue } from '@/lib/data';
+import { useState, useEffect, useMemo } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { addDoc, collection, doc, writeBatch } from 'firebase/firestore';
+
 import type { Sale, FinishedProduct, PaymentMethod, Flavor, Revenue } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -13,14 +16,11 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogTrigger,
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
-
 
 const paymentMethods: PaymentMethod[] = ['PIX', 'Cartão', 'Dinheiro'];
 const saleLocations = ['Balcão', 'iFood', 'Delivery'];
@@ -37,9 +37,16 @@ const formatCurrency = (amount: number) => {
 
 
 export default function SalesPage() {
-    const [sales, setSales] = useState<Sale[]>([]);
-    const [products, setProducts] = useState<FinishedProduct[]>(getFinishedProducts());
+    const { user } = useUser();
+    const firestore = useFirestore();
     const { toast } = useToast();
+
+    const productsRef = useMemoFirebase(
+      () => (user ? collection(firestore, `users/${user.uid}/finished-products`) : null),
+      [firestore, user]
+    );
+    const { data: products, isLoading: isLoadingProducts } = useCollection<FinishedProduct>(productsRef);
+    
     const [isClient, setIsClient] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -69,11 +76,16 @@ export default function SalesPage() {
         }
     }, [isDialogOpen]);
 
-    useEffect(() => {
-        const product = getProduct(newSale.productId);
-        if (!product) return;
+    const getProduct = (productId: string) => {
+        return products?.find(p => p.id === productId);
+    }
+    
+    const selectedProductForDialog = useMemo(() => getProduct(newSale.productId), [newSale.productId, products]);
 
-        let basePrice = product.salePrice;
+    useEffect(() => {
+        if (!selectedProductForDialog) return;
+
+        let basePrice = selectedProductForDialog.salePrice;
         
         if (newSale.location === 'iFood') {
             basePrice *= 1.75; // 75% markup
@@ -86,22 +98,22 @@ export default function SalesPage() {
         }
 
         setFinalSalePrice(total);
-        // We set the unitPrice here to be saved later. For delivery, this isn't perfect, but it's a simple approach.
         setNewSale(prev => ({...prev, unitPrice: basePrice }));
 
-    }, [newSale.productId, newSale.quantity, newSale.location, deliveryFee]);
+    }, [newSale.quantity, newSale.location, deliveryFee, selectedProductForDialog]);
 
 
-    const getProduct = (productId: string) => {
-        return products.find(p => p.id === productId);
-    }
-    
     const getFlavor = (product: FinishedProduct | undefined, flavorId: string): Flavor | undefined => {
         return product?.flavors.find(f => f.id === flavorId);
     }
 
-    const handleAddSale = () => {
-        const product = products.find(p => p.id === newSale.productId);
+    const handleAddSale = async () => {
+        if (!user || !firestore) {
+            toast({ variant: "destructive", title: "Erro", description: "Usuário não autenticado." });
+            return;
+        }
+
+        const product = getProduct(newSale.productId);
         const flavor = getFlavor(product, newSale.flavorId);
 
         if (!newSale.productId || !newSale.flavorId || newSale.quantity <= 0 ) {
@@ -122,53 +134,61 @@ export default function SalesPage() {
             return;
         }
 
-        const saleToAdd: Sale = {
-            id: `sale-${Date.now()}`,
+        const saleToAdd: Omit<Sale, 'id'> = {
             productId: newSale.productId,
             flavorId: newSale.flavorId,
             quantity: newSale.quantity,
-            unitPrice: newSale.unitPrice, // The final unit price with markups
-            date: new Date().toISOString().split('T')[0], // Use current date
+            unitPrice: newSale.unitPrice,
+            date: new Date().toISOString(),
             paymentMethod: newSale.paymentMethod,
             location: newSale.location,
         };
-
-        const updatedStock = updateStock(newSale.productId, newSale.quantity, 'out', newSale.flavorId);
         
-        if (updatedStock) {
-            setSales(prev => [saleToAdd, ...prev]);
-            setProducts(prevProducts => prevProducts.map(p => 
-                p.id === newSale.productId ? { ...p, flavors: p.flavors.map(f => f.id === newSale.flavorId ? {...f, stock: f.stock - newSale.quantity} : f) } : p
-            ));
+        const revenueFromSale: Omit<Revenue, 'id'> = {
+          amount: finalSalePrice,
+          source: `Venda - ${product.name} (${flavor.name})`,
+          date: saleToAdd.date,
+          paymentMethod: saleToAdd.paymentMethod,
+        };
 
-            const revenueFromSale: Revenue = {
-              id: `rev-sale-${saleToAdd.id}`,
-              amount: finalSalePrice,
-              source: `Venda - ${product.name} (${flavor.name})`,
-              date: saleToAdd.date,
-              paymentMethod: saleToAdd.paymentMethod,
-            };
-            addRevenue(revenueFromSale);
+        // Use a batch to ensure atomicity
+        const batch = writeBatch(firestore);
 
+        // 1. Add the sale document
+        const salesRef = collection(firestore, `users/${user.uid}/sales`);
+        batch.set(doc(salesRef), saleToAdd);
 
-             toast({
+        // 2. Add the revenue document
+        const revenuesRef = collection(firestore, `users/${user.uid}/revenues`);
+        batch.set(doc(revenuesRef), revenueFromSale);
+        
+        // 3. Update the product stock
+        const productDocRef = doc(firestore, `users/${user.uid}/finished-products`, product.id);
+        const newFlavors = product.flavors.map(f => 
+            f.id === newSale.flavorId ? { ...f, stock: f.stock - newSale.quantity } : f
+        );
+        batch.update(productDocRef, { flavors: newFlavors });
+
+        try {
+            await batch.commit();
+            toast({
                 title: 'Venda registrada!',
                 description: `Estoque do produto atualizado e receita registrada.`,
             });
-            
             setIsDialogOpen(false);
-        } else {
+        } catch (error) {
+            console.error("Sale Error:", error);
             toast({
                 variant: 'destructive',
                 title: 'Erro',
-                description: 'Não foi possível atualizar o estoque.',
+                description: 'Não foi possível registrar a venda. Tente novamente.',
             });
         }
     }
 
     const openSaleDialog = (product: FinishedProduct) => {
         setNewSale({
-            productId: product.id,
+            productId: product.id!,
             flavorId: '',
             quantity: 1,
             unitPrice: product.salePrice,
@@ -182,10 +202,9 @@ export default function SalesPage() {
     };
     
     const totalStockByProduct = (product: FinishedProduct) => {
+      if (!product.flavors) return 0;
       return product.flavors.reduce((total, flavor) => total + flavor.stock, 0);
     }
-
-    const selectedProductForDialog = getProduct(newSale.productId);
     
     if (!isClient) {
         return null;
@@ -210,7 +229,8 @@ export default function SalesPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {products.map(product => {
+                            {isLoadingProducts && <TableRow><TableCell colSpan={4} className="text-center">Carregando produtos...</TableCell></TableRow>}
+                            {!isLoadingProducts && products?.map(product => {
                                 const totalStock = totalStockByProduct(product);
                                 return (
                                 <TableRow key={product.id}>

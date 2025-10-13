@@ -1,7 +1,6 @@
 
 'use client';
 
-import { getRevenue, getExpenses, getSales, getProducts } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,6 +10,8 @@ import { ptBR } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import type { Revenue, Expense, Sale, Product } from '@/lib/types';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -38,26 +39,16 @@ const chartConfig = {
 export default function CashFlowPage() {
   const [timeRange, setTimeRange] = useState('7d');
   const [isClient, setIsClient] = useState(false);
+  const { user } = useUser();
+  const firestore = useFirestore();
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  const allRevenues = getRevenue();
-  const allExpenses = getExpenses();
-  const allSales = getSales();
-  const allProducts = getProducts();
-
-  const { filteredRevenues, filteredExpenses, filteredSales, startDate, endDate } = useMemo(() => {
+  const { startDate, endDate } = useMemo(() => {
     if (!isClient) {
-      // Return default/empty state for server-side rendering
-      return {
-        filteredRevenues: [],
-        filteredExpenses: [],
-        filteredSales: [],
-        startDate: new Date(),
-        endDate: new Date(),
-      };
+      return { startDate: new Date(), endDate: new Date() };
     }
     const now = new Date();
     let startDate: Date;
@@ -80,29 +71,57 @@ export default function CashFlowPage() {
     startDate.setHours(0, 0, 0, 0);
     endDate.setHours(23, 59, 59, 999);
 
-    const filterByDate = (item: Revenue | Expense | Sale) => {
-      const itemDate = new Date(item.date);
-      return itemDate >= startDate && itemDate <= endDate;
-    };
+    return { startDate, endDate };
+  }, [timeRange, isClient]);
 
-    return {
-      filteredRevenues: allRevenues.filter(filterByDate),
-      filteredExpenses: allExpenses.filter(filterByDate),
-      filteredSales: allSales.filter(filterByDate),
-      startDate,
-      endDate
-    };
-  }, [timeRange, isClient, allRevenues, allExpenses, allSales]);
+  const revenuesQuery = useMemoFirebase(
+    () => (user && startDate && endDate ? query(
+        collection(firestore, `users/${user.uid}/revenues`),
+        where('date', '>=', startDate.toISOString()),
+        where('date', '<=', endDate.toISOString())
+    ) : null),
+    [firestore, user, startDate, endDate]
+  );
+  const { data: filteredRevenues } = useCollection<Revenue>(revenuesQuery);
+  
+  const expensesQuery = useMemoFirebase(
+    () => (user && startDate && endDate ? query(
+        collection(firestore, `users/${user.uid}/expenses`),
+        where('date', '>=', startDate.toISOString()),
+        where('date', '<=', endDate.toISOString())
+    ) : null),
+    [firestore, user, startDate, endDate]
+  );
+  const { data: filteredExpenses } = useCollection<Expense>(expensesQuery);
 
-  const totalRevenue = filteredRevenues.reduce((acc, curr) => acc + curr.amount, 0);
-  const totalExpenses = filteredExpenses.reduce((acc, curr) => acc + curr.amount, 0);
+  const salesQuery = useMemoFirebase(
+    () => (user && startDate && endDate ? query(
+        collection(firestore, `users/${user.uid}/sales`),
+        where('date', '>=', startDate.toISOString()),
+        where('date', '<=', endDate.toISOString())
+    ) : null),
+    [firestore, user, startDate, endDate]
+  );
+  const { data: filteredSales } = useCollection<Sale>(salesQuery);
+  
+  const productsRef = useMemoFirebase(
+    () => (user ? collection(firestore, `users/${user.uid}/finished-products`) : null),
+    [firestore, user]
+  );
+  const { data: allProducts } = useCollection<Product>(productsRef);
+
+
+  const totalRevenue = filteredRevenues?.reduce((acc, curr) => acc + curr.amount, 0) || 0;
+  const totalExpenses = filteredExpenses?.reduce((acc, curr) => acc + curr.amount, 0) || 0;
   const balance = totalRevenue - totalExpenses;
 
   const { grossProfit } = useMemo(() => {
+    if (!filteredSales || !allProducts) return { grossProfit: 0 };
+    
     const totalSalesValue = filteredSales.reduce((acc, sale) => acc + (sale.quantity * sale.unitPrice), 0);
     const totalCostOfGoodsSold = filteredSales.reduce((acc, sale) => {
         const product = allProducts.find(p => p.id === sale.productId);
-        const cost = product ? product.cost : 0;
+        const cost = product ? product.finalCost : 0;
         return acc + (sale.quantity * cost);
     }, 0);
 
@@ -112,7 +131,7 @@ export default function CashFlowPage() {
 
 
   const chartData = useMemo(() => {
-    if (!isClient) return [];
+    if (!isClient || !filteredRevenues || !filteredExpenses) return [];
     const data: { [key: string]: { revenue: number; expenses: number } } = {};
     const dayFormat = timeRange === 'this_month' ? 'dd/MM' : 'EEE';
 
@@ -141,6 +160,7 @@ export default function CashFlowPage() {
   }, [filteredRevenues, filteredExpenses, timeRange, startDate, endDate, isClient]);
 
   const summaryByPaymentMethod = useMemo(() => {
+    if (!filteredRevenues || !filteredExpenses) return {};
     const summary: { [key: string]: { revenue: number; expenses: number } } = {
       PIX: { revenue: 0, expenses: 0 },
       'Cartão': { revenue: 0, expenses: 0 },

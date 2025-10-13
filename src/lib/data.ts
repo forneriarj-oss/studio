@@ -10,8 +10,6 @@ twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 const tomorrow = new Date(today);
 tomorrow.setDate(tomorrow.getDate() + 1);
 
-let revenues: Revenue[] = [];
-
 let expenses: Expense[] = [];
 
 let appointments: Appointment[] = [
@@ -57,42 +55,6 @@ let appointments: Appointment[] = [
   }
 ];
 
-let rawMaterials: RawMaterial[] = [];
-
-
-let finishedProducts: FinishedProduct[] = [
-  { 
-    id: 'fp-1', 
-    sku: 'PA-BRIG-01', 
-    name: 'Pastel Comum', 
-    category: 'Pastel',
-    unit: 'UN',
-    recipe: [], 
-    finalCost: 3.00, 
-    salePrice: 8.00,
-    flavors: [
-      { id: 'flav-1', name: 'Carne', stock: 10 },
-      { id: 'flav-2', name: 'Queijo', stock: 10 },
-    ]
-  },
-  { 
-    id: 'fp-2', 
-    sku: 'PA-CEN-01', 
-    name: 'Pastel Comum', 
-    category: 'Pastel',
-    unit: 'UN',
-    recipe: [], 
-    finalCost: 3.20, 
-    salePrice: 8.00,
-    flavors: [
-      { id: 'flav-3', name: 'Frango', stock: 5 },
-      { id: 'flav-4', name: 'Calabresa', stock: 5 },
-    ]
-  }
-];
-
-let sales: Sale[] = [];
-
 let purchases: Purchase[] = [
 ];
 
@@ -112,14 +74,6 @@ const users: User[] = [
   { id: 'vendedor@test.com', email: 'vendedor@test.com', roleId: 'vendedor' },
 ]
 
-export function getRevenue() {
-  return revenues;
-}
-
-export function addRevenue(revenue: Revenue) {
-  revenues = [revenue, ...revenues];
-}
-
 export function getExpenses() {
   return expenses.map(e => ({
     ...e,
@@ -129,18 +83,6 @@ export function getExpenses() {
 
 export function getAppointments() {
   return appointments;
-}
-
-export function getRawMaterials() {
-    return rawMaterials;
-}
-
-export function getFinishedProducts() {
-  return finishedProducts;
-}
-
-export function getSales() {
-    return sales;
 }
 
 export function getPurchases() {
@@ -167,59 +109,8 @@ export function getUserByEmail(email: string): User | undefined {
     return users.find(u => u.email === email);
 }
 
-// This is a mock function. In a real app, this would update a database.
-export function updateStock(productId: string, quantity: number, type: 'in' | 'out', flavorId?: string): boolean {
-    const rawMaterialIndex = rawMaterials.findIndex(p => p.id === productId);
-    const finishedProductIndex = finishedProducts.findIndex(p => p.id === productId);
-
-    if (rawMaterialIndex === -1 && finishedProductIndex === -1) {
-        return false;
-    }
-    
-    const newStockMovement: StockMovement = {
-        id: `sm-${Date.now()}`,
-        productId,
-        quantity,
-        type,
-        date: new Date().toISOString().split('T')[0],
-        source: type === 'in' ? 'purchase' : 'sale'
-    };
-    stockMovements.push(newStockMovement);
-
-    if (rawMaterialIndex !== -1) { // It's a raw material
-        if (type === 'in') {
-            rawMaterials[rawMaterialIndex].quantity += quantity;
-        } else {
-            if (rawMaterials[rawMaterialIndex].quantity < quantity) return false;
-            rawMaterials[rawMaterialIndex].quantity -= quantity;
-        }
-    } else { // It's a finished product
-        const product = finishedProducts[finishedProductIndex];
-        const flavorIndex = product.flavors.findIndex(f => f.id === flavorId);
-        
-        if (flavorIndex === -1) return false; // Flavor not found
-        
-        if (type === 'in') {
-             product.flavors[flavorIndex].stock += quantity;
-        } else {
-            if (product.flavors[flavorIndex].stock < quantity) return false;
-            product.flavors[flavorIndex].stock -= quantity;
-        }
-    }
-
-
-    return true;
-}
-
-export function getProducts() {
-    return rawMaterials;
-}
-
 export function resetAllData() {
-    revenues = [];
     expenses = [];
-    sales = [];
     purchases = [];
     stockMovements = [];
-    // We keep master data like rawMaterials and finishedProducts
 }

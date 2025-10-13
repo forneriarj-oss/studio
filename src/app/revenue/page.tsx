@@ -1,6 +1,8 @@
 'use client';
 import { useState } from 'react';
-import { getRevenue, addRevenue } from '@/lib/data';
+import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { addDoc, collection } from 'firebase/firestore';
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -21,7 +23,14 @@ const formatCurrency = (amount: number) => {
   };
 
 export default function RevenuePage() {
-  const [revenues, setRevenues] = useState<Revenue[]>(getRevenue());
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const revenuesRef = useMemoFirebase(
+    () => (user ? collection(firestore, `users/${user.uid}/revenues`) : null),
+    [firestore, user]
+  );
+  const { data: revenues, isLoading } = useCollection<Revenue>(revenuesRef);
+
   const [newRevenue, setNewRevenue] = useState({
     source: '',
     amount: '',
@@ -30,7 +39,11 @@ export default function RevenuePage() {
   });
   const { toast } = useToast();
 
-  const handleAddRevenue = () => {
+  const handleAddRevenue = async () => {
+    if (!user || !revenuesRef) {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
+      return;
+    }
     if (!newRevenue.source || !newRevenue.amount) {
       toast({
         variant: 'destructive',
@@ -40,16 +53,14 @@ export default function RevenuePage() {
       return;
     }
 
-    const revenueToAdd: Revenue = {
-      id: `rev-${Date.now()}`,
+    const revenueToAdd: Omit<Revenue, 'id'> = {
       source: newRevenue.source,
       amount: parseFloat(newRevenue.amount),
-      date: newRevenue.date,
+      date: new Date(newRevenue.date).toISOString(),
       paymentMethod: newRevenue.paymentMethod,
     };
     
-    addRevenue(revenueToAdd); // Adiciona ao mock de dados
-    setRevenues(prev => [revenueToAdd, ...prev].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())); // Adiciona ao estado local
+    await addDoc(revenuesRef, revenueToAdd);
 
     toast({
       title: 'Receita Adicionada!',
@@ -125,7 +136,8 @@ export default function RevenuePage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {revenues.length > 0 ? revenues.map(revenue => (
+                  {isLoading && <TableRow><TableCell colSpan={4} className="h-24 text-center">Carregando receitas...</TableCell></TableRow>}
+                  {!isLoading && revenues && revenues.length > 0 ? revenues.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(revenue => (
                     <TableRow key={revenue.id}>
                       <TableCell className="font-medium">{revenue.source}</TableCell>
                       <TableCell><Badge variant="outline">{revenue.paymentMethod || 'N/A'}</Badge></TableCell>

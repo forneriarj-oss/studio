@@ -1,8 +1,9 @@
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser } from '@/firebase';
-import { getSales, getFinishedProducts, getRawMaterials, getRevenue } from '@/lib/data';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, orderBy, limit } from 'firebase/firestore';
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,6 +24,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 export default function Home() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const firestore = useFirestore();
   const [timeRange, setTimeRange] = useState('month');
   const [isClient, setIsClient] = useState(false);
 
@@ -35,11 +37,6 @@ export default function Home() {
   useEffect(() => {
     setIsClient(true);
   }, []);
-
-  const allSales = getSales();
-  const allProducts = getFinishedProducts();
-  const allRawMaterials = getRawMaterials();
-  const allRevenues = getRevenue();
 
   const { startDate, endDate } = useMemo(() => {
     const now = new Date();
@@ -64,28 +61,42 @@ export default function Home() {
     return { startDate: start, endDate: end };
   }, [timeRange]);
 
-  const filteredData = useMemo(() => {
-    if (!isClient) return { sales: [], revenues: [] };
-    
-    const filterByDate = (item: { date: string }) => {
-      const itemDate = new Date(item.date);
-      itemDate.setHours(0,0,0,0); // Adjust for timezone issues
-      const itemTime = new Date(item.date).getTime();
-      return itemTime >= startDate.getTime() && itemTime <= endDate.getTime();
-    };
+  // Firestore Hooks
+  const salesQuery = useMemoFirebase(() => (
+    user ? query(
+      collection(firestore, `users/${user.uid}/sales`),
+      where('date', '>=', startDate.toISOString()),
+      where('date', '<=', endDate.toISOString())
+    ) : null
+  ), [firestore, user, startDate, endDate]);
+  const { data: filteredSales } = useCollection<Sale>(salesQuery);
 
-    return {
-      sales: allSales.filter(filterByDate),
-      revenues: allRevenues.filter(filterByDate),
-    };
-  }, [isClient, startDate, endDate, allSales, allRevenues]);
+  const revenuesQuery = useMemoFirebase(() => (
+    user ? query(
+      collection(firestore, `users/${user.uid}/revenues`),
+      where('date', '>=', startDate.toISOString()),
+      where('date', '<=', endDate.toISOString())
+    ) : null
+  ), [firestore, user, startDate, endDate]);
+  const { data: filteredRevenues } = useCollection<Revenue>(revenuesQuery);
+  
+  const productsRef = useMemoFirebase(() => (
+    user ? collection(firestore, `users/${user.uid}/finished-products`) : null
+  ), [firestore, user]);
+  const { data: allProducts } = useCollection<FinishedProduct>(productsRef);
+
+  const rawMaterialsRef = useMemoFirebase(() => (
+    user ? collection(firestore, `users/${user.uid}/raw-materials`) : null
+  ), [firestore, user]);
+  const { data: allRawMaterials } = useCollection<RawMaterial>(rawMaterialsRef);
+
 
   const { totalRevenue, grossProfit, salesCount, cmv } = useMemo(() => {
-    const revenue = filteredData.revenues.reduce((acc, r) => acc + r.amount, 0);
+    const revenue = filteredRevenues?.reduce((acc, r) => acc + r.amount, 0) || 0;
     let costOfGoodsSold = 0;
     
-    filteredData.sales.forEach(sale => {
-      const product = allProducts.find(p => p.id === sale.productId);
+    filteredSales?.forEach(sale => {
+      const product = allProducts?.find(p => p.id === sale.productId);
       if (product) {
         costOfGoodsSold += product.finalCost * sale.quantity;
       }
@@ -96,13 +107,14 @@ export default function Home() {
     return {
       totalRevenue: revenue,
       grossProfit: profit,
-      salesCount: filteredData.sales.length,
+      salesCount: filteredSales?.length || 0,
       cmv: costOfGoodsSold
     };
-  }, [filteredData, allProducts]);
+  }, [filteredRevenues, filteredSales, allProducts]);
 
   const detailedCmvData = useMemo(() => {
-    return filteredData.sales.map(sale => {
+    if (!filteredSales || !allProducts) return [];
+    return filteredSales.map(sale => {
       const product = allProducts.find(p => p.id === sale.productId);
       const flavor = product?.flavors.find(f => f.id === sale.flavorId);
       const cost = product ? product.finalCost : 0;
@@ -114,17 +126,20 @@ export default function Home() {
         totalCost: cost * sale.quantity
       }
     }).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [filteredData.sales, allProducts]);
+  }, [filteredSales, allProducts]);
 
   const lowStockProducts = useMemo(() => {
+    if (!allProducts) return [];
     return allProducts.flatMap(p => p.flavors.filter(f => f.stock <= 5).map(f => ({ ...p, flavorName: f.name, stock: f.stock })))
   }, [allProducts]);
   
   const lowStockRawMaterials = useMemo(() => {
+    if (!allRawMaterials) return [];
     return allRawMaterials.filter(rm => rm.quantity <= rm.minStock);
   }, [allRawMaterials]);
   
   const salesAndProfitChartData = useMemo(() => {
+    if (!filteredSales || !allProducts) return [];
     const days = eachDayOfInterval({ start: startDate, end: endDate });
     const data: { [key: string]: { sales: number; profit: number } } = {};
 
@@ -133,7 +148,7 @@ export default function Home() {
         data[formattedDate] = { sales: 0, profit: 0 };
     });
     
-    filteredData.sales.forEach(sale => {
+    filteredSales.forEach(sale => {
         const date = format(new Date(sale.date), 'dd/MM');
         const product = allProducts.find(p => p.id === sale.productId);
         if (data[date] && product) {
@@ -145,14 +160,15 @@ export default function Home() {
     });
 
     return Object.entries(data).map(([date, values]) => ({ date, ...values }));
-}, [filteredData.sales, startDate, endDate, allProducts]);
+}, [filteredSales, startDate, endDate, allProducts]);
 
 
   const topSellingProducts = useMemo(() => {
-    const salesByProduct = filteredData.sales.reduce((acc, sale) => {
+    if (!filteredSales || !allProducts) return [];
+    const salesByProduct = filteredSales.reduce((acc, sale) => {
         const product = allProducts.find(p => p.id === sale.productId);
         if(product){
-            acc[product.id] = (acc[product.id] || 0) + sale.quantity;
+            acc[product.id!] = (acc[product.id!] || 0) + sale.quantity;
         }
         return acc;
     }, {} as {[key: string]: number});
@@ -164,14 +180,15 @@ export default function Home() {
             product: allProducts.find(p => p.id === productId),
             quantity
         }));
-  }, [filteredData.sales, allProducts]);
+  }, [filteredSales, allProducts]);
 
   const topProfitableProducts = useMemo(() => {
-      const profitByProduct = filteredData.sales.reduce((acc, sale) => {
+      if (!filteredSales || !allProducts) return [];
+      const profitByProduct = filteredSales.reduce((acc, sale) => {
           const product = allProducts.find(p => p.id === sale.productId);
           if (product) {
               const profit = (sale.unitPrice - product.finalCost) * sale.quantity;
-              acc[product.id] = (acc[product.id] || 0) + profit;
+              acc[product.id!] = (acc[product.id!] || 0) + profit;
           }
           return acc;
       }, {} as { [key: string]: number });
@@ -183,17 +200,18 @@ export default function Home() {
               product: allProducts.find(p => p.id === productId),
               profit
           }));
-  }, [filteredData.sales, allProducts]);
+  }, [filteredSales, allProducts]);
 
     const salesByPaymentMethod = useMemo(() => {
-        const data = filteredData.sales.reduce((acc, sale) => {
+        if (!filteredSales) return [];
+        const data = filteredSales.reduce((acc, sale) => {
             const method = sale.paymentMethod || 'N/A';
             acc[method] = (acc[method] || 0) + (sale.unitPrice * sale.quantity);
             return acc;
         }, {} as Record<string, number>);
 
         return Object.entries(data).map(([name, value]) => ({name, value}));
-    }, [filteredData.sales]);
+    }, [filteredSales]);
 
 
   if (isUserLoading || !user || !isClient) {
@@ -397,5 +415,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
