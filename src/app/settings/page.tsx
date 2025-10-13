@@ -1,18 +1,19 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2 } from 'lucide-react';
-import { useAuth, useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { Trash2, Upload } from 'lucide-react';
+import { useAuth, useFirestore, useUser, useDoc, useMemoFirebase, useStorage } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import type { Settings } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { updateProfile } from 'firebase/auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 
 const DEFAULT_SETTINGS: Settings = {
@@ -27,6 +28,9 @@ export default function SettingsPage() {
     const { toast } = useToast();
     const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
+    const storage = useStorage();
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const settingsRef = useMemoFirebase(
       () => (user ? doc(firestore, `users/${user.uid}/settings/app-settings`) : null),
@@ -38,7 +42,9 @@ export default function SettingsPage() {
     const [newCategory, setNewCategory] = useState('');
     
     const [displayName, setDisplayName] = useState(user?.displayName || '');
-    const [photoURL, setPhotoURL] = useState(user?.photoURL || '');
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const [photoPreview, setPhotoPreview] = useState<string | null>(user?.photoURL || null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (settings) {
@@ -51,9 +57,21 @@ export default function SettingsPage() {
     useEffect(() => {
       if (user) {
         setDisplayName(user.displayName || '');
-        setPhotoURL(user.photoURL || '');
+        setPhotoPreview(user.photoURL || null);
       }
     }, [user]);
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            setPhotoFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPhotoPreview(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
     const handleInputChange = (section: keyof Settings, field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value === '' ? '' : parseFloat(event.target.value);
@@ -118,21 +136,29 @@ export default function SettingsPage() {
             toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
             return;
         }
+        setIsSubmitting(true);
+        let finalPhotoURL = user.photoURL;
 
         try {
-            await updateProfile(user, { displayName, photoURL });
+            if (photoFile) {
+                const storageRef = ref(storage, `profile-pictures/${user.uid}`);
+                const uploadResult = await uploadBytes(storageRef, photoFile);
+                finalPhotoURL = await getDownloadURL(uploadResult.ref);
+            }
+
+            await updateProfile(user, { displayName, photoURL: finalPhotoURL });
             toast({
                 title: 'Perfil Atualizado!',
                 description: 'Seu perfil foi atualizado com sucesso. As alterações podem levar um momento para serem refletidas.',
             });
-            // The onAuthStateChanged listener in the provider will eventually pick this up
-            // For immediate UI update, you might need a local state refresh or force a re-fetch of the user object
         } catch (error: any) {
             toast({
                 variant: 'destructive',
                 title: 'Erro ao Atualizar',
                 description: error.message || 'Ocorreu um erro desconhecido.',
             });
+        } finally {
+            setIsSubmitting(false);
         }
     };
     
@@ -171,14 +197,25 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleProfileUpdate} className="space-y-6 max-w-md">
-                        <div className="flex items-center gap-4">
-                            <Avatar className="h-16 w-16">
-                                <AvatarImage src={user?.photoURL || ''} alt={user?.displayName || ''} />
-                                <AvatarFallback>{(user?.displayName || user?.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                            <p className="text-sm text-muted-foreground">
-                                Para alterar a foto, cole a URL de uma nova imagem no campo abaixo.
-                            </p>
+                        <div className="space-y-2">
+                           <Label>Foto de Perfil</Label>
+                            <div className="flex items-center gap-4">
+                                <Avatar className="h-20 w-20 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                                    <AvatarImage src={photoPreview || ''} alt={displayName || ''} />
+                                    <AvatarFallback>{(displayName || user?.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                                <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    Alterar Foto
+                                </Button>
+                                <Input 
+                                  ref={fileInputRef} 
+                                  type="file" 
+                                  className="hidden" 
+                                  accept="image/png, image/jpeg"
+                                  onChange={handleFileChange}
+                                />
+                            </div>
                         </div>
 
                         <div className="space-y-2">
@@ -189,12 +226,10 @@ export default function SettingsPage() {
                             <Label htmlFor="displayName">Nome de Exibição</Label>
                             <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Seu Nome" />
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="photoURL">URL da Foto</Label>
-                            <Input id="photoURL" value={photoURL} onChange={(e) => setPhotoURL(e.target.value)} placeholder="https://example.com/sua-foto.jpg" />
-                        </div>
                         <div className="flex justify-end">
-                            <Button type="submit">Salvar Perfil</Button>
+                            <Button type="submit" disabled={isSubmitting}>
+                              {isSubmitting ? 'Salvando...' : 'Salvar Perfil'}
+                            </Button>
                         </div>
                     </form>
                 </CardContent>
