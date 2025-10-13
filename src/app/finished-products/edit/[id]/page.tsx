@@ -2,7 +2,7 @@
 import { useState, useMemo, useTransition, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
-import type { RawMaterial, RecipeItem, FinishedProduct, Settings } from '@/lib/types';
+import type { RawMaterial, RecipeItem, FinishedProduct, Settings, Flavor } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -63,6 +63,8 @@ export default function EditFinishedProductPage() {
   const [newRecipeItem, setNewRecipeItem] = useState<{ id: string, qty: number | '' }>({ id: '', qty: '' });
   const [manualCost, setManualCost] = useState<number | ''>('');
   const [salePrice, setSalePrice] = useState<number | ''>('');
+  const [flavors, setFlavors] = useState<Flavor[]>([]);
+  const [newFlavor, setNewFlavor] = useState({ name: '', stock: '' });
 
   useEffect(() => {
     if (product) {
@@ -72,6 +74,7 @@ export default function EditFinishedProductPage() {
       setRecipe(product.recipe);
       setManualCost(product.finalCost);
       setSalePrice(product.salePrice);
+      setFlavors(product.flavors || []);
     }
   }, [product]);
 
@@ -85,6 +88,27 @@ export default function EditFinishedProductPage() {
   }, [recipe, rawMaterials]);
 
   const finalCost = manualCost !== '' ? manualCost : calculatedCost;
+  
+  const handleAddFlavor = () => {
+    if (newFlavor.name.trim() === '') {
+      toast({ variant: 'destructive', title: 'Nome do sabor é obrigatório.' });
+      return;
+    }
+    setFlavors([
+      ...flavors,
+      {
+        id: `flavor-${Date.now()}`,
+        name: newFlavor.name,
+        stock: Number(newFlavor.stock) || 0,
+      },
+    ]);
+    setNewFlavor({ name: '', stock: '' });
+  };
+  
+  const handleRemoveFlavor = (id: string) => {
+    setFlavors(flavors.filter(f => f.id !== id));
+  };
+
 
   const handleAddRecipeItem = () => {
     const materialId = newRecipeItem.id;
@@ -137,6 +161,7 @@ export default function EditFinishedProductPage() {
       recipe,
       finalCost,
       salePrice,
+      flavors,
     };
 
     await updateDoc(productRef, updatedData);
@@ -255,7 +280,7 @@ export default function EditFinishedProductPage() {
 
         <Card>
             <CardHeader>
-                <CardTitle>Composição do Produto (Incluir Matérias-Primas)</CardTitle>
+                <CardTitle>Composição do Produto (Receita)</CardTitle>
                 <CardDescription>Adicione os insumos para calcular o custo de produção.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -323,18 +348,12 @@ export default function EditFinishedProductPage() {
                 )}
             </CardContent>
         </Card>
-
+        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-             <div className="space-y-2 p-3 bg-muted rounded-md">
-                <Label>Custo Calculado (Receita)</Label>
-                <p className="text-2xl font-bold">{formatCurrency(calculatedCost)}</p>
-            </div>
-            <div className="space-y-2">
-                {/* Empty div for layout purposes */}
-            </div>
              <div className="space-y-2">
                 <Label htmlFor="manual-cost">Custo Manual/Final *</Label>
                 <Input id="manual-cost" type="number" placeholder="Substitui o custo calculado" value={manualCost} onChange={e => setManualCost(e.target.value === '' ? '' : Number(e.target.value))} />
+                 <p className="text-xs text-muted-foreground">Custo calculado da receita: {formatCurrency(calculatedCost)}</p>
             </div>
              <div className="space-y-2">
                 <Label htmlFor="sale-price">Preço de Venda *</Label>
@@ -359,6 +378,89 @@ export default function EditFinishedProductPage() {
                 <p className="text-sm text-muted-foreground mt-2">{priceSuggestion.justification}</p>
             </div>
         )}
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Gestão de Sabores e Estoque</CardTitle>
+            <CardDescription>
+              Adicione variações do seu produto e controle o estoque para cada
+              uma.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4 flex flex-col gap-2 md:flex-row">
+              <div className="flex-1 space-y-1">
+                <Label htmlFor="flavor-name">Nome do Sabor</Label>
+                <Input
+                  id="flavor-name"
+                  placeholder="Ex: Chocolate Belga"
+                  value={newFlavor.name}
+                  onChange={(e) =>
+                    setNewFlavor({ ...newFlavor, name: e.target.value })
+                  }
+                />
+              </div>
+              <div className="w-full space-y-1 md:w-32">
+                <Label htmlFor="flavor-stock">Estoque</Label>
+                <Input
+                  id="flavor-stock"
+                  type="number"
+                  placeholder="0"
+                  value={newFlavor.stock}
+                  onChange={(e) =>
+                    setNewFlavor({ ...newFlavor, stock: e.target.value })
+                  }
+                />
+              </div>
+              <div className="self-end">
+                <Button
+                  onClick={handleAddFlavor}
+                  className="w-full md:w-auto"
+                >
+                  Adicionar Sabor
+                </Button>
+              </div>
+            </div>
+            {flavors.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Sabor</TableHead>
+                    <TableHead className="w-[120px] text-right">
+                      Estoque
+                    </TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {flavors.map((flavor) => (
+                    <TableRow key={flavor.id}>
+                      <TableCell className="font-medium">
+                        {flavor.name}
+                      </TableCell>
+                      <TableCell className="text-right">{flavor.stock}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleRemoveFlavor(flavor.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="py-8 text-center text-muted-foreground">
+                Nenhum sabor adicionado.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         
         <div className="flex justify-end gap-2 pt-8">
             <Button variant="outline" onClick={() => router.back()}>Cancelar</Button>
