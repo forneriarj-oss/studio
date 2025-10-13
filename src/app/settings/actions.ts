@@ -1,46 +1,9 @@
 
 "use server";
 
-import * as admin from 'firebase-admin';
 import { getAuth } from 'firebase-admin/auth';
-import { cookies } from 'next/headers';
-import serviceAccount from '@/firebase/service-account.json';
-
-const BIZVIEW_APP_NAME = 'bizview-app-settings';
-
-// Initialize Firebase Admin SDK if not already initialized
-function getAdminApp() {
-  if (admin.apps.some(app => app?.name === BIZVIEW_APP_NAME)) {
-    return admin.app(BIZVIEW_APP_NAME);
-  }
-
-  // Cast serviceAccount to the correct type
-  const credential = admin.credential.cert({
-    projectId: serviceAccount.project_id,
-    clientEmail: serviceAccount.client_email,
-    privateKey: serviceAccount.private_key,
-  });
-
-  return admin.initializeApp({ credential }, BIZVIEW_APP_NAME);
-}
-
-
-async function getCurrentUser() {
-    const adminAuth = getAuth(getAdminApp());
-    const sessionCookie = cookies().get('session')?.value;
-
-    if (!sessionCookie) {
-        return null;
-    }
-
-    try {
-        const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
-        return decodedToken;
-    } catch (error) {
-        console.error('Error verifying session cookie:', error);
-        return null;
-    }
-}
+import { getCurrentUser } from '../finished-products/actions';
+import { getAdminApp } from '@/firebase/admin';
 
 interface UpdateProfilePayload {
     displayName: string;

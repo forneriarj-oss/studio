@@ -1,31 +1,13 @@
 "use server";
 
-import * as admin from 'firebase-admin';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { cookies } from 'next/headers';
-import serviceAccount from '@/firebase/service-account.json';
-
-const BIZVIEW_APP_NAME = 'bizview-app';
-
-// Initialize Firebase Admin SDK if not already initialized
-function getAdminApp() {
-  if (admin.apps.some(app => app?.name === BIZVIEW_APP_NAME)) {
-    return admin.app(BIZVIEW_APP_NAME);
-  }
-
-  // Cast serviceAccount to the correct type
-  const credential = admin.credential.cert({
-    projectId: serviceAccount.project_id,
-    clientEmail: serviceAccount.client_email,
-    privateKey: serviceAccount.private_key,
-  });
-
-  return admin.initializeApp({ credential }, BIZVIEW_APP_NAME);
-}
+import { getAdminApp } from '@/firebase/admin';
 
 
-async function getCurrentUser() {
+// Centralized Current User Getter
+export async function getCurrentUser() {
     const adminAuth = getAuth(getAdminApp());
     const sessionCookie = cookies().get('session')?.value;
 
@@ -47,7 +29,7 @@ export async function handleProduction(productId: string, flavorId: string, quan
   const user = await getCurrentUser();
 
   if (!user) {
-    return { success: false, message: "Usuário não autenticado." };
+    return { success: false, message: "Usuário não autenticado. Faça o login para continuar." };
   }
 
   const db = getFirestore(getAdminApp());
@@ -80,13 +62,17 @@ export async function handleProduction(productId: string, flavorId: string, quan
         const requiredItem = requiredMaterials[i];
 
         if (!materialDoc.exists) {
-          throw new Error(`Matéria-prima "${requiredItem.rawMaterialId}" não encontrada no inventário.`);
+          throw new Error(`Matéria-prima com ID "${requiredItem.rawMaterialId}" não foi encontrada no inventário.`);
         }
 
         const materialData = materialDoc.data();
+        if (!materialData) {
+           throw new Error(`Dados não encontrados para a matéria-prima "${requiredItem.rawMaterialId}".`);
+        }
+        
         const neededQuantity = requiredItem.quantity * quantity;
 
-        if (!materialData || materialData.quantity < neededQuantity) {
+        if (materialData.quantity < neededQuantity) {
           throw new Error(`Estoque insuficiente para "${materialData.description}". Necessário: ${neededQuantity}, Disponível: ${materialData.quantity}.`);
         }
         
@@ -115,6 +101,6 @@ export async function handleProduction(productId: string, flavorId: string, quan
 
   } catch (error: any) {
     console.error("Erro na transação de produção: ", error);
-    return { success: false, message: error.message || "Ocorreu um erro desconhecido durante a produção." };
+    return { success: false, message: `Falha na transação: ${error.message}` };
   }
 }
