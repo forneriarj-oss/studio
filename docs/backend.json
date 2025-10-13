@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "Expense": {
@@ -11,30 +10,29 @@
           "type": "string",
           "description": "Unique identifier for the expense."
         },
-        "amount": {
-          "type": "number",
-          "description": "The amount of the expense."
-        },
         "date": {
           "type": "string",
-          "description": "The date the expense was incurred.",
+          "description": "Date of the expense.",
           "format": "date-time"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount of the expense."
         },
         "category": {
           "type": "string",
-          "description": "The category of the expense (e.g., 'Rent', 'Utilities')."
+          "description": "Category of the expense (e.g., 'Rent', 'Supplies')."
         },
         "description": {
           "type": "string",
-          "description": "A description of the expense."
+          "description": "Description of the expense."
         }
       },
       "required": [
         "id",
-        "amount",
         "date",
-        "category",
-        "description"
+        "amount",
+        "category"
       ]
     },
     "Revenue": {
@@ -47,30 +45,29 @@
           "type": "string",
           "description": "Unique identifier for the revenue."
         },
-        "amount": {
-          "type": "number",
-          "description": "The amount of the revenue."
-        },
         "date": {
           "type": "string",
-          "description": "The date the revenue was received.",
+          "description": "Date of the revenue.",
           "format": "date-time"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount of the revenue."
         },
         "source": {
           "type": "string",
-          "description": "The source of the revenue (e.g., 'Sales', 'Services')."
+          "description": "Source of the revenue (e.g., 'Sales', 'Services')."
         },
         "description": {
           "type": "string",
-          "description": "A description of the revenue."
+          "description": "Description of the revenue."
         }
       },
       "required": [
         "id",
-        "amount",
         "date",
-        "source",
-        "description"
+        "amount",
+        "source"
       ]
     },
     "Appointment": {
@@ -83,28 +80,27 @@
           "type": "string",
           "description": "Unique identifier for the appointment."
         },
-        "title": {
-          "type": "string",
-          "description": "The title of the appointment."
-        },
         "startTime": {
           "type": "string",
-          "description": "The start time of the appointment.",
+          "description": "Start time of the appointment.",
           "format": "date-time"
         },
         "endTime": {
           "type": "string",
-          "description": "The end time of the appointment.",
+          "description": "End time of the appointment.",
           "format": "date-time"
         },
         "description": {
           "type": "string",
-          "description": "A description of the appointment."
+          "description": "Description of the appointment."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes for the appointment, potentially AI-generated."
         }
       },
       "required": [
         "id",
-        "title",
         "startTime",
         "endTime",
         "description"
@@ -126,15 +122,15 @@
           "schema": {
             "$ref": "#/backend/entities/Expense"
           },
-          "description": "Stores expense records for each user. The userId path parameter ensures data isolation and simplifies security rules based on user ownership.",
+          "description": "Stores expense records for a specific user. Path-based ownership ensures only the user can access their expenses.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier for the user."
+              "description": "The unique identifier of the user."
             },
             {
               "name": "expenseId",
-              "description": "The unique identifier for the expense."
+              "description": "The unique identifier of the expense."
             }
           ]
         }
@@ -146,15 +142,15 @@
           "schema": {
             "$ref": "#/backend/entities/Revenue"
           },
-          "description": "Stores revenue records for each user. The userId path parameter ensures data isolation and simplifies security rules based on user ownership.",
+          "description": "Stores revenue records for a specific user. Path-based ownership ensures only the user can access their revenue.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier for the user."
+              "description": "The unique identifier of the user."
             },
             {
               "name": "revenueId",
-              "description": "The unique identifier for the revenue."
+              "description": "The unique identifier of the revenue."
             }
           ]
         }
@@ -166,20 +162,20 @@
           "schema": {
             "$ref": "#/backend/entities/Appointment"
           },
-          "description": "Stores appointment records for each user. The userId path parameter ensures data isolation and simplifies security rules based on user ownership.",
+          "description": "Stores appointment records for a specific user. Path-based ownership ensures only the user can access their appointments.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier for the user."
+              "description": "The unique identifier of the user."
             },
             {
               "name": "appointmentId",
-              "description": "The unique identifier for the appointment."
+              "description": "The unique identifier of the appointment."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to provide a secure and scalable ERP solution tailored for small businesses, focusing on revenue, expenses, and appointment management. The structure is built around user-specific data segregation and authorization independence. Each user has their own collection for expenses, revenue, and appointments, ensuring data privacy and simplifying security rules. By storing all data under user-specific paths (e.g., `/users/{userId}/expenses/{expenseId}`), authorization is inherently tied to the user's ID, eliminating the need for complex `get()` calls in security rules. This approach ensures atomicity for transactions and batches. This structure supports required QAPs by segregating the data by user, enabling secure list operations within each user's data. Each collection (`expenses`, `revenues`, `appointments`) contains only documents relevant to that specific user, making rules straightforward and efficient. No custom claims are used; authentication relies on `request.auth.uid`. The structure promotes clarity, predictability, and adheres to the principle of structural segregation."
+    "reasoning": "The Firestore structure is designed to support a basic ERP system for small businesses, focusing on revenue, expenses, appointments, and profit calculation. It prioritizes Authorization Independence and QAPs by denormalizing ownership and access control data where necessary. The structure uses path-based ownership for user-specific data (expenses, revenue, appointments) and avoids hierarchical authorization dependencies by ensuring each document contains all necessary authorization information. This design allows for efficient and secure list operations and simplifies security rules.\n\nSpecifically, all data related to a user is namespaced under `/users/{userId}`. This provides a clear ownership model and allows for simple security rules that ensure only the authenticated user can access their own data. This structure facilitates secure 'list' operations by ensuring that the rules can be applied at the collection level without needing to filter based on document content. This structure enables performing list operations securely without exposing data from other users or relying on content-based filtering, which is strongly discouraged in Firestore rules."
   }
 }

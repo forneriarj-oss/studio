@@ -1,110 +1,120 @@
 /**
- * @fileoverview Firestore Security Rules for a user-centric ERP application.
+ * @fileoverview Firestore Security Rules for a basic ERP system.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model, ensuring that each user can only
- * access their own data related to expenses, revenues, and appointments.  No listing of all
- * users is allowed.
+ * This ruleset enforces a strict user-ownership model. Each user can only access data under their own user ID.
  *
  * Data Structure:
- * All data is nested under /users/{userId}, with subcollections for expenses, revenues, and
- * appointments.
+ * All data is nested under /users/{userId}, with subcollections for expenses, revenues, and appointments.
+ *  /users/{userId}/expenses/{expenseId}
+ *  /users/{userId}/revenues/{revenueId}
+ *  /users/{userId}/appointments/{appointmentId}
  *
  * Key Security Decisions:
- * - User data is completely isolated. Users can only access data under their own UID.
- * - Listing of all users is disallowed.
- * - All write operations require a valid, authenticated user.
- *
- * Denormalization for Authorization:
- *  The user ID is part of the document path (/users/{userId}/...), making it simple to
- *  validate ownership using the `isOwner()` helper function.
+ * - Users can only access their own data.
+ * - Listing other users' data is forbidden.
+ * - Data validation is relaxed during prototyping to focus on authorization.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the request is authenticated.
+    /**
+     * @description Checks if the request is authenticated.
+     * @return {boolean} True if the request is authenticated, false otherwise.
+     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Helper function to check if the authenticated user ID matches the requested user ID.
+    /**
+     * @description Checks if the requested user ID matches the authenticated user ID.
+     * @param {string} userId The user ID to check.
+     * @return {boolean} True if the user IDs match, false otherwise.
+     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Helper function to check if the authenticated user ID matches the existing document's owner ID.
+    /**
+     * @description Checks if the user is the owner and the document exists.
+     * @param {string} userId The user ID to check.
+     * @return {boolean} True if the user is the owner and the document exists, false otherwise.
+     */
     function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+        return isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Secures access to user-specific expense records.
+     * @description Rules for expenses collection under a user.
      * @path /users/{userId}/expenses/{expenseId}
-     * @allow (create) Authenticated user with UID 'user123' can create a new expense record under /users/user123/expenses.
-     * @allow (update) Authenticated user with UID 'user123' can update an existing expense record under /users/user123/expenses/expense456.
-     * @allow (delete) Authenticated user with UID 'user123' can delete an existing expense record under /users/user123/expenses/expense456.
-     * @allow (get) Authenticated user with UID 'user123' can get expense record under /users/user123/expenses/expense456.
-     * @allow (list) Authenticated user with UID 'user123' can list expense records under /users/user123/expenses.
-     * @deny (create) Authenticated user with UID 'user456' cannot create an expense record under /users/user123/expenses.
-     * @deny (update) Authenticated user with UID 'user456' cannot update an expense record under /users/user123/expenses/expense456.
-     * @deny (delete) Authenticated user with UID 'user456' cannot delete an expense record under /users/user123/expenses/expense456.
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     * @allow (create) - User A can create an expense record under their own user ID.
+     *    - auth.uid: "A"
+     *    - path: /users/A/expenses/123
+     * @allow (get, list) - User A can read their own expense records.
+     *    - auth.uid: "A"
+     *    - path: /users/A/expenses/123
+     * @allow (update, delete) - User A can update or delete their own expense records.
+     *    - auth.uid: "A"
+     *    - path: /users/A/expenses/123
+     * @deny (create, update, delete) - User A cannot modify User B's expense records.
+     *    - auth.uid: "A"
+     *    - path: /users/B/expenses/123
+     * @principle Enforces document ownership for writes; allows owner-only access.
      */
     match /users/{userId}/expenses/{expenseId} {
-      // Read rules: get and list
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-
-      // Write rules: create, update, delete
       allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Secures access to user-specific revenue records.
+     * @description Rules for revenues collection under a user.
      * @path /users/{userId}/revenues/{revenueId}
-     * @allow (create) Authenticated user with UID 'user123' can create a new revenue record under /users/user123/revenues.
-     * @allow (update) Authenticated user with UID 'user123' can update an existing revenue record under /users/user123/revenues/revenue456.
-     * @allow (delete) Authenticated user with UID 'user123' can delete an existing revenue record under /users/user123/revenues/revenue456.
-     * @allow (get) Authenticated user with UID 'user123' can get revenue record under /users/user123/revenues/revenue456.
-     * @allow (list) Authenticated user with UID 'user123' can list revenue records under /users/user123/revenues.
-     * @deny (create) Authenticated user with UID 'user456' cannot create a revenue record under /users/user123/revenues.
-     * @deny (update) Authenticated user with UID 'user456' cannot update a revenue record under /users/user123/revenues/revenue456.
-     * @deny (delete) Authenticated user with UID 'user456' cannot delete a revenue record under /users/user123/revenues/revenue456.
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     * @allow (create) - User A can create a revenue record under their own user ID.
+     *    - auth.uid: "A"
+     *    - path: /users/A/revenues/123
+     * @allow (get, list) - User A can read their own revenue records.
+     *    - auth.uid: "A"
+     *    - path: /users/A/revenues/123
+     * @allow (update, delete) - User A can update or delete their own revenue records.
+     *    - auth.uid: "A"
+     *    - path: /users/A/revenues/123
+     * @deny (create, update, delete) - User A cannot modify User B's revenue records.
+     *    - auth.uid: "A"
+     *    - path: /users/B/revenues/123
+     * @principle Enforces document ownership for writes; allows owner-only access.
      */
     match /users/{userId}/revenues/{revenueId} {
-      // Read rules: get and list
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-
-      // Write rules: create, update, delete
       allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Secures access to user-specific appointment records.
+     * @description Rules for appointments collection under a user.
      * @path /users/{userId}/appointments/{appointmentId}
-     * @allow (create) Authenticated user with UID 'user123' can create a new appointment record under /users/user123/appointments.
-     * @allow (update) Authenticated user with UID 'user123' can update an existing appointment record under /users/user123/appointments/appointment456.
-     * @allow (delete) Authenticated user with UID 'user123' can delete an existing appointment record under /users/user123/appointments/appointment456.
-     * @allow (get) Authenticated user with UID 'user123' can get appointment record under /users/user123/appointments/appointment456.
-     * @allow (list) Authenticated user with UID 'user123' can list appointment records under /users/user123/appointments.
-     * @deny (create) Authenticated user with UID 'user456' cannot create an appointment record under /users/user123/appointments.
-     * @deny (update) Authenticated user with UID 'user456' cannot update an appointment record under /users/user123/appointments/appointment456.
-     * @deny (delete) Authenticated user with UID 'user456' cannot delete an appointment record under /users/user123/appointments/appointment456.
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     * @allow (create) - User A can create an appointment record under their own user ID.
+     *    - auth.uid: "A"
+     *    - path: /users/A/appointments/123
+     * @allow (get, list) - User A can read their own appointment records.
+     *    - auth.uid: "A"
+     *    - path: /users/A/appointments/123
+     * @allow (update, delete) - User A can update or delete their own appointment records.
+     *    - auth.uid: "A"
+     *    - path: /users/A/appointments/123
+     * @deny (create, update, delete) - User A cannot modify User B's appointment records.
+     *    - auth.uid: "A"
+     *    - path: /users/B/appointments/123
+     * @principle Enforces document ownership for writes; allows owner-only access.
      */
     match /users/{userId}/appointments/{appointmentId} {
-      // Read rules: get and list
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-
-      // Write rules: create, update, delete
       allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
