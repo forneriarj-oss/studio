@@ -146,7 +146,18 @@ export default function SettingsPage() {
                 finalPhotoURL = await getDownloadURL(uploadResult.ref);
             }
 
+            // Update Firebase Auth profile
             await updateProfile(user, { displayName, photoURL: finalPhotoURL });
+            
+            // Update Firestore user profile document
+            const userDocRef = doc(firestore, `users/${user.uid}`);
+            await setDoc(userDocRef, { 
+                uid: user.uid,
+                email: user.email,
+                displayName: displayName, 
+                photoURL: finalPhotoURL 
+            }, { merge: true });
+
             toast({
                 title: 'Perfil Atualizado!',
                 description: 'Seu perfil foi atualizado com sucesso. As alterações podem levar um momento para serem refletidas.',
