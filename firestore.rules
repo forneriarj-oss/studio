@@ -1,27 +1,9 @@
-/**
- * @file Firestore Security Rules
- * @version 2
- *
- * @Core Philosophy
- * This ruleset enforces a strict user-ownership model, where each user has full control over their data, and no cross-user access is permitted.
- *
- * @Data Structure
- * All data is nested under `/users/{userId}`, creating a clear separation of data between users. This structure simplifies authorization.
- *
- * @Key Security Decisions
- * - User listing is explicitly denied.
- * - All write operations require a verified user identity (`request.auth != null`).
- * - Data validation is relaxed to allow for rapid prototyping, focusing solely on ownership and relational integrity.
- *
- * @Denormalization for Authorization
- * To avoid costly `get()` calls, ownership is enforced through path-based rules (e.g., `/users/{userId}/...`) and validated against internal document fields where applicable.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the request is made by an authenticated user.
+     * @description Checks if the request is made by a signed-in user.
      * @return {boolean} True if the user is signed in, false otherwise.
      */
     function isSignedIn() {
@@ -30,28 +12,47 @@ service cloud.firestore {
 
     /**
      * @description Checks if the authenticated user ID matches the provided user ID.
-     * @param {string} userId The user ID to compare against the authenticated user ID.
-     * @return {boolean} True if the user ID matches, false otherwise.
+     * @param {string} userId The user ID to compare against.
+     * @return {boolean} True if the user IDs match, false otherwise.
      */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
     /**
-     * @description Checks if the authenticated user is the owner of the existing document.
-     * @param {string} userId The user ID to compare against the authenticated user ID.
-     * @return {boolean} True if the user is the owner and the document exists, false otherwise.
+     * @description Checks if the authenticated user is the owner of an existing document.
+     * @param {string} userId The user ID to compare against.
+     * @return {boolean} True if the user IDs match and the resource exists, false otherwise.
      */
     function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+      return isOwner(userId) && resource.data != null;
+    }
+    
+    /**
+     * @description Rules for user profile documents.
+     * @path /users/{userId}
+     * @allow (create) Signed-in user creates their own profile.
+     * @deny (create) Signed-in user attempts to create a profile for another user.
+     * @allow (get, update, delete) Signed-in user accesses their own profile.
+     * @deny (get, update, delete) Signed-in user attempts to access another user's profile.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Enforces document ownership for expenses within a user's collection.
+     * @description Rules for expense documents.
      * @path /users/{userId}/expenses/{expenseId}
-     * @allow (create) User A creates an expense record under their own user ID.
-     * @deny (create) User A attempts to create an expense record under User B's user ID.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) Signed-in user creates an expense under their user ID.
+     * @deny (create) Signed-in user attempts to create an expense under another user's ID.
+     * @allow (get, list, update, delete) Signed-in user accesses their own expenses.
+     * @deny (get, list, update, delete) Signed-in user attempts to access another user's expenses.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
      */
     match /users/{userId}/expenses/{expenseId} {
       allow get: if isOwner(userId);
@@ -62,11 +63,13 @@ service cloud.firestore {
     }
 
     /**
-     * @description Enforces document ownership for revenues within a user's collection.
+     * @description Rules for revenue documents.
      * @path /users/{userId}/revenues/{revenueId}
-     * @allow (create) User A creates a revenue record under their own user ID.
-     * @deny (create) User A attempts to create a revenue record under User B's user ID.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) Signed-in user creates a revenue record under their user ID.
+     * @deny (create) Signed-in user attempts to create a revenue record under another user's ID.
+     * @allow (get, list, update, delete) Signed-in user accesses their own revenue records.
+     * @deny (get, list, update, delete) Signed-in user attempts to access another user's revenue records.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
      */
     match /users/{userId}/revenues/{revenueId} {
       allow get: if isOwner(userId);
@@ -77,11 +80,13 @@ service cloud.firestore {
     }
 
     /**
-     * @description Enforces document ownership for appointments within a user's collection.
+     * @description Rules for appointment documents.
      * @path /users/{userId}/appointments/{appointmentId}
-     * @allow (create) User A creates an appointment record under their own user ID.
-     * @deny (create) User A attempts to create an appointment record under User B's user ID.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) Signed-in user creates an appointment under their user ID.
+     * @deny (create) Signed-in user attempts to create an appointment under another user's ID.
+     * @allow (get, list, update, delete) Signed-in user accesses their own appointments.
+     * @deny (get, list, update, delete) Signed-in user attempts to access another user's appointments.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
      */
     match /users/{userId}/appointments/{appointmentId} {
       allow get: if isOwner(userId);
@@ -91,13 +96,15 @@ service cloud.firestore {
       allow delete: if isExistingOwner(userId);
     }
 
-     /**
-      * @description Enforces document ownership for raw materials within a user's collection.
-      * @path /users/{userId}/raw-materials/{materialId}
-      * @allow (create) User A creates a raw material record under their own user ID.
-      * @deny (create) User A attempts to create a raw material record under User B's user ID.
-      * @principle Enforces document ownership for writes.
-      */
+    /**
+     * @description Rules for raw material documents.
+     * @path /users/{userId}/raw-materials/{materialId}
+     * @allow (create) Signed-in user creates a raw material under their user ID.
+     * @deny (create) Signed-in user attempts to create a raw material under another user's ID.
+     * @allow (get, list, update, delete) Signed-in user accesses their own raw materials.
+     * @deny (get, list, update, delete) Signed-in user attempts to access another user's raw materials.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
+     */
     match /users/{userId}/raw-materials/{materialId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
@@ -106,13 +113,15 @@ service cloud.firestore {
       allow delete: if isExistingOwner(userId);
     }
 
-     /**
-      * @description Enforces document ownership for finished products within a user's collection.
-      * @path /users/{userId}/finished-products/{productId}
-      * @allow (create) User A creates a finished product record under their own user ID.
-      * @deny (create) User A attempts to create a finished product record under User B's user ID.
-      * @principle Enforces document ownership for writes.
-      */
+    /**
+     * @description Rules for finished product documents.
+     * @path /users/{userId}/finished-products/{productId}
+     * @allow (create) Signed-in user creates a finished product under their user ID.
+     * @deny (create) Signed-in user attempts to create a finished product under another user's ID.
+     * @allow (get, list, update, delete) Signed-in user accesses their own finished products.
+     * @deny (get, list, update, delete) Signed-in user attempts to access another user's finished products.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
+     */
     match /users/{userId}/finished-products/{productId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
@@ -120,17 +129,36 @@ service cloud.firestore {
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
-    
+
     /**
-     * @description Enforces document ownership for sales records within a user's collection.
+     * @description Rules for sale documents.
      * @path /users/{userId}/sales/{saleId}
-     * @allow (create) User A creates a sales record under their own user ID.
-     * @deny (create) User A attempts to create a sales record under User B's user ID.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) Signed-in user creates a sale under their user ID.
+     * @deny (create) Signed-in user attempts to create a sale under another user's ID.
+     * @allow (get, list, update, delete) Signed-in user accesses their own sales.
+     * @deny (get, list, update, delete) Signed-in user attempts to access another user's sales.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
      */
     match /users/{userId}/sales/{saleId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rules for app settings document.
+     * @path /users/{userId}/settings/app-settings
+     * @allow (create) Signed-in user creates their own settings.
+     * @deny (create) Signed-in user attempts to create settings for another user.
+     * @allow (get, update, delete) Signed-in user accesses their own settings.
+     * @deny (get, update, delete) Signed-in user attempts to access another user's settings.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
+     */
+    match /users/{userId}/settings/app-settings {
+      allow get: if isOwner(userId);
+      allow list: if false;
       allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
