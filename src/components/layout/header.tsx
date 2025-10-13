@@ -18,6 +18,7 @@ import Image from 'next/image';
 import { useUser, useAuth } from "@/firebase";
 import { handleSignOut } from "@/firebase/auth/service";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export function Header() {
   const { isMobile } = useSidebar();
@@ -62,8 +63,9 @@ export function Header() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>{user.displayName || user.email}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Configurações</DropdownMenuItem>
-              <DropdownMenuItem>Suporte</DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/settings">Configurações</Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onSignOut}>Sair</DropdownMenuItem>
             </DropdownMenuContent>
