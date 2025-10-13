@@ -8,6 +8,12 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle, Edit, Trash2, Wand } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -139,7 +145,7 @@ export default function ProductsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Lista de Produtos</CardTitle>
-          <CardDescription>Gerencie seus produtos cadastrados.</CardDescription>
+          <CardDescription>Gerencie seus produtos cadastrados. Clique em um produto para ver os sabores.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="mb-4 flex items-center gap-2">
@@ -155,62 +161,108 @@ export default function ProductsPage() {
               </SelectContent>
             </Select>
           </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Descrição</TableHead>
-                <TableHead>Categoria</TableHead>
-                <TableHead>Estoque Total</TableHead>
-                <TableHead>Custo</TableHead>
-                <TableHead>Preço</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Carregando produtos...</TableCell></TableRow>}
-              {!isLoading && filteredProducts?.map(product => (
-                 <TableRow key={product.id}>
-                    <TableCell className="font-medium">{product.name.toUpperCase()}</TableCell>
-                    <TableCell>{product.category.toUpperCase()}</TableCell>
-                    <TableCell>{`${totalStockByProduct(product)} ${product.unit}`}</TableCell>
-                    <TableCell>{formatCurrency(product.finalCost)}</TableCell>
-                    <TableCell>{formatCurrency(product.salePrice)}</TableCell>
-                    <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openProductionDialog(product)}>
-                            <Wand className="mr-2 h-4 w-4" />
-                            Produzir
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push(`/finished-products/edit/${product.id}`)}>
-                            <Edit className="h-4 w-4" />
-                            <span className="sr-only">Editar</span>
-                        </Button>
-                         <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                                <span className="sr-only">Excluir</span>
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Esta ação não pode ser desfeita. Isso excluirá permanentemente o produto.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDeleteProduct(product.id!)}>Excluir</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                    </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="border rounded-lg">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead className='w-[50px]'></TableHead>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead>Categoria</TableHead>
+                        <TableHead>Estoque</TableHead>
+                        <TableHead>Preço</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                </TableHeader>
+            </Table>
+            {isLoading && (
+                <div className="text-center p-8 text-muted-foreground">Carregando produtos...</div>
+            )}
+            {!isLoading && filteredProducts && filteredProducts.length > 0 && (
+                 <Accordion type="single" collapsible className="w-full">
+                    {filteredProducts.map(product => (
+                        <AccordionItem value={product.id!} key={product.id!}>
+                            <TableRow>
+                                <TableCell>
+                                    <AccordionTrigger />
+                                </TableCell>
+                                <TableCell className="font-medium">{product.name.toUpperCase()}</TableCell>
+                                <TableCell>{product.category.toUpperCase()}</TableCell>
+                                <TableCell>{`${totalStockByProduct(product)} ${product.unit}`}</TableCell>
+                                <TableCell>{formatCurrency(product.salePrice)}</TableCell>
+                                <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                    <Button variant="outline" size="sm" onClick={() => openProductionDialog(product)}>
+                                        <Wand className="mr-2 h-4 w-4" />
+                                        Produzir
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push(`/finished-products/edit/${product.id}`)}>
+                                        <Edit className="h-4 w-4" />
+                                        <span className="sr-only">Editar</span>
+                                    </Button>
+                                    <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                            <span className="sr-only">Excluir</span>
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Esta ação não pode ser desfeita. Isso excluirá permanentemente o produto e todos os seus sabores/variações.
+                                        </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDeleteProduct(product.id!)}>Excluir</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                    </AlertDialog>
+                                </div>
+                                </TableCell>
+                            </TableRow>
+                             <AccordionContent asChild>
+                                <tr className='bg-muted/50 hover:bg-muted/50'>
+                                    <td colSpan={6} className='p-0'>
+                                        <div className="p-4">
+                                            <h4 className="font-semibold text-sm mb-2 ml-2">Variações / Sabores:</h4>
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Sabor</TableHead>
+                                                        <TableHead>Estoque Atual</TableHead>
+                                                        <TableHead className='text-right'>Custo de Produção</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {product.flavors.map(flavor => (
+                                                        <TableRow key={flavor.id}>
+                                                            <TableCell>{flavor.name}</TableCell>
+                                                            <TableCell>{flavor.stock}</TableCell>
+                                                            <TableCell className='text-right'>{formatCurrency(product.finalCost)}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </AccordionContent>
+                        </AccordionItem>
+                    ))}
+                 </Accordion>
+            )}
+             {!isLoading && (!filteredProducts || filteredProducts.length === 0) && (
+                <TableBody>
+                    <TableRow>
+                        <TableCell colSpan={6} className="h-24 text-center">
+                        Nenhum produto encontrado.
+                        </TableCell>
+                    </TableRow>
+                </TableBody>
+            )}
+          </div>
         </CardContent>
       </Card>
       
@@ -259,3 +311,5 @@ export default function ProductsPage() {
     </div>
   );
 }
+
+    
