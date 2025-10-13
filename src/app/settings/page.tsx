@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -12,7 +11,7 @@ import { useAuth, useFirestore, useUser, useDoc, useMemoFirebase } from '@/fireb
 import { doc, setDoc } from 'firebase/firestore';
 import type { Settings } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { updateUserProfile } from './actions';
+import { updateProfile } from 'firebase/auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 
@@ -115,18 +114,24 @@ export default function SettingsPage() {
 
     const handleProfileUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
-        const result = await updateUserProfile({ displayName, photoURL });
-        if (result.success) {
+        if (!user) {
+            toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
+            return;
+        }
+
+        try {
+            await updateProfile(user, { displayName, photoURL });
             toast({
                 title: 'Perfil Atualizado!',
                 description: 'Seu perfil foi atualizado com sucesso. As alterações podem levar um momento para serem refletidas.',
             });
-            // You might want to trigger a refresh of the user object here if needed
-        } else {
+            // The onAuthStateChanged listener in the provider will eventually pick this up
+            // For immediate UI update, you might need a local state refresh or force a re-fetch of the user object
+        } catch (error: any) {
             toast({
                 variant: 'destructive',
                 title: 'Erro ao Atualizar',
-                description: result.message,
+                description: error.message || 'Ocorreu um erro desconhecido.',
             });
         }
     };
