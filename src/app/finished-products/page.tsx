@@ -1,18 +1,12 @@
 'use client';
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
-import type { FinishedProduct, Flavor } from '@/lib/types';
+import type { FinishedProduct } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, Wand } from 'lucide-react';
+import { PlusCircle, Edit, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,23 +18,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, deleteDoc, doc } from 'firebase/firestore';
-import { handleProduction } from './actions';
 
 
 const formatCurrency = (amount: number) => {
@@ -62,10 +43,6 @@ export default function ProductsPage() {
   const [filterCategory, setFilterCategory] = useState('todos');
   const { toast } = useToast();
   const router = useRouter();
-
-  const [isProductionDialogOpen, setIsProductionDialogOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<FinishedProduct | null>(null);
-  const [productionData, setProductionData] = useState<{ flavorId: string, quantity: number }>({ flavorId: '', quantity: 1 });
 
   const categories = useMemo(() => {
     if (!products) return ['todos'];
@@ -95,46 +72,12 @@ export default function ProductsPage() {
     if (!product.flavors) return 0;
     return product.flavors.reduce((total, flavor) => total + flavor.stock, 0);
   }
-  
-  const openProductionDialog = (product: FinishedProduct) => {
-    setSelectedProduct(product);
-    setProductionData({ flavorId: '', quantity: 1 });
-    setIsProductionDialogOpen(true);
-  };
-
-  const onConfirmProduction = async () => {
-    if (!selectedProduct || !productionData.flavorId || productionData.quantity <= 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Dados inválidos',
-        description: 'Selecione um sabor e informe uma quantidade válida.',
-      });
-      return;
-    }
-
-    const result = await handleProduction(selectedProduct.id!, productionData.flavorId, productionData.quantity);
-
-    if (result.success) {
-      toast({
-        title: 'Produção Registrada!',
-        description: result.message,
-      });
-      setIsProductionDialogOpen(false);
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Erro na Produção',
-        description: result.message,
-      });
-    }
-  };
-
 
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Produtos</h1>
-        <Button asChild className="bg-green-600 hover:bg-green-700">
+        <Button asChild className="bg-green-600 hover:bg-green-700 text-black">
           <Link href="/finished-products/new">
             <PlusCircle className="mr-2 h-4 w-4" />
             Novo Produto
@@ -145,7 +88,7 @@ export default function ProductsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Lista de Produtos</CardTitle>
-          <CardDescription>Gerencie seus produtos cadastrados. Clique em um produto para ver os sabores.</CardDescription>
+          <CardDescription>Gerencie seus produtos cadastrados.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="mb-4 flex items-center gap-2">
@@ -165,151 +108,72 @@ export default function ProductsPage() {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className='w-[50px]'></TableHead>
                         <TableHead>Descrição</TableHead>
                         <TableHead>Categoria</TableHead>
-                        <TableHead>Estoque</TableHead>
+                        <TableHead>Estoque Total</TableHead>
+                        <TableHead>Custo</TableHead>
                         <TableHead>Preço</TableHead>
                         <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                 </TableHeader>
-            </Table>
-            {isLoading && (
-                <div className="text-center p-8 text-muted-foreground">Carregando produtos...</div>
-            )}
-            {!isLoading && filteredProducts && filteredProducts.length > 0 && (
-                 <Accordion type="single" collapsible className="w-full">
-                    {filteredProducts.map(product => (
-                        <AccordionItem value={product.id!} key={product.id!}>
-                            <TableRow>
-                                <TableCell>
-                                    <AccordionTrigger />
-                                </TableCell>
-                                <TableCell className="font-medium">{product.name.toUpperCase()}</TableCell>
-                                <TableCell>{product.category.toUpperCase()}</TableCell>
-                                <TableCell>{`${totalStockByProduct(product)} ${product.unit}`}</TableCell>
-                                <TableCell>{formatCurrency(product.salePrice)}</TableCell>
-                                <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                    <Button variant="outline" size="sm" onClick={() => openProductionDialog(product)}>
-                                        <Wand className="mr-2 h-4 w-4" />
-                                        Produzir
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push(`/finished-products/edit/${product.id}`)}>
-                                        <Edit className="h-4 w-4" />
-                                        <span className="sr-only">Editar</span>
-                                    </Button>
-                                    <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                            <span className="sr-only">Excluir</span>
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            Esta ação não pode ser desfeita. Isso excluirá permanentemente o produto e todos os seus sabores/variações.
-                                        </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDeleteProduct(product.id!)}>Excluir</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                    </AlertDialog>
-                                </div>
-                                </TableCell>
-                            </TableRow>
-                             <AccordionContent asChild>
-                                <tr className='bg-muted/50 hover:bg-muted/50'>
-                                    <td colSpan={6} className='p-0'>
-                                        <div className="p-4">
-                                            <h4 className="font-semibold text-sm mb-2 ml-2">Variações / Sabores:</h4>
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>Sabor</TableHead>
-                                                        <TableHead>Estoque Atual</TableHead>
-                                                        <TableHead className='text-right'>Custo de Produção</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {product.flavors.map(flavor => (
-                                                        <TableRow key={flavor.id}>
-                                                            <TableCell>{flavor.name}</TableCell>
-                                                            <TableCell>{flavor.stock}</TableCell>
-                                                            <TableCell className='text-right'>{formatCurrency(product.finalCost)}</TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </AccordionContent>
-                        </AccordionItem>
-                    ))}
-                 </Accordion>
-            )}
-             {!isLoading && (!filteredProducts || filteredProducts.length === 0) && (
-                <TableBody>
+                 <TableBody>
+                  {isLoading && (
+                      <TableRow>
+                          <TableCell colSpan={6} className="h-24 text-center">
+                          Carregando produtos...
+                          </TableCell>
+                      </TableRow>
+                  )}
+                  {!isLoading && filteredProducts && filteredProducts.length > 0 ? (
+                    filteredProducts.map(product => (
+                       <TableRow key={product.id!}>
+                          <TableCell className="font-medium">{product.name}</TableCell>
+                          <TableCell>{product.category}</TableCell>
+                          <TableCell>{`${totalStockByProduct(product)} ${product.unit}`}</TableCell>
+                          <TableCell>{formatCurrency(product.finalCost)}</TableCell>
+                          <TableCell>{formatCurrency(product.salePrice)}</TableCell>
+                          <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push(`/finished-products/edit/${product.id}`)}>
+                                  <Edit className="h-4 w-4" />
+                                  <span className="sr-only">Editar</span>
+                              </Button>
+                              <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                      <span className="sr-only">Excluir</span>
+                                  </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                  <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                      Esta ação não pode ser desfeita. Isso excluirá permanentemente o produto e todos os seus sabores/variações.
+                                  </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteProduct(product.id!)}>Excluir</AlertDialogAction>
+                                  </AlertDialogFooter>
+                              </AlertDialogContent>
+                              </AlertDialog>
+                          </div>
+                          </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
                     <TableRow>
                         <TableCell colSpan={6} className="h-24 text-center">
                         Nenhum produto encontrado.
                         </TableCell>
                     </TableRow>
+                  )}
                 </TableBody>
-            )}
+            </Table>
           </div>
         </CardContent>
       </Card>
-      
-      {/* Production Dialog */}
-       <Dialog open={isProductionDialogOpen} onOpenChange={setIsProductionDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Registrar Produção</DialogTitle>
-            <DialogDescription>
-              Produza novas unidades de <strong>{selectedProduct?.name}</strong>. Isso dará baixa no estoque de matérias-primas e adicionará ao estoque de produtos acabados.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="flavor">Sabor</Label>
-              <Select value={productionData.flavorId} onValueChange={(value) => setProductionData({ ...productionData, flavorId: value })}>
-                <SelectTrigger id="flavor">
-                  <SelectValue placeholder="Selecione um sabor/variação" />
-                </SelectTrigger>
-                <SelectContent>
-                  {selectedProduct?.flavors.map(flavor => (
-                    <SelectItem key={flavor.id} value={flavor.id}>{flavor.name} (Estoque atual: {flavor.stock})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="quantity">Quantidade a Produzir</Label>
-              <Input
-                id="quantity"
-                type="number"
-                min="1"
-                value={productionData.quantity}
-                onChange={(e) => setProductionData({ ...productionData, quantity: parseInt(e.target.value) || 1 })}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">Cancelar</Button>
-            </DialogClose>
-            <Button type="submit" onClick={onConfirmProduction}>Confirmar Produção</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
-
-    

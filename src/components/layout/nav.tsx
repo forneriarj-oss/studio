@@ -5,16 +5,12 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Box,
-  Component,
-  ShoppingCart,
   Package,
+  ShoppingCart,
+  DollarSign,
   Landmark,
   FileText,
   Settings,
-  Calendar,
-  DollarSign,
-  Warehouse,
-  BarChart3
 } from 'lucide-react';
 import {
   SidebarMenu,
@@ -24,14 +20,12 @@ import {
 
 const allNavItems = [
     { href: '/', label: 'Painel', icon: LayoutDashboard },
-    { href: '/calendar', label: 'Agenda', icon: Calendar },
+    { href: '/finished-products', label: 'Produtos', icon: Box },
+    { href: '/inventory', label: 'Matérias-Primas', icon: Package },
     { href: '/sales', label: 'Vendas', icon: ShoppingCart },
+    { href: '/purchases', label: 'Compras', icon: DollarSign },
     { href: '/cash-flow', label: 'Caixa', icon: Landmark },
-    { href: '/revenue', label: 'Receitas', icon: DollarSign },
-    { href: '/expenses', label: 'Despesas', icon: DollarSign },
-    { href: '/finished-products', label: 'Produtos', icon: Component },
-    { href: '/inventory', label: 'Matérias-Primas', icon: Warehouse },
-    { href: '/purchases', label: 'Compras', icon: Package },
+    { href: '/reports', label: 'Relatórios', icon: FileText },
     { href: '/settings', label: 'Configurações', icon: Settings },
   ];
 

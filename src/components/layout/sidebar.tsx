@@ -10,11 +10,12 @@ import { Nav } from "./nav";
 import { useUser, useAuth } from "@/firebase";
 import { handleSignOut } from "@/firebase/auth/service";
 import { useRouter } from "next/navigation";
+import { Box } from 'lucide-react';
 
 const Logo = () => (
     <div className="flex items-center gap-2 px-4 py-2">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-primary"><path d="M2 7v10"/><path d="M6 7v10"/><path d="M10 7v10"/><path d="M14 7v10"/><path d="M18 7v10"/><path d="m22 7-5 10-5-10"/></svg>
-        <h1 className="text-xl font-bold text-primary">BizView</h1>
+        <Box className="h-6 w-6 text-primary" />
+        <h1 className="text-xl font-bold text-primary">GestorPro</h1>
     </div>
 )
 
