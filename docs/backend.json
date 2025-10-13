@@ -28,12 +28,7 @@
           "description": "Description of the expense."
         }
       },
-      "required": [
-        "id",
-        "date",
-        "amount",
-        "category"
-      ]
+      "required": ["date", "amount", "category", "description"]
     },
     "Revenue": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -63,12 +58,7 @@
           "description": "Description of the revenue."
         }
       },
-      "required": [
-        "id",
-        "date",
-        "amount",
-        "source"
-      ]
+      "required": ["date", "amount", "source"]
     },
     "Appointment": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -99,12 +89,111 @@
           "description": "Additional notes for the appointment, potentially AI-generated."
         }
       },
+      "required": ["startTime", "endTime", "description"]
+    },
+    "RawMaterial": {
+      "title": "Raw Material",
+      "description": "Represents a single raw material or ingredient in inventory.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Internal code or SKU for the material."
+        },
+        "description": {
+          "type": "string",
+          "description": "Name or description of the material."
+        },
+        "unit": {
+          "type": "string",
+          "description": "The unit of measurement (e.g., KG, L, UN)."
+        },
+        "cost": {
+          "type": "number",
+          "description": "The cost per unit of the material."
+        },
+        "supplier": {
+          "type": "string",
+          "description": "The primary supplier of the material."
+        },
+        "quantity": {
+          "type": "number",
+          "description": "The current quantity in stock."
+        },
+        "minStock": {
+          "type": "number",
+          "description": "The minimum stock level before an alert is triggered."
+        }
+      },
       "required": [
-        "id",
-        "startTime",
-        "endTime",
-        "description"
+        "code",
+        "description",
+        "unit",
+        "cost",
+        "quantity",
+        "minStock"
       ]
+    },
+    "FinishedProduct": {
+      "title": "Finished Product",
+      "description": "Represents a final product ready for sale.",
+      "type": "object",
+      "properties": {
+        "sku": {
+          "type": "string",
+          "description": "Stock Keeping Unit for the product."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the product."
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of the product (e.g., 'Bolo', 'Pastel')."
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of sale (e.g., 'UN', 'KG')."
+        },
+        "recipe": {
+          "type": "array",
+          "description": "List of raw materials and quantities to produce one unit.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rawMaterialId": {
+                "type": "string"
+              },
+              "quantity": {
+                "type": "number"
+              }
+            },
+            "required": ["rawMaterialId", "quantity"]
+          }
+        },
+        "finalCost": {
+          "type": "number",
+          "description": "The final calculated or manually set cost of the product."
+        },
+        "salePrice": {
+          "type": "number",
+          "description": "The price at which the product is sold."
+        },
+        "flavors": {
+          "type": "array",
+          "description": "Different flavors or variations of the product.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string"},
+              "name": {"type": "string"},
+              "stock": {"type": "number"}
+            },
+            "required": ["id", "name", "stock"]
+          }
+        }
+      },
+      "required": ["sku", "name", "category", "unit", "finalCost", "salePrice", "flavors"]
     }
   },
   "auth": {
@@ -120,19 +209,9 @@
         "definition": {
           "entityName": "Expense",
           "schema": {
-            "$ref": "#/backend/entities/Expense"
+            "$ref": "#/entities/Expense"
           },
-          "description": "Stores expense records for a specific user. Path-based ownership ensures only the user can access their expenses.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            },
-            {
-              "name": "expenseId",
-              "description": "The unique identifier of the expense."
-            }
-          ]
+          "description": "Stores expense records for a specific user. Path-based ownership ensures only the user can access their expenses."
         }
       },
       {
@@ -140,19 +219,9 @@
         "definition": {
           "entityName": "Revenue",
           "schema": {
-            "$ref": "#/backend/entities/Revenue"
+            "$ref": "#/entities/Revenue"
           },
-          "description": "Stores revenue records for a specific user. Path-based ownership ensures only the user can access their revenue.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            },
-            {
-              "name": "revenueId",
-              "description": "The unique identifier of the revenue."
-            }
-          ]
+          "description": "Stores revenue records for a specific user. Path-based ownership ensures only the user can access their revenue."
         }
       },
       {
@@ -160,22 +229,31 @@
         "definition": {
           "entityName": "Appointment",
           "schema": {
-            "$ref": "#/backend/entities/Appointment"
+            "$ref": "#/entities/Appointment"
           },
-          "description": "Stores appointment records for a specific user. Path-based ownership ensures only the user can access their appointments.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            },
-            {
-              "name": "appointmentId",
-              "description": "The unique identifier of the appointment."
-            }
-          ]
+          "description": "Stores appointment records for a specific user. Path-based ownership ensures only the user can access their appointments."
+        }
+      },
+      {
+        "path": "/users/{userId}/raw-materials/{materialId}",
+        "definition": {
+          "entityName": "RawMaterial",
+          "schema": {
+            "$ref": "#/entities/RawMaterial"
+          },
+          "description": "Stores raw material inventory for a specific user."
+        }
+      },
+       {
+        "path": "/users/{userId}/finished-products/{productId}",
+        "definition": {
+          "entityName": "FinishedProduct",
+          "schema": {
+            "$ref": "#/entities/FinishedProduct"
+          },
+          "description": "Stores finished product definitions for a specific user."
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to support a basic ERP system for small businesses, focusing on revenue, expenses, appointments, and profit calculation. It prioritizes Authorization Independence and QAPs by denormalizing ownership and access control data where necessary. The structure uses path-based ownership for user-specific data (expenses, revenue, appointments) and avoids hierarchical authorization dependencies by ensuring each document contains all necessary authorization information. This design allows for efficient and secure list operations and simplifies security rules.\n\nSpecifically, all data related to a user is namespaced under `/users/{userId}`. This provides a clear ownership model and allows for simple security rules that ensure only the authenticated user can access their own data. This structure facilitates secure 'list' operations by ensuring that the rules can be applied at the collection level without needing to filter based on document content. This structure enables performing list operations securely without exposing data from other users or relying on content-based filtering, which is strongly discouraged in Firestore rules."
+    ]
   }
 }

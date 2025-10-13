@@ -1,7 +1,6 @@
 'use client';
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
-import { getFinishedProducts } from '@/lib/data';
 import type { FinishedProduct } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -21,6 +20,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, deleteDoc, doc } from 'firebase/firestore';
 
 
 const formatCurrency = (amount: number) => {
@@ -31,25 +32,36 @@ const formatCurrency = (amount: number) => {
 };
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<FinishedProduct[]>(getFinishedProducts());
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const finishedProductsRef = useMemoFirebase(
+    () => (user ? collection(firestore, `users/${user.uid}/finished-products`) : null),
+    [firestore, user]
+  );
+  const { data: products, isLoading } = useCollection<FinishedProduct>(finishedProductsRef);
+  
   const [filterCategory, setFilterCategory] = useState('todos');
   const { toast } = useToast();
   const router = useRouter();
 
   const categories = useMemo(() => {
+    if (!products) return ['todos'];
     const allCategories = products.map(p => p.category);
     return ['todos', ...Array.from(new Set(allCategories))];
   }, [products]);
 
   const filteredProducts = useMemo(() => {
+    if (!products) return [];
     if (filterCategory === 'todos') {
       return products;
     }
     return products.filter(p => p.category === filterCategory);
   }, [products, filterCategory]);
 
-  const handleDeleteProduct = (productId: string) => {
-    setProducts(products.filter(p => p.id !== productId));
+  const handleDeleteProduct = async (productId: string) => {
+    if (!user) return;
+    const docRef = doc(firestore, `users/${user.uid}/finished-products`, productId);
+    await deleteDoc(docRef);
     toast({
       title: 'Produto Excluído',
       description: 'O produto foi removido da sua lista.',
@@ -57,6 +69,7 @@ export default function ProductsPage() {
   };
 
   const totalStockByProduct = (product: FinishedProduct) => {
+    if (!product.flavors) return 0;
     return product.flavors.reduce((total, flavor) => total + flavor.stock, 0);
   }
 
@@ -103,7 +116,8 @@ export default function ProductsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredProducts.map(product => (
+              {isLoading && <TableRow><TableCell colSpan={6} className="text-center">Carregando produtos...</TableCell></TableRow>}
+              {!isLoading && filteredProducts?.map(product => (
                  <TableRow key={product.id}>
                     <TableCell className="font-medium">{product.name.toUpperCase()}</TableCell>
                     <TableCell>{product.category.toUpperCase()}</TableCell>

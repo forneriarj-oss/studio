@@ -2,7 +2,6 @@
 import { useState, useMemo, useTransition, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
-import { getRawMaterials, getFinishedProducts } from '@/lib/data';
 import type { RawMaterial, RecipeItem, FinishedProduct } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,13 +9,15 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { X, PlusCircle, Trash2, ArrowLeft, Wand2 } from 'lucide-react';
+import { PlusCircle, Trash2, ArrowLeft, Wand2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getPriceSuggestion } from '../new/actions';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useAuth, useFirestore, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase';
+import { collection, doc, updateDoc } from 'firebase/firestore';
 
 
 const formatCurrency = (amount: number) => {
@@ -29,47 +30,53 @@ const formatCurrency = (amount: number) => {
 export default function EditFinishedProductPage() {
   const router = useRouter();
   const params = useParams();
+  const { id: productId } = params;
   const { toast } = useToast();
-  const rawMaterials = getRawMaterials();
-  const allProducts = getFinishedProducts();
+  const { user } = useUser();
+  const firestore = useFirestore();
+
+  const rawMaterialsRef = useMemoFirebase(
+    () => (user ? collection(firestore, `users/${user.uid}/raw-materials`) : null),
+    [firestore, user]
+  );
+  const { data: rawMaterials, isLoading: isLoadingMaterials } = useCollection<RawMaterial>(rawMaterialsRef);
+
+  const productRef = useMemoFirebase(
+    () => (user && productId ? doc(firestore, `users/${user.uid}/finished-products/${productId}`) : null),
+    [firestore, user, productId]
+  );
+  const { data: product, isLoading: isLoadingProduct } = useDoc<FinishedProduct>(productRef);
   
   const [isPending, startTransition] = useTransition();
   const [priceSuggestion, setPriceSuggestion] = useState<{ price: number; justification: string } | null>(null);
   
-  const [product, setProduct] = useState<FinishedProduct | null>(null);
   const [productName, setProductName] = useState('');
   const [categories, setCategories] = useState(['Bolo', 'Pastel', 'Bebida']);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [unit, setUnit] = useState('UN');
   const [recipe, setRecipe] = useState<RecipeItem[]>([]);
-  const [newRecipeItem, setNewRecipeItem] = useState<{ id: string, qty: number | '' }>({ id: '', qty: 0 });
+  const [newRecipeItem, setNewRecipeItem] = useState<{ id: string, qty: number | '' }>({ id: '', qty: '' });
   const [manualCost, setManualCost] = useState<number | ''>('');
   const [salePrice, setSalePrice] = useState<number | ''>('');
 
   useEffect(() => {
-    if (params.id) {
-      const existingProduct = allProducts.find(p => p.id === params.id);
-      if (existingProduct) {
-        setProduct(existingProduct);
-        setProductName(existingProduct.name);
-        setSelectedCategory(existingProduct.category);
-        setUnit(existingProduct.unit);
-        setRecipe(existingProduct.recipe);
-        setManualCost(existingProduct.finalCost);
-        setSalePrice(existingProduct.salePrice);
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'Produto não encontrado!',
-        });
-        router.push('/finished-products');
+    if (product) {
+      setProductName(product.name);
+      setSelectedCategory(product.category);
+      setUnit(product.unit);
+      setRecipe(product.recipe);
+      setManualCost(product.finalCost);
+      setSalePrice(product.salePrice);
+      if (product.category && !categories.includes(product.category)) {
+        setCategories(prev => [...prev, product.category]);
       }
     }
-  }, [params.id, allProducts, router, toast]);
+  }, [product, categories]);
 
 
   const calculatedCost = useMemo(() => {
+    if (!rawMaterials) return 0;
     return recipe.reduce((total, item) => {
       const material = rawMaterials.find(m => m.id === item.rawMaterialId);
       return total + (material ? material.cost * item.quantity : 0);
@@ -115,11 +122,11 @@ export default function EditFinishedProductPage() {
 
 
   const getMaterialDescription = (id: string) => {
+    if (!rawMaterials) return 'N/A';
     return rawMaterials.find(m => m.id === id)?.description || 'N/A';
   }
 
-  const handleSaveProduct = () => {
-    // Basic Validation
+  const handleSaveProduct = async () => {
     if (!productName || !salePrice || salePrice <= 0 || finalCost < 0 ) {
        toast({
           variant: 'destructive',
@@ -128,16 +135,19 @@ export default function EditFinishedProductPage() {
         });
       return;
     }
-    // In a real app, this would update a database.
-    console.log({
-      id: product?.id,
+    if (!productRef) return;
+    
+    const updatedData = {
       name: productName,
       category: selectedCategory,
       unit,
       recipe,
       finalCost,
       salePrice,
-    });
+    };
+
+    await updateDoc(productRef, updatedData);
+
     toast({
       title: 'Produto Atualizado!',
       description: `${productName} foi atualizado com sucesso.`,
@@ -185,13 +195,30 @@ export default function EditFinishedProductPage() {
     });
   };
 
-  if (!product) {
+  if (isLoadingProduct || isLoadingMaterials) {
     return (
         <div className="flex h-screen items-center justify-center">
             <Skeleton className="h-16 w-16 animate-spin" />
         </div>
     );
   }
+
+  if (!product) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+          <Card>
+              <CardHeader>
+                  <CardTitle>Produto não encontrado</CardTitle>
+                  <CardDescription>O produto que você está tentando editar não existe ou foi removido.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <Button asChild><Link href="/finished-products">Voltar para a lista de produtos</Link></Button>
+              </CardContent>
+          </Card>
+      </div>
+    );
+  }
+
 
   return (
     <div className="flex flex-col gap-8">
@@ -270,7 +297,8 @@ export default function EditFinishedProductPage() {
                                 <SelectValue placeholder="Selecione um insumo" />
                             </SelectTrigger>
                             <SelectContent>
-                                {rawMaterials.map(material => (
+                                {isLoadingMaterials ? <SelectItem value="loading" disabled>Carregando...</SelectItem> :
+                                rawMaterials?.map(material => (
                                     <SelectItem key={material.id} value={material.id} disabled={recipe.some(i => i.rawMaterialId === material.id)}>
                                         {material.description}
                                     </SelectItem>
@@ -304,7 +332,7 @@ export default function EditFinishedProductPage() {
                         </TableHeader>
                         <TableBody>
                             {recipe.map(item => {
-                                const material = rawMaterials.find(m => m.id === item.rawMaterialId);
+                                const material = rawMaterials?.find(m => m.id === item.rawMaterialId);
                                 return (
                                     <TableRow key={item.rawMaterialId}>
                                         <TableCell className="font-medium">{material?.description}</TableCell>

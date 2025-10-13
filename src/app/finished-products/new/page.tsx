@@ -2,8 +2,7 @@
 import { useState, useMemo, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getRawMaterials } from '@/lib/data';
-import type { RawMaterial, RecipeItem } from '@/lib/types';
+import type { RawMaterial, RecipeItem, FinishedProduct } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { addDoc, collection } from 'firebase/firestore';
 
 
 const formatCurrency = (amount: number) => {
@@ -29,7 +30,15 @@ const formatCurrency = (amount: number) => {
 export default function NewFinishedProductPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const rawMaterials = getRawMaterials();
+  const { user } = useUser();
+  const firestore = useFirestore();
+
+  const rawMaterialsRef = useMemoFirebase(
+    () => (user ? collection(firestore, `users/${user.uid}/raw-materials`) : null),
+    [firestore, user]
+  );
+  const { data: rawMaterials, isLoading: isLoadingMaterials } = useCollection<RawMaterial>(rawMaterialsRef);
+  
   const [isPending, startTransition] = useTransition();
   const [priceSuggestion, setPriceSuggestion] = useState<{ price: number; justification: string } | null>(null);
 
@@ -42,12 +51,13 @@ export default function NewFinishedProductPage() {
   const [unit, setUnit] = useState('UN');
   
   const [recipe, setRecipe] = useState<RecipeItem[]>([]);
-  const [newRecipeItem, setNewRecipeItem] = useState<{ id: string, qty: number | '' }>({ id: '', qty: 0 });
+  const [newRecipeItem, setNewRecipeItem] = useState<{ id: string, qty: number | '' }>({ id: '', qty: '' });
 
   const [manualCost, setManualCost] = useState<number | ''>('');
   const [salePrice, setSalePrice] = useState<number | ''>('');
 
   const calculatedCost = useMemo(() => {
+    if (!rawMaterials) return 0;
     return recipe.reduce((total, item) => {
       const material = rawMaterials.find(m => m.id === item.rawMaterialId);
       return total + (material ? material.cost * item.quantity : 0);
@@ -93,11 +103,11 @@ export default function NewFinishedProductPage() {
 
 
   const getMaterialDescription = (id: string) => {
+    if (!rawMaterials) return 'N/A';
     return rawMaterials.find(m => m.id === id)?.description || 'N/A';
   }
 
-  const handleSaveProduct = () => {
-    // Basic Validation
+  const handleSaveProduct = async () => {
     if (!productName || !salePrice || salePrice <= 0 || finalCost < 0 ) {
        toast({
           variant: 'destructive',
@@ -106,15 +116,26 @@ export default function NewFinishedProductPage() {
         });
       return;
     }
-    // In a real app, this would save to a database.
-    console.log({
+    if (!user) {
+        toast({ variant: 'destructive', title: 'Usuário não autenticado.' });
+        return;
+    }
+
+    const finishedProductsRef = collection(firestore, `users/${user.uid}/finished-products`);
+    
+    const newProduct: Omit<FinishedProduct, 'id'> = {
+      sku: `SKU-${Date.now()}`,
       name: productName,
       category: selectedCategory,
       unit,
       recipe,
       finalCost,
       salePrice,
-    });
+      flavors: [{ id: 'default', name: 'Padrão', stock: 0 }], // Default flavor/stock
+    };
+
+    await addDoc(finishedProductsRef, newProduct);
+    
     toast({
       title: 'Produto Salvo!',
       description: `${productName} foi adicionado com sucesso.`,
@@ -239,7 +260,8 @@ export default function NewFinishedProductPage() {
                                 <SelectValue placeholder="Selecione um insumo" />
                             </SelectTrigger>
                             <SelectContent>
-                                {rawMaterials.map(material => (
+                                {isLoadingMaterials ? <SelectItem value="loading" disabled>Carregando...</SelectItem> : 
+                                rawMaterials?.map(material => (
                                     <SelectItem key={material.id} value={material.id} disabled={recipe.some(i => i.rawMaterialId === material.id)}>
                                         {material.description}
                                     </SelectItem>
@@ -273,7 +295,7 @@ export default function NewFinishedProductPage() {
                         </TableHeader>
                         <TableBody>
                             {recipe.map(item => {
-                                const material = rawMaterials.find(m => m.id === item.rawMaterialId);
+                                const material = rawMaterials?.find(m => m.id === item.rawMaterialId);
                                 return (
                                     <TableRow key={item.rawMaterialId}>
                                         <TableCell className="font-medium">{material?.description}</TableCell>

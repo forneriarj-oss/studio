@@ -98,7 +98,7 @@ export type Flavor = {
 };
 
 export type FinishedProduct = {
-  id: string;
+  id?: string;
   sku: string;
   name: string;
   category: string;
