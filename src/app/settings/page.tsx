@@ -12,6 +12,8 @@ import { useAuth, useFirestore, useUser, useDoc, useMemoFirebase } from '@/fireb
 import { doc, setDoc } from 'firebase/firestore';
 import type { Settings } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { updateUserProfile } from './actions';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 
 const DEFAULT_SETTINGS: Settings = {
@@ -24,7 +26,7 @@ const DEFAULT_SETTINGS: Settings = {
 
 export default function SettingsPage() {
     const { toast } = useToast();
-    const { user } = useUser();
+    const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
 
     const settingsRef = useMemoFirebase(
@@ -35,6 +37,9 @@ export default function SettingsPage() {
     
     const [localSettings, setLocalSettings] = useState<Settings>(DEFAULT_SETTINGS);
     const [newCategory, setNewCategory] = useState('');
+    
+    const [displayName, setDisplayName] = useState(user?.displayName || '');
+    const [photoURL, setPhotoURL] = useState(user?.photoURL || '');
 
     useEffect(() => {
         if (settings) {
@@ -43,6 +48,13 @@ export default function SettingsPage() {
             setLocalSettings(DEFAULT_SETTINGS);
         }
     }, [settings, isLoading]);
+
+    useEffect(() => {
+      if (user) {
+        setDisplayName(user.displayName || '');
+        setPhotoURL(user.photoURL || '');
+      }
+    }, [user]);
 
     const handleInputChange = (section: keyof Settings, field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value === '' ? '' : parseFloat(event.target.value);
@@ -100,8 +112,26 @@ export default function SettingsPage() {
           toast({ title: 'Sucesso', description: `Categoria "${categoryToRemove}" removida.` });
         }
     };
+
+    const handleProfileUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const result = await updateUserProfile({ displayName, photoURL });
+        if (result.success) {
+            toast({
+                title: 'Perfil Atualizado!',
+                description: 'Seu perfil foi atualizado com sucesso. As alterações podem levar um momento para serem refletidas.',
+            });
+            // You might want to trigger a refresh of the user object here if needed
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Erro ao Atualizar',
+                description: result.message,
+            });
+        }
+    };
     
-    if (isLoading) {
+    if (isLoading || isUserLoading) {
       return (
          <div className="flex flex-col gap-8">
             <div>
@@ -121,11 +151,50 @@ export default function SettingsPage() {
         <p className="text-muted-foreground">Ajuste os parâmetros da sua loja e do sistema.</p>
       </div>
 
-      <Tabs defaultValue="pricing">
-        <TabsList className="grid w-full grid-cols-2 max-w-lg">
+      <Tabs defaultValue="profile">
+        <TabsList className="grid w-full grid-cols-3 max-w-lg">
+          <TabsTrigger value="profile">Perfil</TabsTrigger>
           <TabsTrigger value="pricing">Precificação</TabsTrigger>
           <TabsTrigger value="categories">Categorias</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="profile">
+            <Card className="mt-6">
+                <CardHeader>
+                    <CardTitle>Perfil de Usuário</CardTitle>
+                    <CardDescription>Gerencie suas informações de perfil.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form onSubmit={handleProfileUpdate} className="space-y-6 max-w-md">
+                        <div className="flex items-center gap-4">
+                            <Avatar className="h-16 w-16">
+                                <AvatarImage src={user?.photoURL || ''} alt={user?.displayName || ''} />
+                                <AvatarFallback>{(user?.displayName || user?.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <p className="text-sm text-muted-foreground">
+                                Para alterar a foto, cole a URL de uma nova imagem no campo abaixo.
+                            </p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="email">Email</Label>
+                            <Input id="email" type="email" value={user?.email || ''} disabled />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="displayName">Nome de Exibição</Label>
+                            <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Seu Nome" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="photoURL">URL da Foto</Label>
+                            <Input id="photoURL" value={photoURL} onChange={(e) => setPhotoURL(e.target.value)} placeholder="https://example.com/sua-foto.jpg" />
+                        </div>
+                        <div className="flex justify-end">
+                            <Button type="submit">Salvar Perfil</Button>
+                        </div>
+                    </form>
+                </CardContent>
+            </Card>
+        </TabsContent>
         
         <TabsContent value="pricing">
           <div className="flex flex-col gap-8 mt-6">
