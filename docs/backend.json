@@ -26,9 +26,17 @@
         "description": {
           "type": "string",
           "description": "Description of the expense."
+        },
+        "paymentMethod": {
+          "type": "string"
         }
       },
-      "required": ["date", "amount", "category", "description"]
+      "required": [
+        "date",
+        "amount",
+        "category",
+        "description"
+      ]
     },
     "Revenue": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -61,7 +69,11 @@
           "type": "string"
         }
       },
-      "required": ["date", "amount", "source"]
+      "required": [
+        "date",
+        "amount",
+        "source"
+      ]
     },
     "Appointment": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -92,7 +104,11 @@
           "description": "Additional notes for the appointment, potentially AI-generated."
         }
       },
-      "required": ["startTime", "endTime", "description"]
+      "required": [
+        "startTime",
+        "endTime",
+        "description"
+      ]
     },
     "RawMaterial": {
       "title": "Raw Material",
@@ -171,7 +187,10 @@
                 "type": "number"
               }
             },
-            "required": ["rawMaterialId", "quantity"]
+            "required": [
+              "rawMaterialId",
+              "quantity"
+            ]
           }
         },
         "finalCost": {
@@ -188,30 +207,113 @@
           "items": {
             "type": "object",
             "properties": {
-              "id": {"type": "string"},
-              "name": {"type": "string"},
-              "stock": {"type": "number"}
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "stock": {
+                "type": "number"
+              }
             },
-            "required": ["id", "name", "stock"]
+            "required": [
+              "id",
+              "name",
+              "stock"
+            ]
           }
         }
       },
-      "required": ["sku", "name", "category", "unit", "finalCost", "salePrice", "flavors"]
+      "required": [
+        "sku",
+        "name",
+        "category",
+        "unit",
+        "finalCost",
+        "salePrice",
+        "flavors"
+      ]
     },
-     "Sale": {
+    "Sale": {
       "title": "Sale",
       "description": "Represents a single sales transaction.",
       "type": "object",
       "properties": {
-        "productId": { "type": "string" },
-        "flavorId": { "type": "string" },
-        "quantity": { "type": "number" },
-        "unitPrice": { "type": "number" },
-        "date": { "type": "string", "format": "date-time" },
-        "paymentMethod": { "type": "string" },
-        "location": { "type": "string" }
+        "productId": {
+          "type": "string"
+        },
+        "flavorId": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "number"
+        },
+        "unitPrice": {
+          "type": "number"
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "paymentMethod": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        }
       },
-      "required": ["productId", "flavorId", "quantity", "unitPrice", "date", "paymentMethod", "location"]
+      "required": [
+        "productId",
+        "flavorId",
+        "quantity",
+        "unitPrice",
+        "date",
+        "paymentMethod",
+        "location"
+      ]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Stores user-specific application settings.",
+      "type": "object",
+      "properties": {
+        "productCategories": {
+          "type": "array",
+          "description": "List of user-defined product categories.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "taxes": {
+          "type": "object",
+          "properties": {
+            "icms": {"type": "number"},
+            "iss": {"type": "number"},
+            "pis": {"type": "number"},
+            "cofins": {"type": "number"}
+          }
+        },
+        "paymentRates": {
+          "type": "object",
+          "properties": {
+            "credit": {"type": "number"},
+            "debit": {"type": "number"},
+            "pix": {"type": "number"},
+            "mercadoPago": {"type": "number"}
+          }
+        },
+        "platformFees": {
+           "type": "object",
+          "properties": {
+            "ifood": {"type": "number"},
+            "taNaMesa": {"type": "number"}
+          }
+        },
+        "profitMargin": {
+          "type": "number"
+        }
+      }
     }
   },
   "auth": {
@@ -262,7 +364,7 @@
           "description": "Stores raw material inventory for a specific user."
         }
       },
-       {
+      {
         "path": "/users/{userId}/finished-products/{productId}",
         "definition": {
           "entityName": "FinishedProduct",
@@ -276,8 +378,18 @@
         "path": "/users/{userId}/sales/{saleId}",
         "definition": {
           "entityName": "Sale",
-          "schema": { "$ref": "#/entities/Sale" },
+          "schema": {
+            "$ref": "#/entities/Sale"
+          },
           "description": "Stores individual sales records for a user."
+        }
+      },
+      {
+        "path": "/users/{userId}/settings/app-settings",
+        "definition": {
+            "entityName": "Settings",
+            "schema": { "$ref": "#/entities/Settings"},
+            "description": "Stores user-specific app settings in a single document."
         }
       }
     ]

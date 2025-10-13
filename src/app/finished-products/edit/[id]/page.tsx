@@ -2,7 +2,7 @@
 import { useState, useMemo, useTransition, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
-import type { RawMaterial, RecipeItem, FinishedProduct } from '@/lib/types';
+import type { RawMaterial, RecipeItem, FinishedProduct, Settings } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -47,13 +47,17 @@ export default function EditFinishedProductPage() {
   );
   const { data: product, isLoading: isLoadingProduct } = useDoc<FinishedProduct>(productRef);
   
+  const settingsRef = useMemoFirebase(
+    () => (user ? doc(firestore, `users/${user.uid}/settings/app-settings`) : null),
+    [firestore, user]
+  );
+  const { data: settings, isLoading: isLoadingSettings } = useDoc<Settings>(settingsRef);
+  
   const [isPending, startTransition] = useTransition();
   const [priceSuggestion, setPriceSuggestion] = useState<{ price: number; justification: string } | null>(null);
   
   const [productName, setProductName] = useState('');
-  const [categories, setCategories] = useState(['Bolo', 'Pastel', 'Bebida']);
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [newCategory, setNewCategory] = useState('');
   const [unit, setUnit] = useState('UN');
   const [recipe, setRecipe] = useState<RecipeItem[]>([]);
   const [newRecipeItem, setNewRecipeItem] = useState<{ id: string, qty: number | '' }>({ id: '', qty: '' });
@@ -68,11 +72,8 @@ export default function EditFinishedProductPage() {
       setRecipe(product.recipe);
       setManualCost(product.finalCost);
       setSalePrice(product.salePrice);
-      if (product.category && !categories.includes(product.category)) {
-        setCategories(prev => [...prev, product.category]);
-      }
     }
-  }, [product, categories]);
+  }, [product]);
 
 
   const calculatedCost = useMemo(() => {
@@ -84,14 +85,6 @@ export default function EditFinishedProductPage() {
   }, [recipe, rawMaterials]);
 
   const finalCost = manualCost !== '' ? manualCost : calculatedCost;
-  
-  const handleAddNewCategory = () => {
-    if (newCategory && !categories.includes(newCategory)) {
-        setCategories([...categories, newCategory]);
-        setSelectedCategory(newCategory);
-        setNewCategory('');
-    }
-  }
 
   const handleAddRecipeItem = () => {
     const materialId = newRecipeItem.id;
@@ -195,7 +188,7 @@ export default function EditFinishedProductPage() {
     });
   };
 
-  if (isLoadingProduct || isLoadingMaterials) {
+  if (isLoadingProduct || isLoadingMaterials || isLoadingSettings) {
     return (
         <div className="flex h-screen items-center justify-center">
             <Skeleton className="h-16 w-16 animate-spin" />
@@ -247,34 +240,11 @@ export default function EditFinishedProductPage() {
                             <SelectValue placeholder="Selecione uma categoria" />
                         </SelectTrigger>
                         <SelectContent>
-                            {categories.map(cat => (
+                             {settings?.productCategories?.map(cat => (
                                 <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <Button variant="outline" size="icon"><PlusCircle className="h-4 w-4" /></Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
-                            <DialogHeader>
-                                <DialogTitle>Nova Categoria</DialogTitle>
-                                <DialogDescription>Adicione uma nova categoria de produto.</DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-2">
-                                <Label htmlFor="new-category-name">Nome da Categoria</Label>
-                                <Input id="new-category-name" value={newCategory} onChange={e => setNewCategory(e.target.value)} />
-                            </div>
-                            <DialogFooter>
-                                <DialogClose asChild>
-                                    <Button type="button" variant="outline">Cancelar</Button>
-                                </DialogClose>
-                                <DialogClose asChild>
-                                    <Button type="button" onClick={handleAddNewCategory}>Adicionar</Button>
-                                </DialogClose>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
                 </div>
             </div>
             <div className="space-y-2">

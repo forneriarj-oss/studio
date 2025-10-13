@@ -13,7 +13,6 @@ import {
   Settings,
   Calendar,
   DollarSign,
-  Users,
   Warehouse,
   BarChart3
 } from 'lucide-react';
@@ -33,7 +32,6 @@ const allNavItems = [
     { href: '/finished-products', label: 'Produtos', icon: Component },
     { href: '/inventory', label: 'Matérias-Primas', icon: Warehouse },
     { href: '/purchases', label: 'Compras', icon: Package },
-    { href: '/users', label: 'Usuários', icon: Users },
     { href: '/settings', label: 'Configurações', icon: Settings },
   ];
 
@@ -46,7 +44,7 @@ export function Nav() {
         <SidebarMenuItem key={item.href}>
           <SidebarMenuButton
             asChild
-            isActive={pathname === item.href || (item.href === '/finished-products' && pathname.startsWith('/finished-products'))}
+            isActive={pathname === item.href || (item.href === '/finished-products' && pathname.startsWith('/finished-products')) || (item.href === '/settings' && pathname.startsWith('/settings'))}
             tooltip={item.label}
           >
             <Link href={item.href}>

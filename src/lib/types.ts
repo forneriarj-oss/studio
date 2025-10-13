@@ -68,18 +68,6 @@ export type StockMovement = {
   source: 'purchase' | 'sale' | 'initial' | 'production';
 };
 
-export type Role = {
-  id: 'admin' | 'caixa' | 'estoque' | 'vendedor';
-  name: string;
-  permissions: string[];
-}
-
-export type User = {
-  id: string;
-  email: string;
-  roleId: Role['id'];
-}
-
 export type RecipeItem = {
   rawMaterialId: string;
   quantity: number;
@@ -102,3 +90,24 @@ export type FinishedProduct = {
   salePrice: number;
   flavors: Flavor[];
 };
+
+export type Settings = {
+  productCategories: string[];
+  taxes: {
+    icms: number;
+    iss: number;
+    pis: number;
+    cofins: number;
+  };
+  paymentRates: {
+    credit: number;
+    debit: number;
+    pix: number;
+    mercadoPago: number;
+  };
+  platformFees: {
+    ifood: number;
+    taNaMesa: number;
+  },
+  profitMargin: number;
+}

@@ -2,7 +2,7 @@
 import { useState, useMemo, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import type { RawMaterial, RecipeItem, FinishedProduct } from '@/lib/types';
+import type { RawMaterial, RecipeItem, FinishedProduct, Settings } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,8 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { addDoc, collection } from 'firebase/firestore';
+import { useAuth, useFirestore, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase';
+import { addDoc, collection, doc } from 'firebase/firestore';
 
 
 const formatCurrency = (amount: number) => {
@@ -39,15 +39,19 @@ export default function NewFinishedProductPage() {
   );
   const { data: rawMaterials, isLoading: isLoadingMaterials } = useCollection<RawMaterial>(rawMaterialsRef);
   
+  const settingsRef = useMemoFirebase(
+    () => (user ? doc(firestore, `users/${user.uid}/settings/app-settings`) : null),
+    [firestore, user]
+  );
+  const { data: settings, isLoading: isLoadingSettings } = useDoc<Settings>(settingsRef);
+  
   const [isPending, startTransition] = useTransition();
   const [priceSuggestion, setPriceSuggestion] = useState<{ price: number; justification: string } | null>(null);
 
   const [productName, setProductName] = useState('');
   
-  const [categories, setCategories] = useState(['Bolo', 'Pastel', 'Bebida']);
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [newCategory, setNewCategory] = useState('');
-
+  
   const [unit, setUnit] = useState('UN');
   
   const [recipe, setRecipe] = useState<RecipeItem[]>([]);
@@ -66,14 +70,6 @@ export default function NewFinishedProductPage() {
 
   const finalCost = manualCost !== '' ? manualCost : calculatedCost;
   
-  const handleAddNewCategory = () => {
-    if (newCategory && !categories.includes(newCategory)) {
-        setCategories([...categories, newCategory]);
-        setSelectedCategory(newCategory);
-        setNewCategory('');
-    }
-  }
-
   const handleAddRecipeItem = () => {
     const materialId = newRecipeItem.id;
     const quantity = Number(newRecipeItem.qty);
@@ -204,41 +200,17 @@ export default function NewFinishedProductPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
                 <Label htmlFor="category">Categoria</Label>
-                <div className="flex gap-2">
-                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                        <SelectTrigger id="category">
-                            <SelectValue placeholder="Selecione uma categoria" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {categories.map(cat => (
-                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <Button variant="outline" size="icon"><PlusCircle className="h-4 w-4" /></Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
-                            <DialogHeader>
-                                <DialogTitle>Nova Categoria</DialogTitle>
-                                <DialogDescription>Adicione uma nova categoria de produto.</DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-2">
-                                <Label htmlFor="new-category-name">Nome da Categoria</Label>
-                                <Input id="new-category-name" value={newCategory} onChange={e => setNewCategory(e.target.value)} />
-                            </div>
-                            <DialogFooter>
-                                <DialogClose asChild>
-                                    <Button type="button" variant="outline">Cancelar</Button>
-                                </DialogClose>
-                                <DialogClose asChild>
-                                    <Button type="button" onClick={handleAddNewCategory}>Adicionar</Button>
-                                </DialogClose>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-                </div>
+                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger id="category">
+                        <SelectValue placeholder="Selecione uma categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {isLoadingSettings ? <SelectItem value="loading" disabled>Carregando...</SelectItem> :
+                        settings?.productCategories?.map(cat => (
+                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
             </div>
             <div className="space-y-2">
                 <Label htmlFor="unit">Unidade *</Label>
