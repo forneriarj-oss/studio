@@ -63,7 +63,6 @@ export function InventoryClient() {
 
   const [isNewProductDialogOpen, setIsNewProductDialogOpen] = useState(false);
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<RawMaterial & { id: string } | null>(null);
   const [editProductForm, setEditProductForm] = useState<RawMaterial & { id: string } | null>(null);
 
   const { toast } = useToast();
@@ -83,8 +82,6 @@ export function InventoryClient() {
 
     await addDoc(rawMaterialsRef, newProduct);
 
-    setNewProduct(EMPTY_PRODUCT_STATE);
-
     toast({
       title: 'Matéria-Prima Adicionada!',
       description: `${newProduct.description} foi adicionado ao seu inventário.`,
@@ -94,7 +91,6 @@ export function InventoryClient() {
   };
 
   const handleOpenEditDialog = (product: RawMaterial & { id: string }) => {
-    setSelectedProduct(product);
     setEditProductForm(product);
     setIsEditProductDialogOpen(true);
   };
@@ -121,7 +117,6 @@ export function InventoryClient() {
     });
 
     setIsEditProductDialogOpen(false);
-    setSelectedProduct(null);
     setEditProductForm(null);
   };
 
@@ -309,6 +304,14 @@ export function InventoryClient() {
               <div className="space-y-2">
                 <Label htmlFor="edit-cost">Custo por Unidade *</Label>
                 <Input id="edit-cost" type="number" value={editProductForm.cost} onChange={(e) => setEditProductForm(editProductForm ? { ...editProductForm, cost: parseFloat(e.target.value) || 0 } : null)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-min-stock">Estoque Mínimo</Label>
+                <Input id="edit-min-stock" type="number" value={editProductForm.minStock} onChange={(e) => setEditProductForm(editProductForm ? { ...editProductForm, minStock: parseInt(e.target.value) || 0 } : null)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-supplier">Fornecedor</Label>
+                <Input id="edit-supplier" value={editProductForm.supplier} onChange={(e) => setEditProductForm({ ...editProductForm, supplier: e.target.value })} />
               </div>
             </div>
             <DialogFooter>
