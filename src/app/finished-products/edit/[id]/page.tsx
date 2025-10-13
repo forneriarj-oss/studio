@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PlusCircle, Trash2, ArrowLeft, Wand2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getPriceSuggestion, getRecipeSuggestion } from '../../new/actions';
+import { getPriceSuggestion, getRecipeSuggestion } from '../new/actions';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
@@ -108,6 +108,10 @@ export default function EditFinishedProductPage() {
   
   const handleRemoveFlavor = (id: string) => {
     setFlavors(flavors.filter(f => f.id !== id));
+  };
+  
+  const handleFlavorStockChange = (id: string, newStock: number) => {
+    setFlavors(flavors.map(f => f.id === id ? { ...f, stock: newStock } : f));
   };
 
 
@@ -422,90 +426,97 @@ export default function EditFinishedProductPage() {
         )}
         
         <Card>
-          <CardHeader>
-            <CardTitle>Gestão de Sabores e Estoque</CardTitle>
-            <CardDescription>
-              Adicione variações do seu produto e controle o estoque para cada
-              uma. Use a varinha mágica para obter sugestões de insumos.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-4 flex flex-col gap-2 md:flex-row">
-              <div className="flex-1 space-y-1">
-                <Label htmlFor="flavor-name">Nome do Sabor</Label>
-                <div className="flex items-center gap-2">
+            <CardHeader>
+                <CardTitle>Gestão de Sabores e Estoque</CardTitle>
+                <CardDescription>
+                Adicione variações do seu produto e controle o estoque para cada
+                uma. Use a varinha mágica para obter sugestões de insumos.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="mb-4 flex flex-col gap-2 md:flex-row">
+                <div className="flex-1 space-y-1">
+                    <Label htmlFor="flavor-name">Nome do Sabor</Label>
+                    <div className="flex items-center gap-2">
+                        <Input
+                        id="flavor-name"
+                        placeholder="Ex: Chocolate Belga"
+                        value={newFlavor.name}
+                        onChange={(e) =>
+                            setNewFlavor({ ...newFlavor, name: e.target.value })
+                        }
+                        />
+                        <Button variant="outline" size="icon" onClick={() => handleSuggestRecipe(newFlavor.name)} disabled={isRecipePending}>
+                            <Wand2 className={`h-4 w-4 ${isRecipePending ? 'animate-spin' : ''}`} />
+                        </Button>
+                    </div>
+                </div>
+                <div className="w-full space-y-1 md:w-32">
+                    <Label htmlFor="flavor-stock">Estoque</Label>
                     <Input
-                      id="flavor-name"
-                      placeholder="Ex: Chocolate Belga"
-                      value={newFlavor.name}
-                      onChange={(e) =>
-                        setNewFlavor({ ...newFlavor, name: e.target.value })
-                      }
+                    id="flavor-stock"
+                    type="number"
+                    placeholder="0"
+                    value={newFlavor.stock}
+                    onChange={(e) =>
+                        setNewFlavor({ ...newFlavor, stock: e.target.value })
+                    }
                     />
-                    <Button variant="outline" size="icon" onClick={() => handleSuggestRecipe(newFlavor.name)} disabled={isRecipePending}>
-                        <Wand2 className={`h-4 w-4 ${isRecipePending ? 'animate-spin' : ''}`} />
+                </div>
+                <div className="self-end">
+                    <Button
+                    onClick={handleAddFlavor}
+                    className="w-full md:w-auto"
+                    >
+                    Adicionar Sabor
                     </Button>
                 </div>
-              </div>
-              <div className="w-full space-y-1 md:w-32">
-                <Label htmlFor="flavor-stock">Estoque</Label>
-                <Input
-                  id="flavor-stock"
-                  type="number"
-                  placeholder="0"
-                  value={newFlavor.stock}
-                  onChange={(e) =>
-                    setNewFlavor({ ...newFlavor, stock: e.target.value })
-                  }
-                />
-              </div>
-              <div className="self-end">
-                <Button
-                  onClick={handleAddFlavor}
-                  className="w-full md:w-auto"
-                >
-                  Adicionar Sabor
-                </Button>
-              </div>
-            </div>
-            {flavors.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Sabor</TableHead>
-                    <TableHead className="w-[120px] text-right">
-                      Estoque
-                    </TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {flavors.map((flavor) => (
-                    <TableRow key={flavor.id}>
-                      <TableCell className="font-medium">
-                        {flavor.name}
-                      </TableCell>
-                      <TableCell className="text-right">{flavor.stock}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleRemoveFlavor(flavor.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
+                </div>
+                {flavors.length > 0 ? (
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>Sabor</TableHead>
+                        <TableHead className="w-[120px] text-right">
+                        Estoque
+                        </TableHead>
+                        <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="py-8 text-center text-muted-foreground">
-                Nenhum sabor adicionado.
-              </div>
-            )}
-          </CardContent>
+                    </TableHeader>
+                    <TableBody>
+                    {flavors.map((flavor) => (
+                        <TableRow key={flavor.id}>
+                        <TableCell className="font-medium">
+                            {flavor.name}
+                        </TableCell>
+                        <TableCell className="text-right">
+                           <Input
+                            type="number"
+                            value={flavor.stock}
+                            onChange={(e) => handleFlavorStockChange(flavor.id, Number(e.target.value))}
+                            className="w-24 h-8 text-right"
+                           />
+                        </TableCell>
+                        <TableCell>
+                            <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleRemoveFlavor(flavor.id)}
+                            >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                        </TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+                ) : (
+                <div className="py-8 text-center text-muted-foreground">
+                    Nenhum sabor adicionado.
+                </div>
+                )}
+            </CardContent>
         </Card>
 
         
