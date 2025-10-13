@@ -10,6 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { ptBR } from 'date-fns/locale/pt-BR';
 
 interface CalendarClientProps {
   appointments: Appointment[];
@@ -63,7 +64,7 @@ export function CalendarClient({ appointments, isLoading }: CalendarClientProps)
               selected={date}
               onSelect={setDate}
               className="w-full"
-              locale={require('date-fns/locale/pt-BR')}
+              locale={ptBR}
             />
           </CardContent>
         </Card>
