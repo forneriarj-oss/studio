@@ -1,40 +1,36 @@
-
-
 export type PaymentMethod = 'PIX' | 'Cartão' | 'Dinheiro';
 
 export type Revenue = {
   id?: string;
   amount: number;
   source: string;
-  date: string;
+  date: string; // ISO String
   paymentMethod?: PaymentMethod;
 };
 
 export type ExpenseCategory = 'Marketing' | 'Vendas' | 'Software' | 'Equipe' | 'Outros';
 
 export type Expense = {
-  id: string;
+  id?: string;
   amount: number;
-  category: 'Marketing' | 'Sales' | 'Software' | 'Team' | 'Other';
+  category: ExpenseCategory;
   description: string;
-  date: string;
+  date: string; // ISO String
   paymentMethod?: PaymentMethod;
 };
 
 export type Transaction = (Revenue & { type: 'revenue'; description: string }) | (Omit<Expense, 'category'> & { type: 'expense', category: ExpenseCategory });
 
 export type Appointment = {
-  id: string;
-  title: string;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:mm
-  attendees: string[];
+  id?: string;
+  startTime: string; // ISO String
+  endTime: string; // ISO String
   description: string;
+  notes?: string;
 };
 
-// Renamed from Product to RawMaterial
 export type RawMaterial = {
-  id?: string; // Optional for new documents
+  id?: string;
   code: string;
   description: string;
   unit: string;
@@ -47,21 +43,20 @@ export type RawMaterial = {
 export type Sale = {
   id?: string;
   productId: string;
-  flavorId?: string; // ID of the flavor for FinishedProduct
+  flavorId: string;
   quantity: number;
   unitPrice: number;
-  date: string;
+  date: string; // ISO String
   paymentMethod?: PaymentMethod;
-  commission?: number; // Commission percentage
   location?: string;
 };
 
 export type Purchase = {
-  id: string;
-  productId: string; // Should be RawMaterial
+  id?: string;
+  productId: string; // Should be RawMaterial ID
   quantity: number;
   unitCost: number;
-  date: string;
+  date: string; // ISO String
 };
 
 export type StockMovement = {
@@ -85,7 +80,6 @@ export type User = {
   roleId: Role['id'];
 }
 
-// New types for Finished Products
 export type RecipeItem = {
   rawMaterialId: string;
   quantity: number;

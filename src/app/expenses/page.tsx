@@ -1,6 +1,10 @@
 'use client';
 import { useState } from 'react';
-import { getExpenses } from '@/lib/data';
+import { useToast } from '@/hooks/use-toast';
+import type { Expense, ExpenseCategory, PaymentMethod } from '@/lib/types';
+import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { addDoc, collection } from 'firebase/firestore';
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -8,8 +12,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import type { Expense, ExpenseCategory, PaymentMethod } from '@/lib/types';
-import { useToast } from '@/hooks/use-toast';
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -28,12 +30,18 @@ const categoryTranslations: Record<ExpenseCategory, string> = {
   Outros: 'Outros'
 };
 
-// Removido 'Sales', 'Team', 'Other' para evitar duplicidade com as traduções
-const expenseCategoriesForSelect: ('Marketing' | 'Vendas' | 'Software' | 'Equipe' | 'Outros')[] = ['Marketing', 'Vendas', 'Software', 'Equipe', 'Outros'];
+const expenseCategoriesForSelect: ExpenseCategory[] = ['Marketing', 'Vendas', 'Software', 'Equipe', 'Outros'];
 
 
 export default function ExpensesPage() {
-  const [expenseList, setExpenseList] = useState(getExpenses());
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const expensesRef = useMemoFirebase(
+    () => (user ? collection(firestore, `users/${user.uid}/expenses`) : null),
+    [firestore, user]
+  );
+  const { data: expenseList, isLoading } = useCollection<Expense>(expensesRef);
+
   const { toast } = useToast();
 
   const [description, setDescription] = useState('');
@@ -42,8 +50,12 @@ export default function ExpensesPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const handleAddExpense = (e: React.FormEvent) => {
+  const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user || !expensesRef) {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
+      return;
+    }
     if (!description || !amount || !category || !date) {
       toast({
         variant: 'destructive',
@@ -53,16 +65,15 @@ export default function ExpensesPage() {
       return;
     }
 
-    const newExpense = {
-      id: `exp-${Date.now()}`,
+    const newExpense: Omit<Expense, 'id'> = {
       description,
       amount: parseFloat(amount),
-      category: category as 'Marketing' | 'Sales' | 'Software' | 'Team' | 'Other',
+      category: category as ExpenseCategory,
       paymentMethod: paymentMethod as PaymentMethod,
-      date,
+      date: new Date(date).toISOString(),
     };
 
-    setExpenseList(prev => [newExpense, ...prev].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    await addDoc(expensesRef, newExpense);
 
     toast({
       title: 'Despesa Adicionada!',
@@ -149,12 +160,13 @@ export default function ExpensesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {expenseList.map(expense => (
+                  {isLoading && <TableRow><TableCell colSpan={5} className="text-center h-24">Carregando despesas...</TableCell></TableRow>}
+                  {!isLoading && expenseList?.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(expense => (
                     <TableRow key={expense.id}>
                       <TableCell className="font-medium">{expense.description}</TableCell>
                       <TableCell><Badge variant="outline">{categoryTranslations[expense.category as ExpenseCategory] || expense.category}</Badge></TableCell>
                       <TableCell><Badge variant="outline">{expense.paymentMethod || 'N/A'}</Badge></TableCell>
-                      <TableCell>{new Date(expense.date).toLocaleDateString('pt-BR')}</TableCell>
+                      <TableCell>{new Date(expense.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</TableCell>
                       <TableCell className="text-right font-semibold text-red-600">
                         - {formatCurrency(expense.amount)}
                       </TableCell>

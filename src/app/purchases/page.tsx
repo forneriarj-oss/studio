@@ -1,7 +1,6 @@
 
 'use client';
-import { useState } from 'react';
-import { getPurchases, getRawMaterials, updateStock } from '@/lib/data';
+import { useState, useMemo } from 'react';
 import type { Purchase, RawMaterial } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -21,8 +20,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
-
-const initialPurchases = getPurchases();
+import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, addDoc, doc, updateDoc, runTransaction } from 'firebase/firestore';
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -32,25 +31,36 @@ const formatCurrency = (amount: number) => {
 };
 
 export default function PurchasesPage() {
-    const [purchases, setPurchases] = useState<Purchase[]>(initialPurchases);
-    const [products, setProducts] = useState<RawMaterial[]>(getRawMaterials());
+    const { user } = useUser();
+    const firestore = useFirestore();
     const { toast } = useToast();
+    
+    const purchasesRef = useMemoFirebase(
+      () => (user ? collection(firestore, `users/${user.uid}/purchases`) : null),
+      [firestore, user]
+    );
+    const { data: purchases, isLoading: isLoadingPurchases } = useCollection<Purchase>(purchasesRef);
+    
+    const rawMaterialsRef = useMemoFirebase(
+      () => (user ? collection(firestore, `users/${user.uid}/raw-materials`) : null),
+      [firestore, user]
+    );
+    const { data: rawMaterials, isLoading: isLoadingMaterials } = useCollection<RawMaterial>(rawMaterialsRef);
+
+
+    const [isNewPurchaseOpen, setIsNewPurchaseOpen] = useState(false);
     const [newPurchase, setNewPurchase] = useState({
         productId: '',
         quantity: 1,
         unitCost: 0,
         date: new Date().toISOString().split('T')[0]
     });
-    const [newProduct, setNewProduct] = useState({
-        description: "",
-        unit: "",
-        cost: 0,
-        quantity: 0,
-    });
-    const [isNewProductDialogOpen, setIsNewProductDialogOpen] = useState(false);
 
-
-    const handleAddPurchase = () => {
+    const handleAddPurchase = async () => {
+        if (!user || !firestore) {
+          toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
+          return;
+        }
         if (!newPurchase.productId || newPurchase.quantity <= 0 || newPurchase.unitCost < 0) {
             toast({
                 variant: 'destructive',
@@ -60,82 +70,64 @@ export default function PurchasesPage() {
             return;
         }
 
-        const purchaseToAdd: Purchase = {
-            id: `purch-${Date.now()}`,
-            ...newPurchase
-        };
+        const materialRef = doc(firestore, `users/${user.uid}/raw-materials`, newPurchase.productId);
 
-        const updatedStock = updateStock(newPurchase.productId, newPurchase.quantity, 'in');
+        try {
+            await runTransaction(firestore, async (transaction) => {
+                const materialDoc = await transaction.get(materialRef);
+                if (!materialDoc.exists()) {
+                    throw new Error("Matéria-prima não encontrada!");
+                }
 
-        if (updatedStock) {
-            setPurchases(prev => [...prev, purchaseToAdd]);
-            
-            setProducts(prevProducts => prevProducts.map(p => 
-                p.id === newPurchase.productId ? { ...p, quantity: p.quantity + newPurchase.quantity } : p
-            ));
-            
+                // 1. Add purchase record
+                const purchaseToAdd: Omit<Purchase, 'id'> = {
+                    productId: newPurchase.productId,
+                    quantity: newPurchase.quantity,
+                    unitCost: newPurchase.unitCost,
+                    date: new Date(newPurchase.date).toISOString()
+                };
+                const purchasesCollectionRef = collection(firestore, `users/${user.uid}/purchases`);
+                transaction.set(doc(purchasesCollectionRef), purchaseToAdd);
+                
+                // 2. Update raw material stock
+                const currentQuantity = materialDoc.data().quantity || 0;
+                const newQuantity = currentQuantity + newPurchase.quantity;
+                transaction.update(materialRef, { quantity: newQuantity });
+            });
+
             toast({
                 title: 'Compra registrada!',
                 description: `Estoque da matéria-prima atualizado.`,
             });
-
-            // Reset form
+            
+            // Reset form and close dialog
             setNewPurchase({
                 productId: '',
                 quantity: 1,
                 unitCost: 0,
                 date: new Date().toISOString().split('T')[0]
             });
-        } else {
-             toast({
+            setIsNewPurchaseOpen(false);
+
+        } catch (error: any) {
+            console.error("Purchase transaction failed: ", error);
+            toast({
                 variant: 'destructive',
-                title: 'Erro',
-                description: 'Não foi possível atualizar o estoque.',
+                title: 'Erro na Transação',
+                description: error.message || 'Não foi possível registrar a compra e atualizar o estoque.',
             });
         }
     }
-    
-    const handleAddProduct = () => {
-        if (!newProduct.description || !newProduct.unit || newProduct.cost < 0 || newProduct.quantity < 0) {
-          toast({
-            variant: "destructive",
-            title: "Campos obrigatórios incompletos",
-            description: "Por favor, preencha todos os campos obrigatórios.",
-          });
-          return;
-        }
-        const productToAdd: RawMaterial = {
-          id: `prod-${Date.now()}`,
-          code: `CODE-${Date.now()}`,
-          supplier: 'N/A',
-          minStock: 10,
-          ...newProduct
-        };
-        setProducts([...products, productToAdd]);
-        
-        setNewProduct({
-          description: "",
-          unit: "",
-          cost: 0,
-          quantity: 0,
-        });
-
-        setIsNewProductDialogOpen(false);
-        toast({
-            title: 'Matéria-Prima Adicionada!',
-            description: `${productToAdd.description} agora está disponível para compra.`,
-        })
-      };
 
     const getProductDescription = (productId: string) => {
-        return products.find(p => p.id === productId)?.description || 'Matéria-prima não encontrada';
+        return rawMaterials?.find(p => p.id === productId)?.description || 'N/A';
     }
 
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Compras</h1>
-         <Dialog>
+         <Dialog open={isNewPurchaseOpen} onOpenChange={setIsNewPurchaseOpen}>
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="mr-2 h-4 w-4" />
@@ -145,6 +137,7 @@ export default function PurchasesPage() {
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>Registrar Nova Compra</DialogTitle>
+                <DialogDescription>Adicione uma nova entrada de matéria-prima ao seu estoque.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -155,57 +148,12 @@ export default function PurchasesPage() {
                                 <SelectValue placeholder="Selecione" />
                             </SelectTrigger>
                             <SelectContent>
-                            {products.map(product => (
-                                <SelectItem key={product.id} value={product.id}>{product.description}</SelectItem>
+                            {isLoadingMaterials ? <SelectItem value="loading" disabled>Carregando...</SelectItem> :
+                            rawMaterials?.map(material => (
+                                <SelectItem key={material.id} value={material.id}>{material.description}</SelectItem>
                             ))}
                             </SelectContent>
                         </Select>
-                        <Dialog open={isNewProductDialogOpen} onOpenChange={setIsNewProductDialogOpen}>
-                            <DialogTrigger asChild>
-                                <Button variant="outline" size="icon"><PlusCircle className="h-4 w-4"/></Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-md">
-                                <DialogHeader>
-                                    <DialogTitle>Nova Matéria-Prima</DialogTitle>
-                                    <DialogDescription>Preencha os detalhes do insumo. Campos com * são obrigatórios.</DialogDescription>
-                                </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                    <div className="space-y-2">
-                                      <Label htmlFor="new-description">Nome *</Label>
-                                      <Input id="new-description" placeholder="Ex: Farinha de Trigo" value={newProduct.description} onChange={(e) => setNewProduct({...newProduct, description: e.target.value})} />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="new-unit">Unidade *</Label>
-                                            <Select value={newProduct.unit} onValueChange={(value) => setNewProduct({...newProduct, unit: value})}>
-                                                <SelectTrigger id="new-unit">
-                                                    <SelectValue placeholder="Selecione"/>
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="UN">Unidade (UN)</SelectItem>
-                                                    <SelectItem value="KG">Quilograma (KG)</SelectItem>
-                                                    <SelectItem value="G">Grama (G)</SelectItem>
-                                                    <SelectItem value="L">Litro (L)</SelectItem>
-                                                    <SelectItem value="ML">Mililitro (ML)</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="new-quantity">Estoque Atual *</Label>
-                                            <Input id="new-quantity" type="number" value={newProduct.quantity} onChange={(e) => setNewProduct({...newProduct, quantity: parseInt(e.target.value) || 0})} />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                      <Label htmlFor="new-cost">Custo por Unidade *</Label>
-                                      <Input id="new-cost" type="number" placeholder="0" value={newProduct.cost} onChange={(e) => setNewProduct({...newProduct, cost: parseFloat(e.target.value) || 0})} />
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button type="button" variant="outline" onClick={() => setIsNewProductDialogOpen(false)}>Cancelar</Button>
-                                    <Button type="submit" onClick={handleAddProduct}>Salvar</Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
                     </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -223,8 +171,9 @@ export default function PurchasesPage() {
               </div>
               <DialogFooter>
                 <DialogClose asChild>
-                  <Button type="submit" onClick={handleAddPurchase}>Salvar Compra</Button>
+                   <Button type="button" variant="outline">Cancelar</Button>
                 </DialogClose>
+                <Button type="submit" onClick={handleAddPurchase}>Salvar Compra</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -246,10 +195,11 @@ export default function PurchasesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {purchases.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(purchase => (
+              {isLoadingPurchases && <TableRow><TableCell colSpan={5} className="h-24 text-center">Carregando compras...</TableCell></TableRow>}
+              {!isLoadingPurchases && purchases?.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(purchase => (
                 <TableRow key={purchase.id}>
                   <TableCell className="font-medium">{getProductDescription(purchase.productId)}</TableCell>
-                  <TableCell>{new Date(purchase.date).toLocaleDateString('pt-BR')}</TableCell>
+                  <TableCell>{new Date(purchase.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</TableCell>
                   <TableCell className="text-right">{purchase.quantity}</TableCell>
                   <TableCell className="text-right">{formatCurrency(purchase.unitCost)}</TableCell>
                   <TableCell className="text-right font-semibold text-red-600">

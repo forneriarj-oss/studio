@@ -13,9 +13,10 @@ import { useToast } from '@/hooks/use-toast';
 
 interface CalendarClientProps {
   appointments: Appointment[];
+  isLoading: boolean;
 }
 
-export function CalendarClient({ appointments }: CalendarClientProps) {
+export function CalendarClient({ appointments, isLoading }: CalendarClientProps) {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [summary, setSummary] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -25,8 +26,8 @@ export function CalendarClient({ appointments }: CalendarClientProps) {
     if (!date) return [];
     const selectedDateString = date.toISOString().split('T')[0];
     return appointments
-      .filter(app => app.date === selectedDateString)
-      .sort((a, b) => a.time.localeCompare(b.time));
+      .filter(app => app.startTime.startsWith(selectedDateString))
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
   }, [date, appointments]);
 
   const handleGenerateSummary = () => {
@@ -47,6 +48,10 @@ export function CalendarClient({ appointments }: CalendarClientProps) {
       }
     });
   };
+  
+  const formatTime = (dateTimeString: string) => {
+    return new Date(dateTimeString).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+  }
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -84,41 +89,39 @@ export function CalendarClient({ appointments }: CalendarClientProps) {
           <CardContent>
             <Separator className="mb-4" />
             <ScrollArea className="h-[350px]">
-              {isPending && (
+              {isLoading ? (
                 <div className="space-y-4 p-1">
                   <Skeleton className="h-20 w-full" />
                   <Skeleton className="h-20 w-full" />
                 </div>
-              )}
-              {!isPending && summary && (
+              ) : isPending ? (
+                <div className="space-y-4 p-1">
+                  <Skeleton className="h-20 w-full" />
+                  <Skeleton className="h-20 w-full" />
+                </div>
+              ) : summary ? (
                 <div className="prose prose-sm dark:prose-invert max-w-none rounded-lg bg-muted p-4">
                   <h3 className='text-base font-semibold mt-0'>Pontos de Discussão e Resumo</h3>
                   <p>{summary}</p>
                 </div>
-              )}
-              {!isPending && !summary && selectedDayAppointments.length > 0 && (
+              ) : selectedDayAppointments.length > 0 ? (
                 <div className="space-y-4 p-1">
                   {selectedDayAppointments.map(app => (
                     <div key={app.id} className="rounded-lg border p-4">
-                      <p className="font-semibold">{app.title}</p>
+                      <p className="font-semibold">{app.description}</p>
                       <div className="mt-2 flex items-center space-x-4 text-sm text-muted-foreground">
                         <div className="flex items-center">
                           <Clock className="mr-1.5 h-4 w-4" />
-                          <span>{app.time}</span>
-                        </div>
-                        <div className="flex items-center">
-                          <User className="mr-1.5 h-4 w-4" />
-                          <span>{app.attendees.join(', ')}</span>
+                          <span>{formatTime(app.startTime)} - {formatTime(app.endTime)}</span>
                         </div>
                       </div>
-                      <p className="mt-2 text-sm text-foreground/80">{app.description}</p>
+                      {app.notes && <p className="mt-2 text-sm text-foreground/80">{app.notes}</p>}
                     </div>
                   ))}
                 </div>
-              )}
-              {!isPending && !summary && selectedDayAppointments.length === 0 && (
+              ) : (
                 <div className="flex h-[200px] items-center justify-center text-center">
-                  <p className="text-muted-foreground">Nenhum compromisso para este dia. <br/> Selecione outro dia ou clique em "Resumo do Dia" para uma mensagem de estado vazio.</p>
+                  <p className="text-muted-foreground">Nenhum compromisso para este dia. <br/> Selecione outro dia ou adicione um novo compromisso.</p>
                 </div>
               )}
             </ScrollArea>
