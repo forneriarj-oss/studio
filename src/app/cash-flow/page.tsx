@@ -36,7 +36,7 @@ import type {
   Revenue,
   Expense,
   Sale,
-  Product,
+  FinishedProduct as Product,
   PaymentMethod,
   ExpenseCategory,
 } from '@/lib/types';
