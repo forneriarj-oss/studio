@@ -46,7 +46,7 @@ export default function ProductsPage() {
 
   const categories = useMemo(() => {
     if (!products) return ['todos'];
-    const allCategories = products.map(p => p.category);
+    const allCategories = products.map(p => p.category).filter(Boolean); // Filter out undefined/null categories
     return ['todos', ...Array.from(new Set(allCategories))];
   }, [products]);
 
@@ -76,8 +76,11 @@ export default function ProductsPage() {
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Produtos</h1>
-        <Button asChild className="bg-green-600 hover:bg-green-700 text-black">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Produtos</h1>
+          <p className="text-muted-foreground">Gerencie seus produtos acabados, estoque e preços.</p>
+        </div>
+        <Button asChild>
           <Link href="/finished-products/new">
             <PlusCircle className="mr-2 h-4 w-4" />
             Novo Produto
@@ -88,11 +91,8 @@ export default function ProductsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Lista de Produtos</CardTitle>
-          <CardDescription>Gerencie seus produtos cadastrados.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-4 flex items-center gap-2">
-            <span className="text-sm font-medium">Filtrar por Categoria:</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">Filtrar por Categoria:</span>
             <Select value={filterCategory} onValueChange={setFilterCategory}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Todas" />
@@ -104,13 +104,15 @@ export default function ProductsPage() {
               </SelectContent>
             </Select>
           </div>
+        </CardHeader>
+        <CardContent>
           <div className="border rounded-lg">
             <Table>
                 <TableHeader>
                     <TableRow>
                         <TableHead>Descrição</TableHead>
                         <TableHead>Categoria</TableHead>
-                        <TableHead>Estoque Total</TableHead>
+                        <TableHead>Estoque</TableHead>
                         <TableHead>Custo</TableHead>
                         <TableHead>Preço</TableHead>
                         <TableHead className="text-right">Ações</TableHead>
@@ -163,11 +165,13 @@ export default function ProductsPage() {
                       </TableRow>
                     ))
                   ) : (
-                    <TableRow>
-                        <TableCell colSpan={6} className="h-24 text-center">
-                        Nenhum produto encontrado.
-                        </TableCell>
-                    </TableRow>
+                    !isLoading && (
+                        <TableRow>
+                            <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                            Nenhum produto encontrado. <Link href="/finished-products/new" className="text-primary underline">Crie seu primeiro produto!</Link>
+                            </TableCell>
+                        </TableRow>
+                    )
                   )}
                 </TableBody>
             </Table>
