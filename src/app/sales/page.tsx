@@ -87,9 +87,9 @@ export default function SalesPage() {
 
         let basePrice = selectedProductForDialog.salePrice;
         
-        // Example of a markup for iFood - this logic can be expanded
+        // Aplicar markup para iFood
         if (newSale.location === 'iFood') {
-            basePrice *= 1.25; // 25% markup for iFood, for example
+            basePrice *= 1.75; // 75% markup for iFood
         }
         
         let total = basePrice * newSale.quantity;
@@ -328,7 +328,7 @@ export default function SalesPage() {
                  {newSale.location === 'iFood' && (
                     <div className="flex justify-between items-center text-xs text-muted-foreground">
                         <span>(Preço base: {formatCurrency(selectedProductForDialog?.salePrice || 0)})</span>
-                        <span>+25% iFood</span>
+                        <span>+75% iFood</span>
                     </div>
                 )}
                  {newSale.location === 'Delivery' && deliveryFee > 0 && (
