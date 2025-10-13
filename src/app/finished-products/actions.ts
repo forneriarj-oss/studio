@@ -34,7 +34,7 @@ export async function handleProduction(productId: string, flavorId: string, quan
 
   const db = getFirestore(getAdminApp());
   const productRef = db.collection('users').doc(user.uid).collection('finished-products').doc(productId);
-  const rawMaterialsRef = db.collection('users').doc(user.uid).collection('raw-materials');
+  const rawMaterialsCol = db.collection('users').doc(user.uid).collection('raw-materials');
 
   try {
     await db.runTransaction(async (transaction) => {
@@ -44,46 +44,66 @@ export async function handleProduction(productId: string, flavorId: string, quan
         throw new Error("Produto acabado não encontrado.");
       }
       const productData = productDoc.data();
-      if (!productData || !productData.recipe) {
-        throw new Error("Receita não encontrada para este produto.");
+      if (!productData || !productData.recipe || productData.recipe.length === 0) {
+        // If there's no recipe, we just update the stock and finish.
+        const newFlavors = productData.flavors.map((flavor: any) => {
+            if (flavor.id === flavorId) {
+                return { ...flavor, stock: (flavor.stock || 0) + quantity };
+            }
+            return flavor;
+        });
+        transaction.update(productRef, { flavors: newFlavors });
+        return;
       }
 
       // 2. Check for sufficient raw material stock
       const requiredMaterials = productData.recipe;
-      const materialDocsPromises = requiredMaterials.map((item: any) =>
-        transaction.get(rawMaterialsRef.doc(item.rawMaterialId))
+      
+      const materialIds = requiredMaterials.map((item: any) => item.rawMaterialId);
+      const materialDocsSnap = await transaction.getAll(
+        ...materialIds.map((id: string) => rawMaterialsCol.doc(id))
       );
-      const materialDocs = await Promise.all(materialDocsPromises);
 
-      const updates: { ref: FirebaseFirestore.DocumentReference, newQuantity: number }[] = [];
+      const materialUpdates: { ref: FirebaseFirestore.DocumentReference, newQuantity: number }[] = [];
+      const missingMaterials: string[] = [];
+      const insufficientStock: string[] = [];
 
-      for (let i = 0; i < materialDocs.length; i++) {
-        const materialDoc = materialDocs[i];
-        const requiredItem = requiredMaterials[i];
-
+      materialDocsSnap.forEach((materialDoc, index) => {
+        const requiredItem = requiredMaterials[index];
+        
         if (!materialDoc.exists) {
-          throw new Error(`Matéria-prima com ID "${requiredItem.rawMaterialId}" não foi encontrada no inventário.`);
+          missingMaterials.push(requiredItem.rawMaterialId);
+          return;
         }
 
         const materialData = materialDoc.data();
         if (!materialData) {
-           throw new Error(`Dados não encontrados para a matéria-prima "${requiredItem.rawMaterialId}".`);
+           missingMaterials.push(requiredItem.rawMaterialId);
+           return;
         }
-        
+
         const neededQuantity = requiredItem.quantity * quantity;
 
         if (materialData.quantity < neededQuantity) {
-          throw new Error(`Estoque insuficiente para "${materialData.description}". Necessário: ${neededQuantity}, Disponível: ${materialData.quantity}.`);
+          insufficientStock.push(`'${materialData.description}' (Necessário: ${neededQuantity}, Disponível: ${materialData.quantity})`);
         }
         
-        updates.push({
+        materialUpdates.push({
             ref: materialDoc.ref,
             newQuantity: materialData.quantity - neededQuantity
         });
+      });
+
+      if (missingMaterials.length > 0) {
+        throw new Error(`Matérias-primas não encontradas no inventário: ${missingMaterials.join(', ')}.`);
+      }
+      if (insufficientStock.length > 0) {
+        throw new Error(`Estoque insuficiente para: ${insufficientStock.join(', ')}.`);
       }
 
+
       // 3. If all checks pass, perform the updates
-      updates.forEach(update => {
+      materialUpdates.forEach(update => {
         transaction.update(update.ref, { quantity: update.newQuantity });
       });
 
