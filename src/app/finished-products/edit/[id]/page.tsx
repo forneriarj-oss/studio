@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PlusCircle, Trash2, ArrowLeft, Wand2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getPriceSuggestion } from '../../new/actions';
+import { getPriceSuggestion, getRecipeSuggestion } from '../../new/actions';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
@@ -53,7 +53,8 @@ export default function EditFinishedProductPage() {
   );
   const { data: settings, isLoading: isLoadingSettings } = useDoc<Settings>(settingsRef);
   
-  const [isPending, startTransition] = useTransition();
+  const [isPricePending, startPriceTransition] = useTransition();
+  const [isRecipePending, startRecipeTransition] = useTransition();
   const [priceSuggestion, setPriceSuggestion] = useState<{ price: number; justification: string } | null>(null);
   
   const [productName, setProductName] = useState('');
@@ -185,7 +186,7 @@ export default function EditFinishedProductPage() {
 
     const recipeItemsSummary = recipe.map(item => getMaterialDescription(item.rawMaterialId)).join(', ');
 
-    startTransition(async () => {
+    startPriceTransition(async () => {
       setPriceSuggestion(null);
       const result = await getPriceSuggestion({
         productName,
@@ -209,6 +210,47 @@ export default function EditFinishedProductPage() {
           title: 'Preço Sugerido!',
           description: 'A IA sugeriu um preço de venda para você.',
         });
+      }
+    });
+  };
+
+  const handleSuggestRecipe = (flavorName: string) => {
+    if (!flavorName) {
+      toast({ variant: 'destructive', title: 'Nome do sabor está vazio.'});
+      return;
+    }
+    if (!rawMaterials || rawMaterials.length === 0) {
+      toast({ variant: 'destructive', title: 'Nenhuma matéria-prima cadastrada.'});
+      return;
+    }
+
+    startRecipeTransition(async () => {
+      const availableMaterials = rawMaterials.map(m => ({ id: m.id!, description: m.description }));
+      const result = await getRecipeSuggestion({ flavorName, availableMaterials });
+
+      if (result.error) {
+        toast({ variant: 'destructive', title: 'Erro da IA', description: result.error });
+      } else if (result.suggestion) {
+        const { suggestedMaterialIds } = result.suggestion;
+        if (suggestedMaterialIds.length === 0) {
+          toast({ title: 'Nenhuma sugestão', description: 'A IA não sugeriu novos insumos para este sabor.' });
+          return;
+        }
+
+        const newItems: RecipeItem[] = [];
+        suggestedMaterialIds.forEach(materialId => {
+          // Add only if it's not already in the recipe
+          if (!recipe.find(item => item.rawMaterialId === materialId)) {
+            newItems.push({ rawMaterialId: materialId, quantity: 1 }); // Default quantity to 1
+          }
+        });
+        
+        if (newItems.length > 0) {
+          setRecipe(prevRecipe => [...prevRecipe, ...newItems]);
+          toast({ title: 'Insumos Sugeridos!', description: 'A IA adicionou novos insumos à sua receita.' });
+        } else {
+           toast({ title: 'Insumos já existem', description: 'Os insumos sugeridos pela IA já estão na sua receita.' });
+        }
       }
     });
   };
@@ -359,20 +401,20 @@ export default function EditFinishedProductPage() {
                 <Label htmlFor="sale-price">Preço de Venda *</Label>
                 <div className="flex gap-2">
                     <Input id="sale-price" type="number" placeholder="Ex: 50.00" value={salePrice} onChange={e => setSalePrice(e.target.value === '' ? '' : Number(e.target.value))}/>
-                     <Button variant="outline" size="icon" onClick={handleSuggestPrice} disabled={isPending}>
-                        <Wand2 className={`h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
+                     <Button variant="outline" size="icon" onClick={handleSuggestPrice} disabled={isPricePending}>
+                        <Wand2 className={`h-4 w-4 ${isPricePending ? 'animate-spin' : ''}`} />
                     </Button>
                 </div>
             </div>
         </div>
 
-        {isPending && (
+        {isPricePending && (
             <div className="space-y-2 pt-2">
                <Skeleton className="h-4 w-1/3" />
                <Skeleton className="h-8 w-full" />
             </div>
         )}
-        {priceSuggestion && !isPending && (
+        {priceSuggestion && !isPricePending && (
             <div className="pt-2">
                 <Badge>Sugestão da IA</Badge>
                 <p className="text-sm text-muted-foreground mt-2">{priceSuggestion.justification}</p>
@@ -384,21 +426,26 @@ export default function EditFinishedProductPage() {
             <CardTitle>Gestão de Sabores e Estoque</CardTitle>
             <CardDescription>
               Adicione variações do seu produto e controle o estoque para cada
-              uma.
+              uma. Use a varinha mágica para obter sugestões de insumos.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="mb-4 flex flex-col gap-2 md:flex-row">
               <div className="flex-1 space-y-1">
                 <Label htmlFor="flavor-name">Nome do Sabor</Label>
-                <Input
-                  id="flavor-name"
-                  placeholder="Ex: Chocolate Belga"
-                  value={newFlavor.name}
-                  onChange={(e) =>
-                    setNewFlavor({ ...newFlavor, name: e.target.value })
-                  }
-                />
+                <div className="flex items-center gap-2">
+                    <Input
+                      id="flavor-name"
+                      placeholder="Ex: Chocolate Belga"
+                      value={newFlavor.name}
+                      onChange={(e) =>
+                        setNewFlavor({ ...newFlavor, name: e.target.value })
+                      }
+                    />
+                    <Button variant="outline" size="icon" onClick={() => handleSuggestRecipe(newFlavor.name)} disabled={isRecipePending}>
+                        <Wand2 className={`h-4 w-4 ${isRecipePending ? 'animate-spin' : ''}`} />
+                    </Button>
+                </div>
               </div>
               <div className="w-full space-y-1 md:w-32">
                 <Label htmlFor="flavor-stock">Estoque</Label>
