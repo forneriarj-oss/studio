@@ -111,3 +111,9 @@ export type Settings = {
   },
   profitMargin: number;
 }
+
+export type UserProfile = {
+  displayName: string;
+  photoURL: string;
+  email: string;
+}

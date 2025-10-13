@@ -15,10 +15,27 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import { handleEmailSignIn, handleEmailSignUp, handleAnonymousSignIn } from '@/firebase/auth/service';
 import { Loader } from 'lucide-react';
+import { User, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
+
+async function ensureUserProfile(firestore: any, user: User) {
+  if (!user) return;
+  const userDocRef = doc(firestore, `users/${user.uid}`);
+  const userDoc = await getDoc(userDocRef);
+
+  if (!userDoc.exists()) {
+    // Document doesn't exist, create it
+    await setDoc(userDocRef, {
+      email: user.email,
+      displayName: user.displayName || 'Novo Usuário',
+      photoURL: user.photoURL || '',
+    });
+  }
+}
 
 export default function AuthPage() {
   const [email, setEmail] = useState('');
@@ -26,6 +43,7 @@ export default function AuthPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
   const auth = useAuth();
+  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
 
@@ -38,7 +56,8 @@ export default function AuthPage() {
   const onSignIn = async () => {
     setIsSubmitting(true);
     try {
-      await handleEmailSignIn(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      await ensureUserProfile(firestore, userCredential.user);
       toast({ title: 'Login bem-sucedido!' });
       router.push('/');
     } catch (error: any) {
@@ -55,7 +74,8 @@ export default function AuthPage() {
   const onSignUp = async () => {
     setIsSubmitting(true);
     try {
-      await handleEmailSignUp(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      await ensureUserProfile(firestore, userCredential.user);
       toast({ title: 'Conta criada com sucesso!', description: 'Você será redirecionado em breve.' });
        router.push('/');
     } catch (error: any) {
