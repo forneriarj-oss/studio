@@ -20,6 +20,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 
 const formatCurrency = (amount: number) => {
@@ -33,6 +34,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<FinishedProduct[]>(getFinishedProducts());
   const [filterCategory, setFilterCategory] = useState('todos');
   const { toast } = useToast();
+  const router = useRouter();
 
   const categories = useMemo(() => {
     const allCategories = products.map(p => p.category);
@@ -114,7 +116,7 @@ export default function ProductsPage() {
                             <Wand className="mr-2 h-4 w-4" />
                             Produzir
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toast({ title: 'Em breve!', description: 'Página de edição em desenvolvimento.'})}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push(`/finished-products/edit/${product.id}`)}>
                             <Edit className="h-4 w-4" />
                             <span className="sr-only">Editar</span>
                         </Button>

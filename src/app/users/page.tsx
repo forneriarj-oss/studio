@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { getUsers, getRoles, getRoleById } from '@/lib/data';
+import { getUsers, getRoles, getRoleById }from '@/lib/data';
 import type { User, Role } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -28,8 +28,15 @@ export default function UsersPage() {
   const { toast } = useToast();
 
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = useState(false);
+  const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
+  
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserRole, setNewUserRole] = useState<Role['id'] | ''>('');
+  
+  const [editUserRole, setEditUserRole] = useState<Role['id'] | ''>('');
+
 
   const handleAddUser = () => {
     if (!newUserEmail || !newUserRole) {
@@ -62,6 +69,30 @@ export default function UsersPage() {
       description: 'O usuário foi removido com sucesso.',
     });
   }
+
+  const handleOpenEditDialog = (user: User) => {
+    setSelectedUser(user);
+    setEditUserRole(user.roleId);
+    setIsEditUserDialogOpen(true);
+  }
+
+  const handleEditUser = () => {
+    if (!selectedUser || !editUserRole) return;
+
+    setUsers(prev => prev.map(u => 
+      u.id === selectedUser.id ? { ...u, roleId: editUserRole as Role['id'] } : u
+    ));
+
+    toast({
+      title: 'Usuário Atualizado!',
+      description: `A função de ${selectedUser.email} foi atualizada.`,
+    });
+
+    setIsEditUserDialogOpen(false);
+    setSelectedUser(null);
+    setEditUserRole('');
+  }
+
 
   return (
     <div className="flex flex-col gap-8">
@@ -135,7 +166,7 @@ export default function UsersPage() {
                     </TableCell>
                     <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toast({ title: 'Em breve!', description: 'Funcionalidade de edição em desenvolvimento.'})}>
+                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditDialog(user)}>
                                 <Edit className="h-4 w-4" />
                                 <span className="sr-only">Editar</span>
                             </Button>
@@ -152,6 +183,46 @@ export default function UsersPage() {
           </Table>
         </CardContent>
       </Card>
+      
+      {/* Edit User Dialog */}
+      {selectedUser && (
+        <Dialog open={isEditUserDialogOpen} onOpenChange={setIsEditUserDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Editar Usuário</DialogTitle>
+              <DialogDescription>
+                Atualize a função de {selectedUser.email}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                  <Label>E-mail do Usuário</Label>
+                  <Input type="email" value={selectedUser.email} disabled />
+              </div>
+              <div className="space-y-2">
+                  <Label htmlFor="edit-role">Função</Label>
+                  <Select value={editUserRole} onValueChange={value => setEditUserRole(value as Role['id'])}>
+                      <SelectTrigger id="edit-role">
+                          <SelectValue placeholder="Selecione uma função" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          {roles.map(role => (
+                              <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                 <Button type="button" variant="outline">Cancelar</Button>
+              </DialogClose>
+              <Button type="submit" onClick={handleEditUser}>Salvar Alterações</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
     </div>
   );
 }
