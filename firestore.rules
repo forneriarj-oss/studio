@@ -1,123 +1,178 @@
 /**
- * @fileoverview Firestore Security Rules for a basic ERP system.
+ * @fileoverview Firestore Security Rules for the Forneria RJ application.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model. Each user can only access data under their own user ID.
+ * This ruleset enforces a strict user-ownership model, where each user has exclusive
+ * access to their own data, including expenses, revenues, appointments, raw materials,
+ * finished products, and sales records.
  *
  * Data Structure:
- * All data is nested under /users/{userId}, with subcollections for expenses, revenues, and appointments.
- *  /users/{userId}/expenses/{expenseId}
- *  /users/{userId}/revenues/{revenueId}
- *  /users/{userId}/appointments/{appointmentId}
+ * All data is nested under /users/{userId}, with further subcollections organizing the
+ * different data types (e.g., /users/{userId}/expenses/{expenseId}).
  *
  * Key Security Decisions:
- * - Users can only access their own data.
- * - Listing other users' data is forbidden.
- * - Data validation is relaxed during prototyping to focus on authorization.
+ * - User listing is disallowed.
+ * - All write operations are validated against the authenticated user's ID.
+ * - Flexible data validation is enabled to allow rapid prototyping.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the request is authenticated.
-     * @return {boolean} True if the request is authenticated, false otherwise.
+     * @description Checks if the user is signed in.
+     * @returns {boolean} True if the user is signed in, false otherwise.
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * @description Checks if the requested user ID matches the authenticated user ID.
-     * @param {string} userId The user ID to check.
-     * @return {boolean} True if the user IDs match, false otherwise.
+     * @description Checks if the authenticated user ID matches the provided user ID.
+     * @param {string} userId - The user ID to compare against the authenticated user's ID.
+     * @returns {boolean} True if the user IDs match, false otherwise.
      */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
     /**
-     * @description Checks if the user is the owner and the document exists.
-     * @param {string} userId The user ID to check.
-     * @return {boolean} True if the user is the owner and the document exists, false otherwise.
+     * @description Checks if the authenticated user is the owner of an existing document.
+     * @param {string} userId - The user ID to compare against the authenticated user's ID.
+     * @returns {boolean} True if the user IDs match and the resource exists, false otherwise.
      */
     function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
+      return isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Rules for expenses collection under a user.
-     * @path /users/{userId}/expenses/{expenseId}
-     * @allow (create) - User A can create an expense record under their own user ID.
-     *    - auth.uid: "A"
-     *    - path: /users/A/expenses/123
-     * @allow (get, list) - User A can read their own expense records.
-     *    - auth.uid: "A"
-     *    - path: /users/A/expenses/123
-     * @allow (update, delete) - User A can update or delete their own expense records.
-     *    - auth.uid: "A"
-     *    - path: /users/A/expenses/123
-     * @deny (create, update, delete) - User A cannot modify User B's expense records.
-     *    - auth.uid: "A"
-     *    - path: /users/B/expenses/123
-     * @principle Enforces document ownership for writes; allows owner-only access.
+     * @description Defines rules for user documents and subcollections.
+     *
+     * @path /users/{userId}
+     * @allow (create) User 'user123' can create their own user document.
+     * @deny (create) User 'user456' cannot create a document for user 'user123'.
+     * @principle Enforces user-ownership for the user document itself.
      */
-    match /users/{userId}/expenses/{expenseId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
+    match /users/{userId} {
+      allow get: if false;
+      allow list: if false;
       allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
-    }
+      allow update: if false;
+      allow delete: if false;
 
-    /**
-     * @description Rules for revenues collection under a user.
-     * @path /users/{userId}/revenues/{revenueId}
-     * @allow (create) - User A can create a revenue record under their own user ID.
-     *    - auth.uid: "A"
-     *    - path: /users/A/revenues/123
-     * @allow (get, list) - User A can read their own revenue records.
-     *    - auth.uid: "A"
-     *    - path: /users/A/revenues/123
-     * @allow (update, delete) - User A can update or delete their own revenue records.
-     *    - auth.uid: "A"
-     *    - path: /users/A/revenues/123
-     * @deny (create, update, delete) - User A cannot modify User B's revenue records.
-     *    - auth.uid: "A"
-     *    - path: /users/B/revenues/123
-     * @principle Enforces document ownership for writes; allows owner-only access.
-     */
-    match /users/{userId}/revenues/{revenueId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
-    }
+      /**
+       * @description Defines rules for expense documents within a user's expenses subcollection.
+       * @path /users/{userId}/expenses/{expenseId}
+       * @allow (create) User 'user123' can create an expense document in their own collection.
+       * @allow (update) User 'user123' can update an expense document in their own collection.
+       * @allow (delete) User 'user123' can delete an expense document in their own collection.
+       * @deny (create) User 'user456' cannot create an expense document in user 'user123's collection.
+       * @deny (update) User 'user456' cannot update an expense document in user 'user123's collection.
+       * @deny (delete) User 'user456' cannot delete an expense document in user 'user123's collection.
+       * @principle Enforces user-ownership for expenses, ensuring only the owning user can create, modify, or delete their own expense records.
+       */
+      match /expenses/{expenseId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isExistingOwner(userId);
+        allow delete: if isExistingOwner(userId);
+      }
 
-    /**
-     * @description Rules for appointments collection under a user.
-     * @path /users/{userId}/appointments/{appointmentId}
-     * @allow (create) - User A can create an appointment record under their own user ID.
-     *    - auth.uid: "A"
-     *    - path: /users/A/appointments/123
-     * @allow (get, list) - User A can read their own appointment records.
-     *    - auth.uid: "A"
-     *    - path: /users/A/appointments/123
-     * @allow (update, delete) - User A can update or delete their own appointment records.
-     *    - auth.uid: "A"
-     *    - path: /users/A/appointments/123
-     * @deny (create, update, delete) - User A cannot modify User B's appointment records.
-     *    - auth.uid: "A"
-     *    - path: /users/B/appointments/123
-     * @principle Enforces document ownership for writes; allows owner-only access.
-     */
-    match /users/{userId}/appointments/{appointmentId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      /**
+       * @description Defines rules for revenue documents within a user's revenues subcollection.
+       * @path /users/{userId}/revenues/{revenueId}
+       * @allow (create) User 'user123' can create a revenue document in their own collection.
+       * @allow (update) User 'user123' can update a revenue document in their own collection.
+       * @allow (delete) User 'user123' can delete a revenue document in their own collection.
+       * @deny (create) User 'user456' cannot create a revenue document in user 'user123's collection.
+       * @deny (update) User 'user456' cannot update a revenue document in user 'user123's collection.
+       * @deny (delete) User 'user456' cannot delete a revenue document in user 'user123's collection.
+       * @principle Enforces user-ownership for revenues, ensuring only the owning user can create, modify, or delete their own revenue records.
+       */
+      match /revenues/{revenueId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isExistingOwner(userId);
+        allow delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description Defines rules for appointment documents within a user's appointments subcollection.
+       * @path /users/{userId}/appointments/{appointmentId}
+       * @allow (create) User 'user123' can create an appointment document in their own collection.
+       * @allow (update) User 'user123' can update an appointment document in their own collection.
+       * @allow (delete) User 'user123' can delete an appointment document in their own collection.
+       * @deny (create) User 'user456' cannot create an appointment document in user 'user123's collection.
+       * @deny (update) User 'user456' cannot update an appointment document in user 'user123's collection.
+       * @deny (delete) User 'user456' cannot delete an appointment document in user 'user123's collection.
+       * @principle Enforces user-ownership for appointments, ensuring only the owning user can create, modify, or delete their own appointment records.
+       */
+      match /appointments/{appointmentId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isExistingOwner(userId);
+        allow delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description Defines rules for raw material documents within a user's raw-materials subcollection.
+       * @path /users/{userId}/raw-materials/{materialId}
+       * @allow (create) User 'user123' can create a raw material document in their own collection.
+       * @allow (update) User 'user123' can update a raw material document in their own collection.
+       * @allow (delete) User 'user123' can delete a raw material document in their own collection.
+       * @deny (create) User 'user456' cannot create a raw material document in user 'user123's collection.
+       * @deny (update) User 'user456' cannot update a raw material document in user 'user123's collection.
+       * @deny (delete) User 'user456' cannot delete a raw material document in user 'user123's collection.
+       * @principle Enforces user-ownership for raw materials, ensuring only the owning user can create, modify, or delete their own raw material records.
+       */
+      match /raw-materials/{materialId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isExistingOwner(userId);
+        allow delete: if isExistingOwner(userId);
+      }
+
+        /**
+         * @description Defines rules for finished product documents within a user's finished-products subcollection.
+         * @path /users/{userId}/finished-products/{productId}
+         * @allow (create) User 'user123' can create a finished product document in their own collection.
+         * @allow (update) User 'user123' can update a finished product document in their own collection.
+         * @allow (delete) User 'user123' can delete a finished product document in their own collection.
+         * @deny (create) User 'user456' cannot create a finished product document in user 'user123's collection.
+         * @deny (update) User 'user456' cannot update a finished product document in user 'user123's collection.
+         * @deny (delete) User 'user456' cannot delete a finished product document in user 'user123's collection.
+         * @principle Enforces user-ownership for finished products, ensuring only the owning user can create, modify, or delete their own finished product records.
+         */
+        match /finished-products/{productId} {
+          allow get: if isOwner(userId);
+          allow list: if isOwner(userId);
+          allow create: if isOwner(userId);
+          allow update: if isExistingOwner(userId);
+          allow delete: if isExistingOwner(userId);
+        }
+
+      /**
+       * @description Defines rules for sale documents within a user's sales subcollection.
+       * @path /users/{userId}/sales/{saleId}
+       * @allow (create) User 'user123' can create a sale document in their own collection.
+       * @allow (update) User 'user123' can update a sale document in their own collection.
+       * @allow (delete) User 'user123' can delete a sale document in their own collection.
+       * @deny (create) User 'user456' cannot create a sale document in user 'user123's collection.
+       * @deny (update) User 'user456' cannot update a sale document in user 'user123's collection.
+       * @deny (delete) User 'user456' cannot delete a sale document in user 'user123's collection.
+       * @principle Enforces user-ownership for sales, ensuring only the owning user can create, modify, or delete their own sale records.
+       */
+      match /sales/{saleId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isExistingOwner(userId);
+        allow delete: if isExistingOwner(userId);
+      }
     }
   }
 }
