@@ -8,7 +8,8 @@ import { getAdminApp } from '@/firebase/admin';
 
 // Centralized Current User Getter
 export async function getCurrentUser() {
-    const adminAuth = getAuth(getAdminApp());
+    const adminApp = await getAdminApp();
+    const adminAuth = getAuth(adminApp);
     const sessionCookie = cookies().get('session')?.value;
 
     if (!sessionCookie) {
@@ -32,7 +33,8 @@ export async function handleProduction(productId: string, flavorId: string, quan
     return { success: false, message: "Usuário não autenticado. Faça o login para continuar." };
   }
 
-  const db = getFirestore(getAdminApp());
+  const adminApp = await getAdminApp();
+  const db = getFirestore(adminApp);
   const productRef = db.collection('users').doc(user.uid).collection('finished-products').doc(productId);
   const rawMaterialsCol = db.collection('users').doc(user.uid).collection('raw-materials');
 

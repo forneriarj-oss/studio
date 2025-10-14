@@ -1,14 +1,15 @@
+'use server';
 import * as admin from 'firebase-admin';
 import serviceAccount from '@/firebase/service-account.json';
 
 const BIZVIEW_ADMIN_APP_NAME = 'bizview-admin-app';
 
-export function getAdminApp() {
+export async function getAdminApp() {
   if (admin.apps.some(app => app?.name === BIZVIEW_ADMIN_APP_NAME)) {
     return admin.app(BIZVIEW_ADMIN_APP_NAME);
   }
   
-  // Ensure the private key has the correct newlines
+  // Garante a substituição de '\n' (string) pelo caractere de quebra de linha real
   const privateKey = serviceAccount.private_key.replace(/\\n/g, '\n');
 
   const credential = admin.credential.cert({
@@ -19,5 +20,3 @@ export function getAdminApp() {
 
   return admin.initializeApp({ credential }, BIZVIEW_ADMIN_APP_NAME);
 }
-
-    

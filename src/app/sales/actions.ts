@@ -9,7 +9,8 @@ import type { Sale } from '@/lib/types';
 
 // Centralized Current User Getter
 async function getCurrentUser() {
-    const adminAuth = getAuth(getAdminApp());
+    const adminApp = await getAdminApp();
+    const adminAuth = getAuth(adminApp);
     const sessionCookie = cookies().get('session')?.value;
 
     if (!sessionCookie) {
@@ -34,8 +35,8 @@ export async function cancelSale(sale: Sale): Promise<{ success: boolean; messag
     if (!sale.id) {
         return { success: false, message: "ID da venda inválido." };
     }
-
-    const db = getFirestore(getAdminApp());
+    const adminApp = await getAdminApp();
+    const db = getFirestore(adminApp);
     const userRef = db.collection('users').doc(user.uid);
     
     const saleRef = userRef.collection('sales').doc(sale.id);
@@ -79,4 +80,3 @@ export async function cancelSale(sale: Sale): Promise<{ success: boolean; messag
         return { success: false, message: `Falha ao cancelar venda: ${error.message}` };
     }
 }
-
