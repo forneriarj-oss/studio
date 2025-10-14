@@ -1,124 +1,139 @@
 /**
- * @file Firebase Security Rules for Firestore.
+ * @fileoverview Firestore Security Rules for Expense Tracker App
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model, where each user has exclusive access to their own data,
- * including profile information, expenses, revenues, and appointments.
+ * This ruleset enforces a strict user-ownership model. Each user has their own
+ * private data tree under `/users/{userId}`. Only the authenticated user can
+ * access their own data.
  *
  * Data Structure:
- * All user-specific data is nested under the `/users/{userId}` path.
- *  - User profiles are stored directly at `/users/{userId}`.
- *  - Expenses are stored in a subcollection at `/users/{userId}/expenses/{expenseId}`.
- *  - Revenues are stored in a subcollection at `/users/{userId}/revenues/{revenueId}`.
- *  - Appointments are stored in a subcollection at `/users/{userId}/appointments/{appointmentId}`.
+ * All data is nested under /users/{userId}, including user profiles, expenses, revenues, and appointments.
  *
  * Key Security Decisions:
  * - Users can only access their own data.
- * - Listing all users is disallowed to protect user privacy.
- * - Data consistency between the path and document data is enforced on create and update.
+ * - Data validation is relaxed to allow for rapid prototyping but owner id is validated.
+ * - `list` operations are allowed for owners of subcollections.
+ *
+ * Denormalization for Authorization:
+ *  - Expenses, Revenues, and Appointments all store the `userId` of their owner. This
+ *    allows rules to quickly verify ownership without additional reads.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Enforces read and write access only to the authenticated user's profile.
+     * @description Secures the user profile document.
      * @path /users/{userId}
-     * @allow (get) User with ID 'user123' can read their own profile.
-     * @allow (create) User with ID 'user123' can create their own profile.
-     * @allow (update) User with ID 'user123' can update their own profile.
-     * @allow (delete) User with ID 'user123' can delete their own profile.
-     * @deny (get) User with ID 'user456' cannot read the profile of user 'user123'.
-     * @deny (create) User with ID 'user456' cannot create a profile for user 'user123'.
-     * @deny (update) User with ID 'user456' cannot update the profile of user 'user123'.
-     * @deny (delete) User with ID 'user456' cannot delete the profile of user 'user123'.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - If the user's auth UID matches the userId.
+     * @allow (get, update, delete) - If the user is signed in and their auth UID matches the userId.
+     * @deny (create) - If the user's auth UID does not match the userId.
+     * @deny (get, update, delete) - If the user is not signed in or their auth UID does not match the userId.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+      function isSignedIn() {
+        return request.auth != null;
       }
 
+      function isOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      // Allow the user to create their own profile IF the userId matches.
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
       allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isOwner(userId) && resource.data.id == request.resource.data.id;
-      allow delete: if isOwner(userId) && resource != null;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id; // Force id immutability.
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Enforces read and write access only to the authenticated user's expenses.
+     * @description Secures expense records for a specific user.
      * @path /users/{userId}/expenses/{expenseId}
-     * @allow (get) User with ID 'user123' can read their own expense with ID 'expense456'.
-     * @allow (create) User with ID 'user123' can create a new expense with ID 'expense456'.
-     * @allow (update) User with ID 'user123' can update their own expense with ID 'expense456'.
-     * @allow (delete) User with ID 'user123' can delete their own expense with ID 'expense456'.
-     * @deny (get) User with ID 'user456' cannot read the expense of user 'user123'.
-     * @deny (create) User with ID 'user456' cannot create an expense for user 'user123'.
-     * @deny (update) User with ID 'user456' cannot update the expense of user 'user123'.
-     * @deny (delete) User with ID 'user456' cannot delete the expense of user 'user123'.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) - If the user is signed in and their auth UID matches the userId in the path and in expense record.
+     * @allow (get, list, update, delete) - If the user is signed in and their auth UID matches the userId in the path.
+     * @deny (create, get, list, update, delete) - If the user is not signed in or their auth UID does not match the userId in the path.
+     * @principle Restricts access to a user's own expenses.
      */
     match /users/{userId}/expenses/{expenseId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+      function isSignedIn() {
+        return request.auth != null;
       }
 
+      function isOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isOwner(userId) && resource.data.userId == request.resource.data.userId && resource != null;
-      allow delete: if isOwner(userId) && resource != null;
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Enforces read and write access only to the authenticated user's revenues.
+     * @description Secures revenue records for a specific user.
      * @path /users/{userId}/revenues/{revenueId}
-     * @allow (get) User with ID 'user123' can read their own revenue with ID 'revenue456'.
-     * @allow (create) User with ID 'user123' can create a new revenue with ID 'revenue456'.
-     * @allow (update) User with ID 'user123' can update their own revenue with ID 'revenue456'.
-     * @allow (delete) User with ID 'user123' can delete their own revenue with ID 'revenue456'.
-     * @deny (get) User with ID 'user456' cannot read the revenue of user 'user123'.
-     * @deny (create) User with ID 'user456' cannot create a revenue for user 'user123'.
-     * @deny (update) User with ID 'user456' cannot update the revenue of user 'user123'.
-     * @deny (delete) User with ID 'user456' cannot delete the revenue of user 'user123'.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) - If the user is signed in and their auth UID matches the userId in the path and in the revenue record.
+     * @allow (get, list, update, delete) - If the user is signed in and their auth UID matches the userId in the path.
+     * @deny (create, get, list, update, delete) - If the user is not signed in or their auth UID does not match the userId in the path.
+     * @principle Restricts access to a user's own revenues.
      */
     match /users/{userId}/revenues/{revenueId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+      function isSignedIn() {
+        return request.auth != null;
       }
 
+      function isOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+       function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isOwner(userId) && resource.data.userId == request.resource.data.userId && resource != null;
-      allow delete: if isOwner(userId) && resource != null;
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Enforces read and write access only to the authenticated user's appointments.
+     * @description Secures appointment records for a specific user.
      * @path /users/{userId}/appointments/{appointmentId}
-     * @allow (get) User with ID 'user123' can read their own appointment with ID 'appointment456'.
-     * @allow (create) User with ID 'user123' can create a new appointment with ID 'appointment456'.
-     * @allow (update) User with ID 'user123' can update their own appointment with ID 'appointment456'.
-     * @allow (delete) User with ID 'user123' can delete their own appointment with ID 'appointment456'.
-     * @deny (get) User with ID 'user456' cannot read the appointment of user 'user123'.
-     * @deny (create) User with ID 'user456' cannot create an appointment for user 'user123'.
-     * @deny (update) User with ID 'user456' cannot update the appointment of user 'user123'.
-     * @deny (delete) User with ID 'user456' cannot delete the appointment of user 'user123'.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) - If the user is signed in and their auth UID matches the userId in the path and in the apppointment record.
+     * @allow (get, list, update, delete) - If the user is signed in and their auth UID matches the userId in the path.
+     * @deny (create, get, list, update, delete) - If the user is not signed in or their auth UID does not match the userId in the path.
+     * @principle Restricts access to a user's own appointments.
      */
     match /users/{userId}/appointments/{appointmentId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+      function isSignedIn() {
+        return request.auth != null;
       }
 
+      function isOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isOwner(userId) && resource.data.userId == request.resource.data.userId && resource != null;
-      allow delete: if isOwner(userId) && resource != null;
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
   }
 }
