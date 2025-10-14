@@ -82,7 +82,6 @@ export default function SalesPage() {
         location: 'Balcão'
     });
     const [deliveryFee, setDeliveryFee] = useState(0);
-    const [finalSalePrice, setFinalSalePrice] = useState(0);
     
     useEffect(() => {
         setIsClient(true);
@@ -103,26 +102,26 @@ export default function SalesPage() {
     
     const selectedProductForDialog = useMemo(() => getProduct(newSale.productId), [newSale.productId, products]);
 
-    useEffect(() => {
-        if (!selectedProductForDialog) return;
-
-        let basePrice = selectedProductForDialog.salePrice;
-        
-        // Aplicar markup para iFood
-        if (newSale.location === 'iFood') {
-            basePrice *= 1.75; // 75% markup for iFood
-        }
-        
-        let total = basePrice * newSale.quantity;
-
-        if (newSale.location === 'Delivery') {
-            total += deliveryFee;
-        }
-
-        setFinalSalePrice(total);
-        setNewSale(prev => ({...prev, unitPrice: basePrice }));
-
+    const { finalSalePrice, saleUnitPrice } = useMemo(() => {
+      if (!selectedProductForDialog) return { finalSalePrice: 0, saleUnitPrice: 0 };
+    
+      let basePrice = selectedProductForDialog.salePrice;
+      if (newSale.location === 'iFood') {
+        basePrice *= 1.75; // 75% markup for iFood
+      }
+    
+      let total = basePrice * newSale.quantity;
+    
+      if (newSale.location === 'Delivery') {
+        total += deliveryFee;
+      }
+    
+      return { finalSalePrice: total, saleUnitPrice: basePrice };
     }, [newSale.quantity, newSale.location, deliveryFee, selectedProductForDialog]);
+
+    useEffect(() => {
+        setNewSale(prev => ({...prev, unitPrice: saleUnitPrice }));
+    }, [saleUnitPrice]);
 
 
     const getFlavor = (product: FinishedProduct | undefined, flavorId: string): Flavor | undefined => {
@@ -453,5 +452,3 @@ export default function SalesPage() {
     </Dialog>
   );
 }
-
-    
