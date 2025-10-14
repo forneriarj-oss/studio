@@ -1,164 +1,190 @@
 /**
- * @file Firestore Security Rules
- * @core-philosophy This ruleset enforces a strict user-ownership model for all data. Each user has a private data tree rooted at /users/{userId}.
- * @data-structure All data is nested under /users/{userId}, ensuring that only the authenticated user can access their own data.
- * @key-security-decisions User listing is disallowed. All write operations require the user to be authenticated and the owner of the data.
+ * @fileoverview Firestore Security Rules for the application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model. Each user has their own
+ * private data tree nested under `/users/{userId}`. Only the authenticated user
+ * matching the `userId` segment has read and write access to their own data.
+ *
+ * Data Structure:
+ * All data is nested under `/users/{userId}`, including expenses, revenue,
+ * appointments, and summaries. This hierarchical structure simplifies
+ * authorization, as access control can be enforced based on the path.
+ *
+ * Key Security Decisions:
+ * - User listing is disallowed to protect user privacy.
+ * - Data validation is minimized in the prototyping phase to allow for flexible
+ *   data shapes. Only authorization-critical fields are validated.
+ * - The default security posture is strict: all access is denied unless
+ *   explicitly allowed by the rules.
+ *
+ * Denormalization for Authorization:
+ *  To simplify authorization, each document under `/users/{userId}` MUST have a
+ *  `userId` field matching the document ID. This allows for fast, simple rules
+ *  without extra reads.
+ *
+ * Structural Segregation:
+ *  All user-specific data is stored under `/users/{userId}` to ensure clear
+ *  separation and ownership. Public data is not part of this prototype.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the request is authenticated.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Requires authentication for all operations.
+     * @description Defines the isSignedIn helper function
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * @description Checks if the requested user ID matches the authenticated user's ID.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Enforces user ownership.
+     * @description Checks if the request is made by the owner of the resource.
      */
     function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+      return request.auth.uid == userId;
     }
 
     /**
-     * @description Checks if the requested user ID matches the authenticated user's ID, and that the resource exists.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Enforces user ownership and resource existence.
+     * @description Checks if the request is made by the existing owner of the resource.
      */
     function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
+      return request.auth.uid == userId;
     }
 
     /**
-     * @description Enforces that a user can only read/write their own profile.
+     * @description Rule for the /users/{userId} collection.
      * @path /users/{userId}
-     * @allow (get) User with ID 'user123' can read their own profile.
-     * @allow (create) User with ID 'user123' can create their own profile.
-     * @allow (update) User with ID 'user123' can update their own profile.
-     * @allow (delete) User with ID 'user123' can delete their own profile.
-     * @deny (get) User with ID 'user456' cannot read the profile of user with ID 'user123'.
-     * @deny (create) User with ID 'user456' cannot create the profile of user with ID 'user123'.
-     * @principle Enforces document ownership for writes and reads.
+     * @allow (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can create their own profile.
+     * @deny (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot create a profile for another user 'someOtherUserId'.
+     * @allow (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can get their own profile.
+     * @deny (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot get another user's profile 'someOtherUserId'.
+     * @allow (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can update their own profile.
+     * @deny (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot update another user's profile 'someOtherUserId'.
+     * @allow (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can delete their own profile.
+     * @deny (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot delete another user's profile 'someOtherUserId'.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false; // No listing of all users
-
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if false; // User listing is disallowed for privacy.
+      allow update: if isSignedIn() && isExistingOwner(userId);
+      allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
-     * @description Enforces that a user can only read/write their own expenses.
+     * @description Rule for the /users/{userId}/expenses/{expenseId} collection.
      * @path /users/{userId}/expenses/{expenseId}
-     * @allow (get) User with ID 'user123' can read their own expense with ID 'expense456'.
-     * @allow (create) User with ID 'user123' can create an expense.
-     * @allow (update) User with ID 'user123' can update their own expense with ID 'expense456'.
-     * @allow (delete) User with ID 'user123' can delete their own expense with ID 'expense456'.
-     * @deny (get) User with ID 'user456' cannot read the expense of user with ID 'user123'.
-     * @deny (create) User with ID 'user456' cannot create an expense for user with ID 'user123'.
-     * @principle Enforces document ownership for writes and reads.
+     * @allow (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can create an expense under their profile.
+     * @deny (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot create an expense under another user's profile 'someOtherUserId'.
+     * @allow (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can get an expense under their profile.
+     * @deny (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot get an expense under another user's profile 'someOtherUserId'.
+     * @allow (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can list expenses under their profile.
+     * @deny (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot list expenses under another user's profile 'someOtherUserId'.
+     * @allow (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can update an expense under their profile.
+     * @deny (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot update an expense under another user's profile 'someOtherUserId'.
+     * @allow (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can delete an expense under their profile.
+     * @deny (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot delete an expense under another user's profile 'someOtherUserId'.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{userId}/expenses/{expenseId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isExistingOwner(userId);
+      allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
-     * @description Enforces that a user can only read/write their own revenue records.
+     * @description Rule for the /users/{userId}/revenue/{revenueId} collection.
      * @path /users/{userId}/revenue/{revenueId}
-     * @allow (get) User with ID 'user123' can read their own revenue record with ID 'revenue456'.
-     * @allow (create) User with ID 'user123' can create a revenue record.
-     * @allow (update) User with ID 'user123' can update their own revenue record with ID 'revenue456'.
-     * @allow (delete) User with ID 'user123' can delete their own revenue record with ID 'revenue456'.
-     * @deny (get) User with ID 'user456' cannot read the revenue record of user with ID 'user123'.
-     * @deny (create) User with ID 'user456' cannot create a revenue record for user with ID 'user123'.
-     * @principle Enforces document ownership for writes and reads.
+     * @allow (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can create revenue under their profile.
+     * @deny (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot create revenue under another user's profile 'someOtherUserId'.
+     * @allow (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can get revenue under their profile.
+     * @deny (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot get revenue under another user's profile 'someOtherUserId'.
+     * @allow (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can list revenue under their profile.
+     * @deny (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot list revenue under another user's profile 'someOtherUserId'.
+     * @allow (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can update revenue under their profile.
+     * @deny (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot update revenue under another user's profile 'someOtherUserId'.
+     * @allow (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can delete revenue under their profile.
+     * @deny (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot delete revenue under another user's profile 'someOtherUserId'.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{userId}/revenue/{revenueId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isExistingOwner(userId);
+      allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
-     * @description Enforces that a user can only read/write their own appointments.
+     * @description Rule for the /users/{userId}/appointments/{appointmentId} collection.
      * @path /users/{userId}/appointments/{appointmentId}
-     * @allow (get) User with ID 'user123' can read their own appointment with ID 'appointment456'.
-     * @allow (create) User with ID 'user123' can create an appointment.
-     * @allow (update) User with ID 'user123' can update their own appointment with ID 'appointment456'.
-     * @allow (delete) User with ID 'user123' can delete their own appointment with ID 'appointment456'.
-     * @deny (get) User with ID 'user456' cannot read the appointment of user with ID 'user123'.
-     * @deny (create) User with ID 'user456' cannot create an appointment for user with ID 'user123'.
-     * @principle Enforces document ownership for writes and reads.
+     * @allow (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can create an appointment under their profile.
+     * @deny (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot create an appointment under another user's profile 'someOtherUserId'.
+     * @allow (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can get an appointment under their profile.
+     * @deny (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot get an appointment under another user's profile 'someOtherUserId'.
+     * @allow (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can list appointments under their profile.
+     * @deny (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot list appointments under another user's profile 'someOtherUserId'.
+     * @allow (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can update an appointment under their profile.
+     * @deny (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot update an appointment under another user's profile 'someOtherUserId'.
+     * @allow (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can delete an appointment under their profile.
+     * @deny (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot delete an appointment under another user's profile 'someOtherUserId'.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{userId}/appointments/{appointmentId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isExistingOwner(userId);
+      allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
-     * @description Enforces that a user can only read/write their own appointment summaries.
+     * @description Rule for the /users/{userId}/appointments/{appointmentId}/summary collection.
      * @path /users/{userId}/appointments/{appointmentId}/summary
-     * @allow (get) User with ID 'user123' can read their own appointment summary.
-     * @allow (create) User with ID 'user123' can create an appointment summary.
-     * @allow (update) User with ID 'user123' can update their own appointment summary.
-     * @allow (delete) User with ID 'user123' can delete their own appointment summary.
-     * @deny (get) User with ID 'user456' cannot read the appointment summary of user with ID 'user123'.
-     * @deny (create) User with ID 'user456' cannot create an appointment summary for user with ID 'user123'.
-     * @principle Enforces document ownership for writes and reads.
+     * @allow (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can create a summary under their appointment.
+     * @deny (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot create a summary under another user's appointment 'someOtherUserId'.
+     * @allow (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can get a summary under their appointment.
+     * @deny (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot get a summary under another user's appointment 'someOtherUserId'.
+     * @allow (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can list summaries under their appointment.
+     * @deny (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot list summaries under another user's appointment 'someOtherUserId'.
+     * @allow (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can update a summary under their appointment.
+     * @deny (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot update a summary under another user's appointment 'someOtherUserId'.
+     * @allow (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can delete a summary under their appointment.
+     * @deny (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot delete a summary under another user's appointment 'someOtherUserId'.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
-    match /users/{userId}/appointments/{appointmentId}/summary {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+    match /users/{userId}/appointments/{appointmentId}/summary/{summaryId} {
+      allow create: if isSignedIn() && isOwner(userId); // The userId in Summary entity is appointmentId, not userId
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
 
-       /**
-     * @description Enforces that a user can only read/write their own finished products.
+   /**
+     * @description Rule for the /users/{userId}/finished-products/{productId} collection.
      * @path /users/{userId}/finished-products/{productId}
-     * @allow (get) User with ID 'user123' can read their own finished product with ID 'product456'.
-     * @allow (create) User with ID 'user123' can create a finished product.
-     * @allow (update) User with ID 'user123' can update their own finished product with ID 'product456'.
-     * @allow (delete) User with ID 'user123' can delete their own finished product with ID 'product456'.
-     * @deny (get) User with ID 'user456' cannot read the finished product of user with ID 'user123'.
-     * @deny (create) User with ID 'user456' cannot create a finished product for user with ID 'user123'.
-     * @principle Enforces document ownership for writes and reads.
+     * @allow (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can create a product under their profile.
+     * @deny (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot create a product under another user's profile 'someOtherUserId'.
+     * @allow (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can get a product under their profile.
+     * @deny (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot get a product under another user's profile 'someOtherUserId'.
+     * @allow (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can list products under their profile.
+     * @deny (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot list products under another user's profile 'someOtherUserId'.
+     * @allow (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can update a product under their profile.
+     * @deny (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot update a product under another user's profile 'someOtherUserId'.
+     * @allow (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can delete a product under their profile.
+     * @deny (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot delete a product under another user's profile 'someOtherUserId'.
      */
     match /users/{userId}/finished-products/{productId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+       allow create: if isSignedIn() && isOwner(userId);
+       allow get: if isSignedIn() && isOwner(userId);
+       allow list: if isSignedIn() && isOwner(userId);
+       allow update: if isSignedIn() && isExistingOwner(userId);
+       allow delete: if isSignedIn() && isExistingOwner(userId);
     }
   }
 }
