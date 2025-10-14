@@ -10,7 +10,7 @@ import type { PaymentMethod, Revenue } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirebase, useCollection } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where } from 'firebase/firestore';
 
 
 const paymentMethods: PaymentMethod[] = ['PIX', 'Cartão', 'Dinheiro'];
@@ -29,7 +29,7 @@ export default function RevenuePage() {
 
   const revenuesQuery = useMemo(() => {
     if (!user || !firestore) return null;
-    return collection(firestore, 'users', user.uid, 'revenues');
+    return query(collection(firestore, 'revenues'), where('userId', '==', user.uid));
   }, [user, firestore]);
 
   const { data: revenues, isLoading } = useCollection<Revenue>(revenuesQuery);
@@ -61,8 +61,9 @@ export default function RevenuePage() {
       return;
     }
 
-    const revenuesRef = collection(firestore, 'users', user.uid, 'revenues');
+    const revenuesRef = collection(firestore, 'revenues');
     await addDoc(revenuesRef, {
+      userId: user.uid,
       source: newRevenue.source,
       amount: parseFloat(newRevenue.amount),
       date: new Date(newRevenue.date).toISOString(),

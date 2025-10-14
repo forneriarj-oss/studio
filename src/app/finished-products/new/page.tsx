@@ -15,7 +15,7 @@ import { getPriceSuggestion, getRecipeSuggestion } from './actions';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useUser, useCollection, useFirebase } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where } from 'firebase/firestore';
 
 
 const MOCK_SETTINGS: Settings = {
@@ -40,12 +40,12 @@ export default function NewFinishedProductPage() {
   
   const rawMaterialsQuery = useMemo(() => {
     if (!user || !firestore) return null;
-    return collection(firestore, 'users', user.uid, 'raw-materials');
+    return query(collection(firestore, 'raw-materials'), where('userId', '==', user.uid));
   }, [user, firestore]);
 
   const settingsQuery = useMemo(() => {
     if (!user || !firestore) return null;
-    return collection(firestore, 'users', user.uid, 'settings');
+    return query(collection(firestore, 'settings'), where('userId', '==', user.uid));
   }, [user, firestore]);
   
   const { data: rawMaterials, isLoading: isLoadingMaterials } = useCollection<RawMaterial>(rawMaterialsQuery);
@@ -148,8 +148,9 @@ export default function NewFinishedProductPage() {
         return;
     }
     
-    const finishedProductsRef = collection(firestore, 'users', user.uid, 'finished-products');
+    const finishedProductsRef = collection(firestore, 'finished-products');
     const newProductData: Omit<FinishedProduct, 'id'> = {
+        userId: user.uid,
         sku: `SKU-${Date.now()}`,
         name: productName,
         category: selectedCategory,

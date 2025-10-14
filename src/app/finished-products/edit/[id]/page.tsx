@@ -17,7 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useUser, useCollection, useDoc, useFirebase } from '@/firebase';
-import { collection, doc, updateDoc } from 'firebase/firestore';
+import { collection, doc, updateDoc, query, where } from 'firebase/firestore';
 
 
 const MOCK_SETTINGS: Settings = {
@@ -45,17 +45,17 @@ export default function EditFinishedProductPage() {
 
   const productRef = useMemo(() => {
     if (!user || !firestore || !productId) return null;
-    return doc(firestore, 'users', user.uid, 'finished-products', productId as string);
+    return doc(firestore, 'finished-products', productId as string);
   }, [user, firestore, productId]);
 
   const rawMaterialsQuery = useMemo(() => {
     if (!user || !firestore) return null;
-    return collection(firestore, 'users', user.uid, 'raw-materials');
+    return query(collection(firestore, 'raw-materials'), where('userId', '==', user.uid));
   }, [user, firestore]);
 
   const settingsQuery = useMemo(() => {
     if (!user || !firestore) return null;
-    return collection(firestore, 'users', user.uid, 'settings');
+    return query(collection(firestore, 'settings'), where('userId', '==', user.uid));
   }, [user, firestore]);
 
   const { data: rawMaterials, isLoading: isLoadingMaterials } = useCollection<RawMaterial>(rawMaterialsQuery);
@@ -80,6 +80,15 @@ export default function EditFinishedProductPage() {
 
   useEffect(() => {
     if (product) {
+      if (product.userId !== user?.uid) {
+        toast({
+            variant: 'destructive',
+            title: 'Acesso Negado',
+            description: 'Você não tem permissão para editar este produto.',
+        });
+        router.push('/finished-products');
+        return;
+      }
       setProductName(product.name);
       setSelectedCategory(product.category);
       setUnit(product.unit);
@@ -88,7 +97,7 @@ export default function EditFinishedProductPage() {
       setSalePrice(product.salePrice);
       setFlavors(product.flavors || []);
     }
-  }, [product]);
+  }, [product, user, router, toast]);
 
 
   const calculatedCost = useMemo(() => {
@@ -177,6 +186,7 @@ export default function EditFinishedProductPage() {
         finalCost: finalCost,
         salePrice: Number(salePrice),
         flavors,
+        // userId is not updated, it's set on creation
     };
 
     await updateDoc(productRef, productToUpdate);

@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useUser, useFirebase, useCollection } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where } from 'firebase/firestore';
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -37,7 +37,7 @@ export default function ExpensesPage() {
 
   const expensesQuery = useMemo(() => {
     if (!user || !firestore) return null;
-    return collection(firestore, 'users', user.uid, 'expenses');
+    return query(collection(firestore, 'expenses'), where('userId', '==', user.uid));
   }, [user, firestore]);
 
   const { data: expenseList, isLoading } = useCollection<Expense>(expensesQuery);
@@ -68,8 +68,9 @@ export default function ExpensesPage() {
       return;
     }
 
-    const expensesRef = collection(firestore, 'users', user.uid, 'expenses');
+    const expensesRef = collection(firestore, 'expenses');
     await addDoc(expensesRef, {
+      userId: user.uid,
       description,
       amount: parseFloat(amount),
       category: category as ExpenseCategory,

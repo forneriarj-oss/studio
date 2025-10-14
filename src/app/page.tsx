@@ -57,7 +57,8 @@ export default function Home() {
   const salesQuery = useMemo(() => {
     if (!user || !firestore) return null;
     return query(
-      collection(firestore, 'users', user.uid, 'sales'),
+      collection(firestore, 'sales'),
+      where('userId', '==', user.uid),
       where('date', '>=', startDate.toISOString()),
       where('date', '<=', endDate.toISOString())
     );
@@ -66,7 +67,8 @@ export default function Home() {
   const revenuesQuery = useMemo(() => {
     if (!user || !firestore) return null;
     return query(
-      collection(firestore, 'users', user.uid, 'revenues'),
+      collection(firestore, 'revenues'),
+      where('userId', '==', user.uid),
       where('date', '>=', startDate.toISOString()),
       where('date', '<=', endDate.toISOString())
     );
@@ -74,12 +76,12 @@ export default function Home() {
   
   const productsQuery = useMemo(() => {
     if (!user || !firestore) return null;
-    return collection(firestore, 'users', user.uid, 'finished-products');
+    return query(collection(firestore, 'finished-products'), where('userId', '==', user.uid));
   }, [user, firestore]);
   
   const rawMaterialsQuery = useMemo(() => {
     if (!user || !firestore) return null;
-    return collection(firestore, 'users', user.uid, 'raw-materials');
+    return query(collection(firestore, 'raw-materials'), where('userId', '==', user.uid));
   }, [user, firestore]);
 
   const { data: filteredSales, isLoading: salesLoading } = useCollection<Sale>(salesQuery);

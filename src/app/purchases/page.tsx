@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo } from 'react';
 import type { Purchase, RawMaterial } from '@/lib/types';
@@ -21,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useCollection, useFirebase } from '@/firebase';
-import { collection, runTransaction, doc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, runTransaction, doc, addDoc, serverTimestamp, query, where } from 'firebase/firestore';
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -38,13 +37,13 @@ export default function PurchasesPage() {
     
     const purchasesQuery = useMemo(() => {
         if (!user || !firestore) return null;
-        return collection(firestore, 'users', user.uid, 'purchases');
+        return query(collection(firestore, 'purchases'), where('userId', '==', user.uid));
     }, [user, firestore]);
     const { data: purchases, isLoading: isLoadingPurchases } = useCollection<Purchase>(purchasesQuery);
     
     const rawMaterialsQuery = useMemo(() => {
         if (!user || !firestore) return null;
-        return collection(firestore, 'users', user.uid, 'raw-materials');
+        return query(collection(firestore, 'raw-materials'), where('userId', '==', user.uid));
     }, [user, firestore]);
     const { data: rawMaterials, isLoading: isLoadingMaterials } = useCollection<RawMaterial>(rawMaterialsQuery);
 
@@ -73,8 +72,8 @@ export default function PurchasesPage() {
         }
         
         try {
-            const rawMaterialRef = doc(firestore, 'users', user.uid, 'raw-materials', newPurchase.rawMaterialId);
-            const purchasesRef = collection(firestore, 'users', user.uid, 'purchases');
+            const rawMaterialRef = doc(firestore, 'raw-materials', newPurchase.rawMaterialId);
+            const purchasesRef = collection(firestore, 'purchases');
 
             await runTransaction(firestore, async (transaction) => {
                 const materialDoc = await transaction.get(rawMaterialRef);
@@ -94,6 +93,7 @@ export default function PurchasesPage() {
                 // Create new purchase record
                 const purchaseToAdd = {
                     ...newPurchase,
+                    userId: user.uid,
                     date: new Date(newPurchase.date).toISOString(),
                     createdAt: serverTimestamp()
                 };

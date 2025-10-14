@@ -12,7 +12,7 @@
         },
         "userId": {
           "type": "string",
-          "description": "Reference to the User who created the expense. (Relationship: User 1:N Expense)"
+          "description": "The ID of the user who owns this expense."
         },
         "date": {
           "type": "string",
@@ -52,7 +52,7 @@
         },
         "userId": {
           "type": "string",
-          "description": "Reference to the User who created the revenue. (Relationship: User 1:N Revenue)"
+          "description": "The ID of the user who owns this revenue."
         },
         "date": {
           "type": "string",
@@ -92,7 +92,7 @@
         },
         "userId": {
           "type": "string",
-          "description": "Reference to the User who created the appointment. (Relationship: User 1:N Appointment)"
+          "description": "The ID of the user who owns this appointment."
         },
         "startTime": {
           "type": "string",
@@ -120,30 +120,6 @@
         "endTime",
         "title"
       ]
-    },
-    "User": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "User",
-      "type": "object",
-      "description": "Represents a user of the application.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the user."
-        },
-        "name": {
-          "type": "string",
-          "description": "The user's full name."
-        },
-        "email": {
-          "type": "string",
-          "description": "The user's email address.",
-          "format": "email"
-        }
-      },
-      "required": [
-        "id"
-      ]
     }
   },
   "auth": {
@@ -154,34 +130,14 @@
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user profile information. Accessible only to the authenticated user.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/expenses/{expenseId}",
+        "path": "/expenses/{expenseId}",
         "definition": {
           "entityName": "Expense",
           "schema": {
-            "$ref": "#/backend/entities/Expense"
+            "$ref": "#/entities/Expense"
           },
-          "description": "Stores expense records for a specific user. Accessible only to the authenticated user.",
+          "description": "Stores expense records. Each record has a userId field to indicate ownership. Rules enforce that only the owner can access it.",
           "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            },
             {
               "name": "expenseId",
               "description": "The unique identifier of the expense record."
@@ -190,18 +146,14 @@
         }
       },
       {
-        "path": "/users/{userId}/revenues/{revenueId}",
+        "path": "/revenues/{revenueId}",
         "definition": {
           "entityName": "Revenue",
           "schema": {
-            "$ref": "#/backend/entities/Revenue"
+            "$ref": "#/entities/Revenue"
           },
-          "description": "Stores revenue records for a specific user. Accessible only to the authenticated user.",
+          "description": "Stores revenue records. Each record has a userId field to indicate ownership. Rules enforce that only the owner can access it.",
           "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            },
             {
               "name": "revenueId",
               "description": "The unique identifier of the revenue record."
@@ -210,18 +162,14 @@
         }
       },
       {
-        "path": "/users/{userId}/appointments/{appointmentId}",
+        "path": "/appointments/{appointmentId}",
         "definition": {
           "entityName": "Appointment",
           "schema": {
-            "$ref": "#/backend/entities/Appointment"
+            "$ref": "#/entities/Appointment"
           },
-          "description": "Stores appointment records for a specific user. Accessible only to the authenticated user.",
+          "description": "Stores appointment records. Each record has a userId field to indicate ownership. Rules enforce that only the owner can access it.",
           "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            },
             {
               "name": "appointmentId",
               "description": "The unique identifier of the appointment record."
@@ -230,6 +178,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to address the \"Missing or insufficient permissions\" error by enforcing clear ownership and access control. It leverages path-based ownership and denormalization to ensure Authorization Independence, enabling secure list operations and atomic transactions. The design strictly adheres to the principle of Structural Segregation, keeping data with different access requirements in separate collections.\n\n1.  **Path-Based Ownership:** User-specific data (expenses, revenues, appointments) is stored under `/users/{userId}/...`, ensuring that only the authenticated user can access their own data. This directly addresses the reported error by enforcing that a user can only `list` their own `sales` documents.\n2.  **Authorization Independence:** There is no hierarchical authorization, so rules do not require `get()` calls to parent documents.\n3.  **Structural Segregation:**  Each top-level collection (e.g., `users/{userId}/expenses`) contains data with the same access requirements (i.e., accessible only to the owning user). This simplifies the security rules by avoiding complex conditional logic based on document content.\n\nThis structure supports the required QAPs by:\n\n*   **Secure List Operations (QAP):**  The path-based ownership model ensures that `list` operations on subcollections like `/users/{userId}/expenses` only return documents owned by the authenticated user. No filtering is required in the rules.\n\n*   **Atomic Operations (QAP):**  The absence of hierarchical authorization dependencies (no `get()` calls) allows for atomic transactions and batches when creating related documents (e.g., creating a user and their initial set of expenses)."
+    "reasoning": "The Firestore data structure is designed to be flat, with top-level collections for each entity type (e.g., 'expenses', 'revenues'). This approach, combined with a `userId` field in each document, provides a robust and scalable security model. Security rules can then be defined on each collection to ensure that a user can only query for documents where their `userId` matches, and they can only perform writes (create, update, delete) on documents they own. This avoids complex, nested security rules and prevents insecure list operations by design. It's a standard, recommended pattern for multi-tenant applications on Firestore."
   }
 }

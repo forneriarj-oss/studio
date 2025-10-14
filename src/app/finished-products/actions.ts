@@ -35,8 +35,8 @@ export async function handleProduction(productId: string, flavorId: string, quan
 
   const adminApp = await getAdminApp();
   const db = getFirestore(adminApp);
-  const productRef = db.collection('users').doc(user.uid).collection('finished-products').doc(productId);
-  const rawMaterialsCol = db.collection('users').doc(user.uid).collection('raw-materials');
+  const productRef = db.collection('finished-products').doc(productId);
+  const rawMaterialsCol = db.collection('raw-materials');
 
   try {
     await db.runTransaction(async (transaction) => {
@@ -56,6 +56,11 @@ export async function handleProduction(productId: string, flavorId: string, quan
         });
         transaction.update(productRef, { flavors: newFlavors });
         return;
+      }
+      
+      // Ensure product belongs to the user
+      if (productData.userId !== user.uid) {
+        throw new Error("Você não tem permissão para modificar este produto.");
       }
 
       // 2. Check for sufficient raw material stock
@@ -82,6 +87,12 @@ export async function handleProduction(productId: string, flavorId: string, quan
         if (!materialData) {
            missingMaterials.push(requiredItem.rawMaterialId);
            return;
+        }
+
+        // Ensure raw material belongs to the same user
+        if (materialData.userId !== user.uid) {
+            insufficientStock.push(`'${materialData.description}' (Permissão negada)`);
+            return;
         }
 
         const neededQuantity = requiredItem.quantity * quantity;

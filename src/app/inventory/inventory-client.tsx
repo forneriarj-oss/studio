@@ -33,7 +33,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useCollection, useFirebase } from '@/firebase';
-import { collection, addDoc, doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, where } from 'firebase/firestore';
 
 
 const formatCurrency = (amount: number) => {
@@ -58,7 +58,7 @@ export function InventoryClient() {
 
     const rawMaterialsQuery = useMemo(() => {
         if (!user || !firestore) return null;
-        return collection(firestore, 'users', user.uid, 'raw-materials');
+        return query(collection(firestore, 'raw-materials'), where('userId', '==', user.uid));
     }, [user, firestore]);
 
     const { data: products, isLoading } = useCollection<RawMaterial>(rawMaterialsQuery);
@@ -68,7 +68,7 @@ export function InventoryClient() {
   const [editProductForm, setEditProductForm] = useState<RawMaterial | null>(null);
 
   const { toast } = useToast();
-  const [newProduct, setNewProduct] = useState<Omit<RawMaterial, 'id'>>(EMPTY_PRODUCT_STATE);
+  const [newProduct, setNewProduct] = useState<Omit<RawMaterial, 'id' | 'userId'>>(EMPTY_PRODUCT_STATE);
 
   const handleAddProduct = async () => {
     if (!newProduct.description || !newProduct.unit || newProduct.cost < 0 || newProduct.quantity < 0) {
@@ -85,8 +85,8 @@ export function InventoryClient() {
         return;
     }
     
-    const rawMaterialsRef = collection(firestore, 'users', user.uid, 'raw-materials');
-    await addDoc(rawMaterialsRef, { ...newProduct, createdAt: serverTimestamp() });
+    const rawMaterialsRef = collection(firestore, 'raw-materials');
+    await addDoc(rawMaterialsRef, { ...newProduct, userId: user.uid, createdAt: serverTimestamp() });
 
     toast({
       title: 'Matéria-Prima Adicionada!',
@@ -120,7 +120,7 @@ export function InventoryClient() {
     }
 
     const { id, ...dataToUpdate } = editProductForm;
-    const docRef = doc(firestore, 'users', user.uid, 'raw-materials', id);
+    const docRef = doc(firestore, 'raw-materials', id);
     await updateDoc(docRef, dataToUpdate);
 
     toast({
@@ -134,7 +134,7 @@ export function InventoryClient() {
 
   const handleDeleteProduct = async (productId: string) => {
     if (!user || !firestore) return;
-    const docRef = doc(firestore, 'users', user.uid, 'raw-materials', productId);
+    const docRef = doc(firestore, 'raw-materials', productId);
     await deleteDoc(docRef);
 
     toast({

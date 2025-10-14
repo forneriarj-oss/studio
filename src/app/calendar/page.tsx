@@ -4,14 +4,14 @@ import { useMemo } from 'react';
 import { CalendarClient } from "./calendar-client";
 import type { Appointment } from '@/lib/types';
 import { useUser, useFirebase, useCollection } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 
 export default function CalendarPage() {
   const { user, firestore } = useFirebase();
 
   const appointmentsQuery = useMemo(() => {
     if (!user || !firestore) return null;
-    return collection(firestore, 'users', user.uid, 'appointments');
+    return query(collection(firestore, 'appointments'), where('userId', '==', user.uid));
   }, [user, firestore]);
   
   const { data: appointments, isLoading } = useCollection<Appointment>(appointmentsQuery);

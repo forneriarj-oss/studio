@@ -138,7 +138,8 @@ function CashFlowTransactionDialog() {
         return;
     }
 
-    const data = {
+    const commonData = {
+        userId: user.uid,
         amount: parseFloat(amount),
         date: new Date(date).toISOString(),
         paymentMethod,
@@ -146,12 +147,12 @@ function CashFlowTransactionDialog() {
     };
 
     if (type === 'revenue') {
-        const revenuesRef = collection(firestore, 'users', user.uid, 'revenues');
-        await addDoc(revenuesRef, { ...data, source: description });
+        const revenuesRef = collection(firestore, 'revenues');
+        await addDoc(revenuesRef, { ...commonData, source: description });
         toast({ title: 'Receita adicionada!', description: `${description} foi registrada.` });
     } else {
-        const expensesRef = collection(firestore, 'users', user.uid, 'expenses');
-        await addDoc(expensesRef, { ...data, description, category });
+        const expensesRef = collection(firestore, 'expenses');
+        await addDoc(expensesRef, { ...commonData, description, category });
         toast({ title: 'Despesa adicionada!', description: `${description} foi registrada.` });
     }
       resetForm();
@@ -302,22 +303,22 @@ export default function CashFlowPage() {
 
   const revenuesQuery = useMemo(() => {
     if (!user || !firestore) return null;
-    return query(collection(firestore, 'users', user.uid, 'revenues'), where('date', '>=', startDate.toISOString()), where('date', '<=', endDate.toISOString()));
+    return query(collection(firestore, 'revenues'), where('userId', '==', user.uid), where('date', '>=', startDate.toISOString()), where('date', '<=', endDate.toISOString()));
   }, [user, firestore, startDate, endDate]);
 
   const expensesQuery = useMemo(() => {
     if (!user || !firestore) return null;
-    return query(collection(firestore, 'users', user.uid, 'expenses'), where('date', '>=', startDate.toISOString()), where('date', '<=', endDate.toISOString()));
+    return query(collection(firestore, 'expenses'), where('userId', '==', user.uid), where('date', '>=', startDate.toISOString()), where('date', '<=', endDate.toISOString()));
   }, [user, firestore, startDate, endDate]);
   
   const salesQuery = useMemo(() => {
       if (!user || !firestore) return null;
-      return query(collection(firestore, 'users', user.uid, 'sales'), where('date', '>=', startDate.toISOString()), where('date', '<=', endDate.toISOString()));
+      return query(collection(firestore, 'sales'), where('userId', '==', user.uid), where('date', '>=', startDate.toISOString()), where('date', '<=', endDate.toISOString()));
   }, [user, firestore, startDate, endDate]);
   
   const productsQuery = useMemo(() => {
       if (!user || !firestore) return null;
-      return collection(firestore, 'users', user.uid, 'finished-products');
+      return query(collection(firestore, 'finished-products'), where('userId', '==', user.uid));
   }, [user, firestore]);
 
   const { data: filteredRevenues } = useCollection<Revenue>(revenuesQuery);

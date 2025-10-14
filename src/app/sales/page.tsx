@@ -20,7 +20,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useUser, useFirebase, useCollection } from '@/firebase';
-import { collection, doc, runTransaction, addDoc } from 'firebase/firestore';
+import { collection, doc, runTransaction, addDoc, query, where } from 'firebase/firestore';
 import { Loader } from 'lucide-react';
 
 const paymentMethods: PaymentMethod[] = ['PIX', 'Cartão', 'Dinheiro'];
@@ -43,12 +43,12 @@ export default function SalesPage() {
 
     const productsQuery = useMemo(() => {
         if (!user || !firestore) return null;
-        return collection(firestore, 'users', user.uid, 'finished-products');
+        return query(collection(firestore, 'finished-products'), where('userId', '==', user.uid));
     }, [user, firestore]);
     
     const salesQuery = useMemo(() => {
         if (!user || !firestore) return null;
-        return collection(firestore, 'users', user.uid, 'sales');
+        return query(collection(firestore, 'sales'), where('userId', '==', user.uid));
     }, [user, firestore]);
 
     const { data: products, isLoading: isLoadingProducts, error: productsError } = useCollection<FinishedProduct>(productsQuery);
@@ -138,7 +138,7 @@ export default function SalesPage() {
         
         startTransition(async () => {
             try {
-                const productRef = doc(firestore, 'users', user.uid, 'finished-products', newSale.productId);
+                const productRef = doc(firestore, 'finished-products', newSale.productId);
                 
                 // Firestore Transaction
                 await runTransaction(firestore, async (transaction) => {
@@ -161,16 +161,18 @@ export default function SalesPage() {
                     transaction.update(productRef, { flavors: newFlavors });
 
                     // Add to sales subcollection
-                    const salesCollectionRef = collection(firestore, 'users', user.uid, 'sales');
+                    const salesCollectionRef = collection(firestore, 'sales');
                     const saleToAdd: Omit<Sale, 'id'> = {
                         ...newSale,
+                        userId: user.uid,
                         date: new Date().toISOString(),
                     };
                     transaction.set(doc(salesCollectionRef), saleToAdd);
 
                     // Add to revenues subcollection
-                    const revenueCollectionRef = collection(firestore, 'users', user.uid, 'revenues');
+                    const revenueCollectionRef = collection(firestore, 'revenues');
                      const revenueToAdd: Omit<Revenue, 'id'> = {
+                        userId: user.uid,
                         amount: finalSalePrice,
                         source: `Venda: ${product.name} (${flavor.name})`,
                         date: new Date().toISOString(),

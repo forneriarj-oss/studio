@@ -21,7 +21,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useUser, useCollection, useFirebase } from '@/firebase';
-import { collection, doc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, deleteDoc, query, where } from 'firebase/firestore';
 
 
 const formatCurrency = (amount: number) => {
@@ -40,7 +40,7 @@ export default function ProductsPage() {
 
     const productsQuery = useMemo(() => {
         if (!user || !firestore) return null;
-        return collection(firestore, 'users', user.uid, 'finished-products');
+        return query(collection(firestore, 'finished-products'), where('userId', '==', user.uid));
     }, [user, firestore]);
 
     const { data: products, isLoading } = useCollection<FinishedProduct>(productsQuery);
@@ -69,7 +69,7 @@ export default function ProductsPage() {
       return;
     }
 
-    const docRef = doc(firestore, 'users', user.uid, 'finished-products', productId);
+    const docRef = doc(firestore, 'finished-products', productId);
     await deleteDoc(docRef);
 
     toast({
