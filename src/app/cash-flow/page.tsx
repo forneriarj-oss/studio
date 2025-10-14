@@ -61,21 +61,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-
-const MOCK_REVENUES: Revenue[] = [
-    { id: 'rev1', amount: 150.50, source: 'Venda de produtos', date: new Date().toISOString(), paymentMethod: 'PIX' },
-    { id: 'rev2', amount: 300.00, source: 'Consultoria', date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), paymentMethod: 'Cartão' },
-];
-const MOCK_EXPENSES: Expense[] = [
-    { id: 'exp1', amount: 50.20, category: 'Marketing', description: 'Impulsionamento Instagram', date: new Date().toISOString(), paymentMethod: 'Cartão' },
-    { id: 'exp2', amount: 120.00, category: 'Software', description: 'Assinatura Adobe', date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), paymentMethod: 'Cartão' },
-];
-const MOCK_SALES: Sale[] = [
-    { id: 'sale1', productId: 'prod1', flavorId: 'flav1', quantity: 2, unitPrice: 25, date: new Date().toISOString() },
-];
-const MOCK_PRODUCTS: Product[] = [
-  { id: 'prod1', sku: 'SKU001', name: 'Bolo de Chocolate', category: 'Bolos', unit: 'UN', recipe: [], finalCost: 15, salePrice: 25, flavors: [{id: 'flav1', name: 'Comum', stock: 8}] },
-];
+import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -118,6 +105,7 @@ const categoryTranslations: Record<ExpenseCategory, string> = {
 function CashFlowTransactionDialog() {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
+  const { user, firestore } = useFirebase();
 
   const [type, setType] = useState<'revenue' | 'expense' | ''>('');
   const [description, setDescription] = useState('');
@@ -144,12 +132,28 @@ function CashFlowTransactionDialog() {
       toast({ variant: 'destructive', title: 'Erro', description: 'Selecione uma categoria para a despesa.' });
       return;
     }
+    
+    if (!user || !firestore) {
+        toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
+        return;
+    }
+
+    const data = {
+        amount: parseFloat(amount),
+        date: new Date(date).toISOString(),
+        paymentMethod,
+        createdAt: serverTimestamp(),
+    };
 
     if (type === 'revenue') {
+        const revenuesRef = collection(firestore, 'users', user.uid, 'revenues');
+        await addDoc(revenuesRef, { ...data, source: description });
         toast({ title: 'Receita adicionada!', description: `${description} foi registrada.` });
-      } else {
-         toast({ title: 'Despesa adicionada!', description: `${description} foi registrada.` });
-      }
+    } else {
+        const expensesRef = collection(firestore, 'users', user.uid, 'expenses');
+        await addDoc(expensesRef, { ...data, description, category });
+        toast({ title: 'Despesa adicionada!', description: `${description} foi registrada.` });
+    }
       resetForm();
       setIsOpen(false);
   };
@@ -262,6 +266,7 @@ function CashFlowTransactionDialog() {
 export default function CashFlowPage() {
   const [timeRange, setTimeRange] = useState('7d');
   const [isClient, setIsClient] = useState(false);
+  const { user, firestore } = useFirebase();
 
   useEffect(() => {
     setIsClient(true);
@@ -295,10 +300,30 @@ export default function CashFlowPage() {
     return { startDate, endDate };
   }, [timeRange, isClient]);
 
-  const filteredRevenues = MOCK_REVENUES;
-  const filteredExpenses = MOCK_EXPENSES;
-  const filteredSales = MOCK_SALES;
-  const allProducts = MOCK_PRODUCTS;
+  const revenuesQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return query(collection(firestore, 'users', user.uid, 'revenues'), where('date', '>=', startDate.toISOString()), where('date', '<=', endDate.toISOString()));
+  }, [user, firestore, startDate, endDate]);
+
+  const expensesQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return query(collection(firestore, 'users', user.uid, 'expenses'), where('date', '>=', startDate.toISOString()), where('date', '<=', endDate.toISOString()));
+  }, [user, firestore, startDate, endDate]);
+  
+  const salesQuery = useMemoFirebase(() => {
+      if (!user || !firestore) return null;
+      return query(collection(firestore, 'users', user.uid, 'sales'), where('date', '>=', startDate.toISOString()), where('date', '<=', endDate.toISOString()));
+  }, [user, firestore, startDate, endDate]);
+  
+  const productsQuery = useMemoFirebase(() => {
+      if (!user || !firestore) return null;
+      return collection(firestore, 'users', user.uid, 'finished-products');
+  }, [user, firestore]);
+
+  const { data: filteredRevenues } = useCollection<Revenue>(revenuesQuery);
+  const { data: filteredExpenses } = useCollection<Expense>(expensesQuery);
+  const { data: filteredSales } = useCollection<Sale>(salesQuery);
+  const { data: allProducts } = useCollection<Product>(productsQuery);
 
   const totalRevenue =
     filteredRevenues?.reduce((acc, curr) => acc + curr.amount, 0) || 0;
@@ -613,3 +638,5 @@ export default function CashFlowPage() {
     </div>
   );
 }
+
+    

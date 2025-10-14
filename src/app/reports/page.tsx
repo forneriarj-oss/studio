@@ -32,8 +32,7 @@ export default function ReportsPage() {
     from: startOfMonth(new Date()),
     to: new Date(),
   });
-  const { user } = useUser();
-  const { firestore } = useFirebase();
+  const { user, firestore } = useFirebase();
 
   useEffect(() => {
     setIsClient(true);
@@ -48,18 +47,18 @@ export default function ReportsPage() {
   }, [dateRange]);
 
   const salesQuery = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
-    return query(collection(firestore, 'users', user.uid, 'sales'), where('date', '>=', startDate), where('date', '<=', endDate));
+    if (!user || !firestore || !startDate || !endDate) return null;
+    return query(collection(firestore, 'users', user.uid, 'sales'), where('date', '>=', startDate.toISOString()), where('date', '<=', endDate.toISOString()));
   }, [user, firestore, startDate, endDate]);
 
   const expensesQuery = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
-    return query(collection(firestore, 'users', user.uid, 'expenses'), where('date', '>=', startDate), where('date', '<=', endDate));
+    if (!user || !firestore || !startDate || !endDate) return null;
+    return query(collection(firestore, 'users', user.uid, 'expenses'), where('date', '>=', startDate.toISOString()), where('date', '<=', endDate.toISOString()));
   }, [user, firestore, startDate, endDate]);
 
   const revenuesQuery = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
-    return query(collection(firestore, 'users', user.uid, 'revenues'), where('date', '>=', startDate), where('date', '<=', endDate));
+    if (!user || !firestore || !startDate || !endDate) return null;
+    return query(collection(firestore, 'users', user.uid, 'revenues'), where('date', '>=', startDate.toISOString()), where('date', '<=', endDate.toISOString()));
   }, [user, firestore, startDate, endDate]);
 
   const productsQuery = useMemoFirebase(() => {
@@ -335,3 +334,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    

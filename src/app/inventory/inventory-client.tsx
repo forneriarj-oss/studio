@@ -33,7 +33,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 
 
 const formatCurrency = (amount: number) => {
@@ -54,8 +54,7 @@ const EMPTY_PRODUCT_STATE = {
 };
 
 export function InventoryClient() {
-    const { user } = useUser();
-    const { firestore } = useFirebase();
+    const { user, firestore } = useFirebase();
 
     const rawMaterialsQuery = useMemoFirebase(() => {
         if (!user || !firestore) return null;
@@ -69,7 +68,7 @@ export function InventoryClient() {
   const [editProductForm, setEditProductForm] = useState<RawMaterial | null>(null);
 
   const { toast } = useToast();
-  const [newProduct, setNewProduct] = useState(EMPTY_PRODUCT_STATE);
+  const [newProduct, setNewProduct] = useState<Omit<RawMaterial, 'id'>>(EMPTY_PRODUCT_STATE);
 
   const handleAddProduct = async () => {
     if (!newProduct.description || !newProduct.unit || newProduct.cost < 0 || newProduct.quantity < 0) {
@@ -80,9 +79,14 @@ export function InventoryClient() {
       });
       return;
     }
+
+    if (!user || !firestore) {
+        toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
+        return;
+    }
     
-    const productToAdd: RawMaterial = { ...newProduct, id: `raw-${Date.now()}` };
-    // setProducts(prev => [productToAdd, ...prev]);
+    const rawMaterialsRef = collection(firestore, 'users', user.uid, 'raw-materials');
+    await addDoc(rawMaterialsRef, { ...newProduct, createdAt: serverTimestamp() });
 
     toast({
       title: 'Matéria-Prima Adicionada!',
@@ -90,6 +94,7 @@ export function InventoryClient() {
     });
 
     setIsNewProductDialogOpen(false);
+    setNewProduct(EMPTY_PRODUCT_STATE);
   };
 
   const handleOpenEditDialog = (product: RawMaterial) => {
@@ -98,7 +103,7 @@ export function InventoryClient() {
   };
 
   const handleEditProduct = async () => {
-    if (!editProductForm) return;
+    if (!editProductForm || !editProductForm.id) return;
 
     if (!editProductForm.description || !editProductForm.unit || editProductForm.cost < 0 || editProductForm.quantity < 0) {
       toast({
@@ -109,7 +114,14 @@ export function InventoryClient() {
       return;
     }
 
-    // setProducts(prev => prev.map(p => p.id === editProductForm.id ? editProductForm : p));
+     if (!user || !firestore) {
+        toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
+        return;
+    }
+
+    const { id, ...dataToUpdate } = editProductForm;
+    const docRef = doc(firestore, 'users', user.uid, 'raw-materials', id);
+    await updateDoc(docRef, dataToUpdate);
 
     toast({
       title: 'Matéria-Prima Atualizada!',
@@ -121,7 +133,10 @@ export function InventoryClient() {
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    // setProducts(prev => prev.filter(p => p.id !== productId));
+    if (!user || !firestore) return;
+    const docRef = doc(firestore, 'users', user.uid, 'raw-materials', productId);
+    await deleteDoc(docRef);
+
     toast({
       title: 'Matéria-Prima Removida!',
       description: `O item foi removido do seu inventário.`,
@@ -324,3 +339,5 @@ export function InventoryClient() {
     </div>
   );
 }
+
+    
