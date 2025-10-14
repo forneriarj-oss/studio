@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2, Upload } from 'lucide-react';
+import { AlertCircle, Loader, Trash2, Upload } from 'lucide-react';
 import { useAuth, useFirestore, useUser, useDoc, useMemoFirebase, useStorage } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import type { Settings } from '@/lib/types';
@@ -14,6 +14,19 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { updateProfile } from 'firebase/auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { deleteAllFinancialData } from './actions';
 
 
 const DEFAULT_SETTINGS: Settings = {
@@ -91,11 +104,22 @@ export default function SettingsPage() {
 
     const handleSaveChanges = async () => {
         if (!settingsRef) return;
-        await setDoc(settingsRef, localSettings, { merge: true });
-        toast({
-            title: 'Configurações Salvas!',
-            description: 'Suas alterações foram salvas com sucesso.',
-        });
+        setIsSubmitting(true);
+        try {
+            await setDoc(settingsRef, localSettings, { merge: true });
+            toast({
+                title: 'Configurações Salvas!',
+                description: 'Suas alterações foram salvas com sucesso.',
+            });
+        } catch (error: any) {
+             toast({
+                variant: 'destructive',
+                title: 'Erro ao Salvar',
+                description: error.message || 'Ocorreu um erro desconhecido.',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleAddCategory = async () => {
@@ -109,24 +133,30 @@ export default function SettingsPage() {
         }
         
         const updatedCategories = [...(localSettings.productCategories || []), newCategory.trim()];
-        setLocalSettings({...localSettings, productCategories: updatedCategories });
-        setNewCategory('');
-
-        // Persist immediately
+        
         if (settingsRef) {
-          await setDoc(settingsRef, { productCategories: updatedCategories }, { merge: true });
-          toast({ title: 'Sucesso', description: `Categoria "${newCategory.trim()}" adicionada.` });
+          try {
+            await setDoc(settingsRef, { productCategories: updatedCategories }, { merge: true });
+            setLocalSettings({...localSettings, productCategories: updatedCategories });
+            setNewCategory('');
+            toast({ title: 'Sucesso', description: `Categoria "${newCategory.trim()}" adicionada.` });
+          } catch(error: any) {
+            toast({ variant: 'destructive', title: 'Erro', description: `Não foi possível adicionar a categoria.` });
+          }
         }
     };
 
     const handleRemoveCategory = async (categoryToRemove: string) => {
         const updatedCategories = localSettings.productCategories?.filter(cat => cat !== categoryToRemove) || [];
-        setLocalSettings({...localSettings, productCategories: updatedCategories });
         
-        // Persist immediately
         if (settingsRef) {
-          await setDoc(settingsRef, { productCategories: updatedCategories }, { merge: true });
-          toast({ title: 'Sucesso', description: `Categoria "${categoryToRemove}" removida.` });
+          try {
+            await setDoc(settingsRef, { productCategories: updatedCategories }, { merge: true });
+            setLocalSettings({...localSettings, productCategories: updatedCategories });
+            toast({ title: 'Sucesso', description: `Categoria "${categoryToRemove}" removida.` });
+          } catch(error: any) {
+            toast({ variant: 'destructive', title: 'Erro', description: `Não foi possível remover a categoria.` });
+          }
         }
     };
 
@@ -146,10 +176,8 @@ export default function SettingsPage() {
                 finalPhotoURL = await getDownloadURL(uploadResult.ref);
             }
 
-            // Update Firebase Auth profile
             await updateProfile(user, { displayName, photoURL: finalPhotoURL });
             
-            // Update Firestore user profile document
             const userDocRef = doc(firestore, `users/${user.uid}`);
             await setDoc(userDocRef, { 
                 displayName: displayName, 
@@ -158,7 +186,7 @@ export default function SettingsPage() {
 
             toast({
                 title: 'Perfil Atualizado!',
-                description: 'Seu perfil foi atualizado com sucesso. As alterações podem levar um momento para serem refletidas.',
+                description: 'Seu perfil foi atualizado com sucesso.',
             });
         } catch (error: any) {
             toast({
@@ -170,6 +198,24 @@ export default function SettingsPage() {
             setIsSubmitting(false);
         }
     };
+    
+    const handleDeleteData = async () => {
+        setIsSubmitting(true);
+        const result = await deleteAllFinancialData();
+        if (result.success) {
+            toast({
+                title: 'Dados Zerados!',
+                description: result.message,
+            });
+        } else {
+             toast({
+                variant: 'destructive',
+                title: 'Erro ao Zerar Dados',
+                description: result.message,
+            });
+        }
+        setIsSubmitting(false);
+    }
     
     if (isLoading || isUserLoading) {
       return (
@@ -192,10 +238,11 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="profile">
-        <TabsList className="grid w-full grid-cols-3 max-w-lg">
+        <TabsList className="grid w-full grid-cols-4 max-w-lg">
           <TabsTrigger value="profile">Perfil</TabsTrigger>
           <TabsTrigger value="pricing">Precificação</TabsTrigger>
           <TabsTrigger value="categories">Categorias</TabsTrigger>
+          <TabsTrigger value="advanced">Avançado</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -326,7 +373,10 @@ export default function SettingsPage() {
                 </CardContent>
             </Card>
             <div className="flex justify-end">
-                <Button onClick={handleSaveChanges}>Salvar Alterações</Button>
+                <Button onClick={handleSaveChanges} disabled={isSubmitting}>
+                   {isSubmitting ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : null}
+                   Salvar Alterações
+                </Button>
             </div>
           </div>
         </TabsContent>
@@ -363,6 +413,52 @@ export default function SettingsPage() {
                                 <p className="text-sm text-muted-foreground text-center">Nenhuma categoria cadastrada.</p>
                             )}
                         </div>
+                    </div>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="advanced">
+            <Card className="mt-6">
+                <CardHeader>
+                    <CardTitle>Avançado</CardTitle>
+                    <CardDescription>Ações permanentes e de alto risco.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Zona de Perigo</AlertTitle>
+                        <AlertDescription>
+                            A ação abaixo é permanente e não pode ser desfeita. Tenha certeza absoluta antes de continuar.
+                        </AlertDescription>
+                    </Alert>
+                    <div className="mt-4 rounded-lg border border-destructive p-4">
+                         <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" disabled={isSubmitting}>
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Zerar Dados de Vendas e Caixa
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Você tem certeza absoluta?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Esta ação é irreversível. Todos os registros de <strong>vendas, receitas e despesas</strong> serão permanentemente excluídos. Esta ação não afetará seus produtos ou matérias-primas.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                    onClick={handleDeleteData}
+                                    disabled={isSubmitting}
+                                    className="bg-destructive hover:bg-destructive/90"
+                                >
+                                    {isSubmitting ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                    Sim, zerar os dados
+                                </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
                     </div>
                 </CardContent>
             </Card>
