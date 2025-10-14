@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { AlertCircle, Loader, Trash2, Upload } from 'lucide-react';
 import { useAuth, useFirestore, useUser, useDoc, useMemoFirebase, useStorage } from '@/firebase';
-import { doc, setDoc, writeBatch, collection } from 'firebase/firestore';
+import { doc, setDoc, writeBatch, collection, getDocs } from 'firebase/firestore';
 import type { Settings } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { updateProfile } from 'firebase/auth';
@@ -35,17 +35,6 @@ const DEFAULT_SETTINGS: Settings = {
     platformFees: { ifood: 0, taNaMesa: 0 },
     profitMargin: 30
 };
-
-async function deleteCollection(db: any, userId: string, collectionName: string) {
-    const collectionRef = collection(db, `users/${userId}/${collectionName}`);
-    const batch = writeBatch(db);
-    const snapshot = await db.collection(collectionRef).get();
-    snapshot.docs.forEach((doc: any) => {
-        batch.delete(doc.ref);
-    });
-    await batch.commit();
-}
-
 
 export default function SettingsPage() {
     const { toast } = useToast();
