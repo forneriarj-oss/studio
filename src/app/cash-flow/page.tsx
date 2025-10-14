@@ -52,6 +52,8 @@ import {
   useUser,
   useCollection,
   useMemoFirebase,
+  errorEmitter,
+  FirestorePermissionError,
 } from '@/firebase';
 import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -144,33 +146,42 @@ function CashFlowTransactionDialog() {
       return;
     }
 
-    try {
-      if (type === 'revenue') {
+    if (type === 'revenue') {
         const revenuesRef = collection(firestore, `users/${user.uid}/revenues`);
-        await addDoc(revenuesRef, {
+        const data = {
           source: description,
           amount: parseFloat(amount),
           date: new Date(date).toISOString(),
           paymentMethod: paymentMethod,
+        };
+        addDoc(revenuesRef, data).catch(error => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: revenuesRef.path,
+            operation: 'create',
+            requestResourceData: data,
+          }));
         });
         toast({ title: 'Receita adicionada!', description: `${description} foi registrada.` });
       } else {
         const expensesRef = collection(firestore, `users/${user.uid}/expenses`);
-        await addDoc(expensesRef, {
+        const data = {
           description,
           amount: parseFloat(amount),
           category,
           date: new Date(date).toISOString(),
           paymentMethod,
+        };
+        addDoc(expensesRef, data).catch(error => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: expensesRef.path,
+            operation: 'create',
+            requestResourceData: data,
+          }));
         });
          toast({ title: 'Despesa adicionada!', description: `${description} foi registrada.` });
       }
       resetForm();
       setIsOpen(false);
-    } catch (e) {
-        console.error(e);
-        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível salvar a movimentação.' });
-    }
   };
 
   return (
@@ -331,7 +342,7 @@ export default function CashFlowPage() {
 
   const expensesQuery = useMemoFirebase(
     () =>
-      user && startDate && endDate
+      user && startDate-end date
         ? query(
             collection(firestore, `users/${user.uid}/expenses`),
             where('date', '>=', startDate.toISOString()),

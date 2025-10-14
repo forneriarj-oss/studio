@@ -9,7 +9,7 @@ export async function getAdminApp() {
     return admin.app(BIZVIEW_ADMIN_APP_NAME);
   }
   
-  // Garante a substituição de '\n' (string) pelo caractere de quebra de linha real
+  // Garante a substituição de '\\n' (string) pelo caractere de quebra de linha real
   const privateKey = serviceAccount.private_key.replace(/\\n/g, '\n');
 
   const credential = admin.credential.cert({

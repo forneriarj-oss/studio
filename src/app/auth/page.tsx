@@ -53,20 +53,24 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
-      router.push('/');
+      router.replace('/');
     }
   }, [user, isUserLoading, router]);
+
+  const handleAuthSuccess = async (userCredential: any) => {
+    await Promise.all([
+      ensureUserProfile(firestore, userCredential.user),
+      createSession(userCredential.user)
+    ]);
+    router.replace('/');
+  };
 
   const onSignIn = async () => {
     setIsSubmitting(true);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      await Promise.all([
-        ensureUserProfile(firestore, userCredential.user),
-        createSession(userCredential.user)
-      ]);
+      await handleAuthSuccess(userCredential);
       toast({ title: 'Login bem-sucedido!' });
-      router.push('/');
     } catch (error: any) {
       toast({
         variant: 'destructive',
@@ -82,12 +86,8 @@ export default function AuthPage() {
     setIsSubmitting(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await Promise.all([
-        ensureUserProfile(firestore, userCredential.user),
-        createSession(userCredential.user)
-      ]);
+      await handleAuthSuccess(userCredential);
       toast({ title: 'Conta criada com sucesso!', description: 'Você será redirecionado em breve.' });
-       router.push('/');
     } catch (error: any) {
       toast({
         variant: 'destructive',
@@ -103,12 +103,8 @@ export default function AuthPage() {
     setIsSubmitting(true);
     try {
         const userCredential = await handleAnonymousSignIn(auth);
-        await Promise.all([
-          ensureUserProfile(firestore, userCredential.user),
-          createSession(userCredential.user)
-        ]);
+        await handleAuthSuccess(userCredential);
         toast({ title: 'Login anônimo bem-sucedido!' });
-        router.push('/');
     } catch (error: any)
     {
         toast({

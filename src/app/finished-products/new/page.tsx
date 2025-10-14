@@ -14,7 +14,6 @@ import { useToast } from '@/hooks/use-toast';
 import { getPriceSuggestion, getRecipeSuggestion } from './actions';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Textarea } from '@/components/ui/textarea';
 import { useAuth, useFirestore, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { addDoc, collection, doc } from 'firebase/firestore';
 
@@ -71,7 +70,7 @@ export default function NewFinishedProductPage() {
     }, 0);
   }, [recipe, rawMaterials]);
 
-  const finalCost = manualCost !== '' ? manualCost : calculatedCost;
+  const finalCost = useMemo(() => manualCost !== '' ? Number(manualCost) : calculatedCost, [manualCost, calculatedCost]);
   
   const handleAddRecipeItem = () => {
     const materialId = newRecipeItem.id;
@@ -259,7 +258,7 @@ export default function NewFinishedProductPage() {
       <div className="flex flex-col gap-8">
         <div className="space-y-2">
             <Label htmlFor="product-description">Descrição *</Label>
-            <Textarea id="product-description" placeholder="Ex: Bolo de Chocolate" value={productName} onChange={e => setProductName(e.target.value)} />
+            <Input id="product-description" placeholder="Ex: Bolo de Chocolate" value={productName} onChange={e => setProductName(e.target.value)} />
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
