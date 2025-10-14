@@ -1,28 +1,38 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Regra para Despesas
-    match /expenses/{expenseId} {
-      allow read, write: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    // Regra explícita para cada coleção usada na aplicação.
+    // Isso garante que um usuário só possa acessar os documentos que possuem seu userId.
+
+    match /appointments/{appointmentId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
     }
+
     match /expenses/{expenseId} {
       allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
     }
 
-    // Regra para Receitas
-    match /revenues/{revenueId} {
-      allow read, write: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    match /finished-products/{productId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
     }
+
+    match /purchases/{purchaseId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    match /raw-materials/{materialId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
     match /revenues/{revenueId} {
       allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
     }
 
-    // Regra para Compromissos
-    match /appointments/{appointmentId} {
-      allow read, write: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    match /sales/{saleId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
     }
-    match /appointments/{appointmentId} {
+
+    match /settings/{settingId} {
       allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
     }
   }
