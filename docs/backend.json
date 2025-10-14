@@ -1,44 +1,18 @@
 {
   "entities": {
-    "User": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "User",
-      "type": "object",
-      "description": "Represents a user of the BizView application.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the user entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The user's full name."
-        },
-        "email": {
-          "type": "string",
-          "description": "The user's email address.",
-          "format": "email"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "email"
-      ]
-    },
     "Expense": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Expense",
       "type": "object",
-      "description": "Represents an expense incurred by the business.",
+      "description": "Represents an expense record.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the expense entity."
+          "description": "Unique identifier for the expense."
         },
         "userId": {
           "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Expense)"
+          "description": "Reference to the User who created the expense. (Relationship: User 1:N Expense)"
         },
         "date": {
           "type": "string",
@@ -51,7 +25,7 @@
         },
         "category": {
           "type": "string",
-          "description": "The category of the expense (e.g., supplies, rent, utilities)."
+          "description": "The category of the expense (e.g., 'Rent', 'Supplies')."
         },
         "description": {
           "type": "string",
@@ -70,15 +44,15 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Revenue",
       "type": "object",
-      "description": "Represents a revenue stream for the business.",
+      "description": "Represents a revenue record.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the revenue entity."
+          "description": "Unique identifier for the revenue."
         },
         "userId": {
           "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Revenue)"
+          "description": "Reference to the User who created the revenue. (Relationship: User 1:N Revenue)"
         },
         "date": {
           "type": "string",
@@ -91,7 +65,7 @@
         },
         "category": {
           "type": "string",
-          "description": "The category of the revenue (e.g., sales, services)."
+          "description": "The category of the revenue (e.g., 'Sales', 'Services')."
         },
         "description": {
           "type": "string",
@@ -114,11 +88,11 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the appointment entity."
+          "description": "Unique identifier for the appointment."
         },
         "userId": {
           "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Appointment)"
+          "description": "Reference to the User who created the appointment. (Relationship: User 1:N Appointment)"
         },
         "startTime": {
           "type": "string",
@@ -146,6 +120,32 @@
         "endTime",
         "title"
       ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user."
+        },
+        "name": {
+          "type": "string",
+          "description": "The user's full name."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email"
+      ]
     }
   },
   "auth": {
@@ -163,7 +163,7 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Collection of user profiles. User data is private and accessible only to the authenticated user with matching userId.",
+          "description": "Stores user profile information. Accessible only to the authenticated user.",
           "params": [
             {
               "name": "userId",
@@ -179,7 +179,7 @@
           "schema": {
             "$ref": "#/backend/entities/Expense"
           },
-          "description": "Collection of expenses for a specific user. Expenses are private and accessible only to the user with matching userId.",
+          "description": "Stores expense records for a specific user. Accessible only to the authenticated user.",
           "params": [
             {
               "name": "userId",
@@ -187,7 +187,7 @@
             },
             {
               "name": "expenseId",
-              "description": "The unique identifier of the expense."
+              "description": "The unique identifier of the expense record."
             }
           ]
         }
@@ -199,7 +199,7 @@
           "schema": {
             "$ref": "#/backend/entities/Revenue"
           },
-          "description": "Collection of revenues for a specific user. Revenues are private and accessible only to the user with matching userId.",
+          "description": "Stores revenue records for a specific user. Accessible only to the authenticated user.",
           "params": [
             {
               "name": "userId",
@@ -207,7 +207,7 @@
             },
             {
               "name": "revenueId",
-              "description": "The unique identifier of the revenue."
+              "description": "The unique identifier of the revenue record."
             }
           ]
         }
@@ -219,7 +219,7 @@
           "schema": {
             "$ref": "#/backend/entities/Appointment"
           },
-          "description": "Collection of appointments for a specific user. Appointments are private and accessible only to the user with matching userId.",
+          "description": "Stores appointment records for a specific user. Accessible only to the authenticated user.",
           "params": [
             {
               "name": "userId",
@@ -227,12 +227,12 @@
             },
             {
               "name": "appointmentId",
-              "description": "The unique identifier of the appointment."
+              "description": "The unique identifier of the appointment record."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to address the \"Missing or insufficient permissions\" error by enforcing clear ownership and authorization independence. The error indicates the user with UID `5FJJv6raB0hDsi1cirAUcpNT3L92` lacks permission to `list` documents under `users/5FJJv6raB0hDsi1cirAUcpNT3L92/sales`. To fix this, we leverage path-based ownership for private user data. All collections directly nested under `/users/{userId}` are considered private to that user.\n\nThe structure employs the following key principles:\n\n1.  **Authorization Independence:** The `Expense`, `Revenue`, and `Appointment` collections are located under each user's document (`/users/{userId}`). This eliminates the need for `get()` calls in security rules to verify ownership. The security rules can directly check if `request.auth.uid == userId`. This also supports atomic operations.\n\n2.  **Structural Segregation:** All documents within a given collection have the same security posture. For instance, all documents in `/users/{userId}/expenses` are private to the user.\n\n3.  **Access Modeling:** Path-based ownership (`/users/{userId}/expenses/{expenseId}`) is used to represent the `User 1:N Expense`, `User 1:N Revenue`, and `User 1:N Appointment` relationships. This ensures that only the authenticated user (`request.auth.uid`) can access their respective data.\n\n4. **QAPs (Rules are not Filters):** The nested structure ensures secure `list` operations. A user can only list collections under their own `userId`, enforcing data privacy. A rule simply verifies that `request.auth.uid == userId` on the `/users/{userId}/expenses` path, preventing unauthorized access.\n\nThis design avoids complex security rules based on document content and facilitates scalable and maintainable access control."
+    "reasoning": "The Firestore data structure is designed to address the \"Missing or insufficient permissions\" error by enforcing clear ownership and access control. It leverages path-based ownership and denormalization to ensure Authorization Independence, enabling secure list operations and atomic transactions. The design strictly adheres to the principle of Structural Segregation, keeping data with different access requirements in separate collections.\n\n1.  **Path-Based Ownership:** User-specific data (expenses, revenues, appointments) is stored under `/users/{userId}/...`, ensuring that only the authenticated user can access their own data. This directly addresses the reported error by enforcing that a user can only `list` their own `sales` documents.\n2.  **Authorization Independence:** There is no hierarchical authorization, so rules do not require `get()` calls to parent documents.\n3.  **Structural Segregation:**  Each top-level collection (e.g., `users/{userId}/expenses`) contains data with the same access requirements (i.e., accessible only to the owning user). This simplifies the security rules by avoiding complex conditional logic based on document content.\n\nThis structure supports the required QAPs by:\n\n*   **Secure List Operations (QAP):**  The path-based ownership model ensures that `list` operations on subcollections like `/users/{userId}/expenses` only return documents owned by the authenticated user. No filtering is required in the rules.\n\n*   **Atomic Operations (QAP):**  The absence of hierarchical authorization dependencies (no `get()` calls) allows for atomic transactions and batches when creating related documents (e.g., creating a user and their initial set of expenses)."
   }
 }
