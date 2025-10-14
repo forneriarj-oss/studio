@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PlusCircle, Trash2, ArrowLeft, Wand2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getPriceSuggestion, getRecipeSuggestion } from '../../new/actions';
+import { getPriceSuggestion, getRecipeSuggestion } from '../new/actions';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
@@ -528,5 +528,3 @@ export default function EditFinishedProductPage() {
     </div>
   );
 }
-
-    
