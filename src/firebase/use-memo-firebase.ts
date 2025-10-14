@@ -1,5 +1,6 @@
 'use client';
 import { useMemo, DependencyList } from "react";
+
 /**
  * Custom hook to memoize Firestore queries and references.
  * Ensures that a new query/reference object is only created when its dependencies change,
@@ -12,5 +13,9 @@ import { useMemo, DependencyList } from "react";
  */
 export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T {
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    return useMemo(factory, deps);
+    const memoizedValue = useMemo(factory, deps);
+    if (memoizedValue) {
+        (memoizedValue as any).__memo = true;
+    }
+    return memoizedValue;
 }
