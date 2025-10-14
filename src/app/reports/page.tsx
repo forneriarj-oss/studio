@@ -16,7 +16,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recha
 import type { Sale, Expense, Revenue, FinishedProduct } from '@/lib/types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { useUser, useCollection, useFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 
 
@@ -46,22 +46,22 @@ export default function ReportsPage() {
     return { startDate: start, endDate: end };
   }, [dateRange]);
 
-  const salesQuery = useMemoFirebase(() => {
+  const salesQuery = useMemo(() => {
     if (!user || !firestore || !startDate || !endDate) return null;
     return query(collection(firestore, 'users', user.uid, 'sales'), where('date', '>=', startDate.toISOString()), where('date', '<=', endDate.toISOString()));
   }, [user, firestore, startDate, endDate]);
 
-  const expensesQuery = useMemoFirebase(() => {
+  const expensesQuery = useMemo(() => {
     if (!user || !firestore || !startDate || !endDate) return null;
     return query(collection(firestore, 'users', user.uid, 'expenses'), where('date', '>=', startDate.toISOString()), where('date', '<=', endDate.toISOString()));
   }, [user, firestore, startDate, endDate]);
 
-  const revenuesQuery = useMemoFirebase(() => {
+  const revenuesQuery = useMemo(() => {
     if (!user || !firestore || !startDate || !endDate) return null;
     return query(collection(firestore, 'users', user.uid, 'revenues'), where('date', '>=', startDate.toISOString()), where('date', '<=', endDate.toISOString()));
   }, [user, firestore, startDate, endDate]);
 
-  const productsQuery = useMemoFirebase(() => {
+  const productsQuery = useMemo(() => {
     if (!user || !firestore) return null;
     return collection(firestore, 'users', user.uid, 'finished-products');
   }, [user, firestore]);
@@ -334,5 +334,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    

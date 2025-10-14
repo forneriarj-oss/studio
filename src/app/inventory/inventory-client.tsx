@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { useUser, useCollection, useFirebase } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 
 
@@ -56,7 +56,7 @@ const EMPTY_PRODUCT_STATE = {
 export function InventoryClient() {
     const { user, firestore } = useFirebase();
 
-    const rawMaterialsQuery = useMemoFirebase(() => {
+    const rawMaterialsQuery = useMemo(() => {
         if (!user || !firestore) return null;
         return collection(firestore, 'users', user.uid, 'raw-materials');
     }, [user, firestore]);
@@ -339,5 +339,3 @@ export function InventoryClient() {
     </div>
   );
 }
-
-    

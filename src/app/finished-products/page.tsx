@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { useUser, useCollection, useFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 
 const MOCK_PRODUCTS: FinishedProduct[] = [
@@ -43,7 +43,7 @@ export default function ProductsPage() {
     const { toast } = useToast();
     const router = useRouter();
 
-    const productsQuery = useMemoFirebase(() => {
+    const productsQuery = useMemo(() => {
         if (!user || !firestore) return null;
         return collection(firestore, 'users', user.uid, 'finished-products');
     }, [user, firestore]);

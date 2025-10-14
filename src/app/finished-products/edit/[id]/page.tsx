@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useUser, useCollection, useDoc, useFirebase, useMemoFirebase } from '@/firebase';
+import { useUser, useCollection, useDoc, useFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 
 
@@ -44,17 +44,17 @@ export default function EditFinishedProductPage() {
   const { user } = useUser();
   const { firestore } = useFirebase();
 
-  const productRef = useMemoFirebase(() => {
+  const productRef = useMemo(() => {
     if (!user || !firestore || !productId) return null;
     return doc(firestore, 'users', user.uid, 'finished-products', productId as string);
   }, [user, firestore, productId]);
 
-  const rawMaterialsQuery = useMemoFirebase(() => {
+  const rawMaterialsQuery = useMemo(() => {
     if (!user || !firestore) return null;
     return collection(firestore, 'users', user.uid, 'raw-materials');
   }, [user, firestore]);
 
-  const settingsQuery = useMemoFirebase(() => {
+  const settingsQuery = useMemo(() => {
     if (!user || !firestore) return null;
     return collection(firestore, 'users', user.uid, 'settings');
   }, [user, firestore]);

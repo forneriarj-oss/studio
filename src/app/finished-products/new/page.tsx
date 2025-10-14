@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getPriceSuggestion, getRecipeSuggestion } from './actions';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { useUser, useCollection, useFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 
 
@@ -39,12 +39,12 @@ export default function NewFinishedProductPage() {
   const { user } = useUser();
   const { firestore } = useFirebase();
   
-  const rawMaterialsQuery = useMemoFirebase(() => {
+  const rawMaterialsQuery = useMemo(() => {
     if (!user || !firestore) return null;
     return collection(firestore, 'users', user.uid, 'raw-materials');
   }, [user, firestore]);
 
-  const settingsQuery = useMemoFirebase(() => {
+  const settingsQuery = useMemo(() => {
     if (!user || !firestore) return null;
     return collection(firestore, 'users', user.uid, 'settings');
   }, [user, firestore]);
@@ -393,8 +393,8 @@ export default function NewFinishedProductPage() {
                         setNewFlavor({ ...newFlavor, name: e.target.value })
                       }
                     />
-                    <Button variant="outline" size="icon" onClick={() => handleSuggestRecipe(newFlavor.name)} disabled={isRecipePending}>
-                        <Wand2 className={`h-4 w-4 ${isRecipePending ? 'animate-spin' : ''}`} />
+                    <Button variant="outline" size="icon" onClick={() => handleSuggestRecipe(newFlavor.name)} disabled={isPricePending}>
+                        <Wand2 className={`h-4 w-4 ${isPricePending ? 'animate-spin' : ''}`} />
                     </Button>
                 </div>
               </div>

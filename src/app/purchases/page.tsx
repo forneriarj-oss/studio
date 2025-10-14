@@ -20,7 +20,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { useUser, useCollection, useFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 
 const formatCurrency = (amount: number) => {
@@ -36,13 +36,13 @@ export default function PurchasesPage() {
     const { user } = useUser();
     const { firestore } = useFirebase();
     
-    const purchasesQuery = useMemoFirebase(() => {
+    const purchasesQuery = useMemo(() => {
         if (!user || !firestore) return null;
         return collection(firestore, 'users', user.uid, 'purchases');
     }, [user, firestore]);
     const { data: purchases, isLoading: isLoadingPurchases } = useCollection<Purchase>(purchasesQuery);
     
-    const rawMaterialsQuery = useMemoFirebase(() => {
+    const rawMaterialsQuery = useMemo(() => {
         if (!user || !firestore) return null;
         return collection(firestore, 'users', user.uid, 'raw-materials');
     }, [user, firestore]);

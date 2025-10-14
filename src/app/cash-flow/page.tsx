@@ -61,7 +61,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirebase, useCollection } from '@/firebase';
 import { collection, query, where, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const formatCurrency = (amount: number) => {
@@ -300,22 +300,22 @@ export default function CashFlowPage() {
     return { startDate, endDate };
   }, [timeRange, isClient]);
 
-  const revenuesQuery = useMemoFirebase(() => {
+  const revenuesQuery = useMemo(() => {
     if (!user || !firestore) return null;
     return query(collection(firestore, 'users', user.uid, 'revenues'), where('date', '>=', startDate.toISOString()), where('date', '<=', endDate.toISOString()));
   }, [user, firestore, startDate, endDate]);
 
-  const expensesQuery = useMemoFirebase(() => {
+  const expensesQuery = useMemo(() => {
     if (!user || !firestore) return null;
     return query(collection(firestore, 'users', user.uid, 'expenses'), where('date', '>=', startDate.toISOString()), where('date', '<=', endDate.toISOString()));
   }, [user, firestore, startDate, endDate]);
   
-  const salesQuery = useMemoFirebase(() => {
+  const salesQuery = useMemo(() => {
       if (!user || !firestore) return null;
       return query(collection(firestore, 'users', user.uid, 'sales'), where('date', '>=', startDate.toISOString()), where('date', '<=', endDate.toISOString()));
   }, [user, firestore, startDate, endDate]);
   
-  const productsQuery = useMemoFirebase(() => {
+  const productsQuery = useMemo(() => {
       if (!user || !firestore) return null;
       return collection(firestore, 'users', user.uid, 'finished-products');
   }, [user, firestore]);
@@ -638,5 +638,3 @@ export default function CashFlowPage() {
     </div>
   );
 }
-
-    

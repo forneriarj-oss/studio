@@ -11,7 +11,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Pi
 import type { Sale, FinishedProduct, RawMaterial, Revenue } from '@/lib/types';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, eachDayOfInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { useUser, useCollection, useFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 
 const formatCurrency = (amount: number) => {
@@ -60,7 +60,7 @@ export default function Home() {
     return { startDate: start, endDate: end };
   }, [timeRange]);
 
-  const salesQuery = useMemoFirebase(() => {
+  const salesQuery = useMemo(() => {
     if (!user || !firestore) return null;
     return query(
       collection(firestore, 'users', user.uid, 'sales'),
@@ -69,7 +69,7 @@ export default function Home() {
     );
   }, [user, firestore, startDate, endDate]);
 
-  const revenuesQuery = useMemoFirebase(() => {
+  const revenuesQuery = useMemo(() => {
     if (!user || !firestore) return null;
     return query(
       collection(firestore, 'users', user.uid, 'revenues'),
@@ -78,12 +78,12 @@ export default function Home() {
     );
   }, [user, firestore, startDate, endDate]);
   
-  const productsQuery = useMemoFirebase(() => {
+  const productsQuery = useMemo(() => {
     if (!user || !firestore) return null;
     return collection(firestore, 'users', user.uid, 'finished-products');
   }, [user, firestore]);
   
-  const rawMaterialsQuery = useMemoFirebase(() => {
+  const rawMaterialsQuery = useMemo(() => {
     if (!user || !firestore) return null;
     return collection(firestore, 'users', user.uid, 'raw-materials');
   }, [user, firestore]);
