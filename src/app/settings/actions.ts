@@ -1,26 +1,9 @@
 "use server";
 
-import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-import { cookies } from 'next/headers';
+import { getCurrentUser } from '@/app/finished-products/actions';
 import { getAdminApp } from '@/firebase/admin';
 
-// Helper function to get current user's UID from session
-async function getCurrentUserUid() {
-    const sessionCookie = cookies().get('session')?.value;
-    if (!sessionCookie) {
-        throw new Error("Usuário não autenticado.");
-    }
-
-    try {
-        const adminAuth = getAuth(getAdminApp());
-        const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
-        return decodedToken.uid;
-    } catch (error) {
-        console.error('Error verifying session cookie:', error);
-        throw new Error("Sessão inválida ou expirada.");
-    }
-}
 
 // Helper function to delete all documents in a collection
 async function deleteCollection(db: FirebaseFirestore.Firestore, collectionPath: string, batchSize: number) {
@@ -52,13 +35,17 @@ async function deleteQueryBatch(db: FirebaseFirestore.Firestore, query: Firebase
 
 export async function deleteAllFinancialData(): Promise<{ success: boolean; message: string }> {
     try {
-        const uid = await getCurrentUserUid();
+        const user = await getCurrentUser();
+        if (!user) {
+          throw new Error("Usuário não autenticado.");
+        }
+
         const db = getFirestore(getAdminApp());
 
         const collectionsToDelete = [
-            `users/${uid}/sales`,
-            `users/${uid}/revenues`,
-            `users/${uid}/expenses`,
+            `users/${user.uid}/sales`,
+            `users/${user.uid}/revenues`,
+            `users/${user.uid}/expenses`,
         ];
 
         for (const collectionPath of collectionsToDelete) {
