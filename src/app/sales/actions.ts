@@ -27,8 +27,6 @@ async function getCurrentUser() {
 
 
 export async function cancelSale(sale: Sale): Promise<{ success: boolean; message: string }> {
-    return { success: false, message: "A funcionalidade de cancelamento está temporariamente desativada. Configure as credenciais do Firebase Admin para reativá-la." };
-    /*
     const user = await getCurrentUser();
     if (!user) {
         return { success: false, message: "Usuário não autenticado." };
@@ -80,5 +78,5 @@ export async function cancelSale(sale: Sale): Promise<{ success: boolean; messag
         console.error("Erro na transação de cancelamento de venda: ", error);
         return { success: false, message: `Falha ao cancelar venda: ${error.message}` };
     }
-    */
 }
+
