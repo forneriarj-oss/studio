@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { useUser, useFirebase, useCollection } from '@/firebase';
+import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, runTransaction, addDoc } from 'firebase/firestore';
 import { Loader } from 'lucide-react';
 
@@ -41,12 +41,12 @@ export default function SalesPage() {
     const { user, isUserLoading } = useUser();
     const { firestore } = useFirebase();
 
-    const productsQuery = useMemo(() => {
+    const productsQuery = useMemoFirebase(() => {
         if (!user || !firestore) return null;
         return collection(firestore, 'users', user.uid, 'finished-products');
     }, [user, firestore]);
     
-    const salesQuery = useMemo(() => {
+    const salesQuery = useMemoFirebase(() => {
         if (!user || !firestore) return null;
         return collection(firestore, 'users', user.uid, 'sales');
     }, [user, firestore]);

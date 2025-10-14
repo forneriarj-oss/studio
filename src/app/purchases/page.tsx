@@ -20,6 +20,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
+import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -28,24 +30,23 @@ const formatCurrency = (amount: number) => {
     }).format(amount);
 };
 
-const MOCK_PURCHASES: Purchase[] = [
-    { id: 'pur1', productId: 'raw1', quantity: 10, unitCost: 5, date: new Date().toISOString() },
-    { id: 'pur2', productId: 'raw2', quantity: 50, unitCost: 0.45, date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
-];
-
-const MOCK_RAW_MATERIALS: RawMaterial[] = [
-    { id: 'raw1', code: 'RM001', description: 'Farinha de Trigo', unit: 'KG', cost: 5, supplier: 'Fornecedor A', quantity: 8, minStock: 10 },
-    { id: 'raw2', code: 'RM002', description: 'Ovos', unit: 'UN', cost: 0.5, supplier: 'Fornecedor B', quantity: 20, minStock: 24 },
-];
 
 export default function PurchasesPage() {
     const { toast } = useToast();
+    const { user } = useUser();
+    const { firestore } = useFirebase();
     
-    const [purchases, setPurchases] = useState<Purchase[]>(MOCK_PURCHASES);
-    const isLoadingPurchases = false;
+    const purchasesQuery = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return collection(firestore, 'users', user.uid, 'purchases');
+    }, [user, firestore]);
+    const { data: purchases, isLoading: isLoadingPurchases } = useCollection<Purchase>(purchasesQuery);
     
-    const rawMaterials = MOCK_RAW_MATERIALS;
-    const isLoadingMaterials = false;
+    const rawMaterialsQuery = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return collection(firestore, 'users', user.uid, 'raw-materials');
+    }, [user, firestore]);
+    const { data: rawMaterials, isLoading: isLoadingMaterials } = useCollection<RawMaterial>(rawMaterialsQuery);
 
 
     const [isNewPurchaseOpen, setIsNewPurchaseOpen] = useState(false);
@@ -71,7 +72,7 @@ export default function PurchasesPage() {
             ...newPurchase
         };
         
-        setPurchases(prev => [purchaseToAdd, ...prev]);
+        // setPurchases(prev => [purchaseToAdd, ...prev]);
 
         toast({
             title: 'Compra registrada!',

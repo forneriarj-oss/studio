@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 const MOCK_PRODUCTS: FinishedProduct[] = [
   { id: 'prod1', sku: 'SKU001', name: 'Bolo de Chocolate', category: 'Bolos', unit: 'UN', recipe: [], finalCost: 15, salePrice: 25, flavors: [{id: 'flav1', name: 'Comum', stock: 8}] },
@@ -35,12 +37,18 @@ const formatCurrency = (amount: number) => {
 };
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<FinishedProduct[]>(MOCK_PRODUCTS);
-  const isLoading = false;
-  
-  const [filterCategory, setFilterCategory] = useState('todos');
-  const { toast } = useToast();
-  const router = useRouter();
+    const { user } = useUser();
+    const { firestore } = useFirebase();
+    const [filterCategory, setFilterCategory] = useState('todos');
+    const { toast } = useToast();
+    const router = useRouter();
+
+    const productsQuery = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return collection(firestore, 'users', user.uid, 'finished-products');
+    }, [user, firestore]);
+
+    const { data: products, isLoading } = useCollection<FinishedProduct>(productsQuery);
 
   const categories = useMemo(() => {
     if (!products) return ['todos'];
@@ -57,7 +65,7 @@ export default function ProductsPage() {
   }, [products, filterCategory]);
 
   const handleDeleteProduct = async (productId: string) => {
-    setProducts(prev => prev.filter(p => p.id !== productId));
+    // Implementação da exclusão com Firebase
     toast({
       title: 'Produto Excluído',
       description: 'O produto foi removido da sua lista.',

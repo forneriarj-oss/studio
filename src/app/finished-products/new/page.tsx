@@ -14,11 +14,10 @@ import { useToast } from '@/hooks/use-toast';
 import { getPriceSuggestion, getRecipeSuggestion } from './actions';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
-const MOCK_RAW_MATERIALS: RawMaterial[] = [
-    { id: 'raw1', code: 'RM001', description: 'Farinha de Trigo', unit: 'KG', cost: 5, supplier: 'Fornecedor A', quantity: 8, minStock: 10 },
-    { id: 'raw2', code: 'RM002', description: 'Ovos', unit: 'UN', cost: 0.5, supplier: 'Fornecedor B', quantity: 20, minStock: 24 },
-];
+
 const MOCK_SETTINGS: Settings = {
     productCategories: ['Bolo', 'Pastel', 'Bebida', 'Salgado'],
     taxes: { icms: 0, iss: 0, pis: 0, cofins: 0 },
@@ -37,11 +36,23 @@ const formatCurrency = (amount: number) => {
 export default function NewFinishedProductPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useUser();
+  const { firestore } = useFirebase();
   
-  const rawMaterials = MOCK_RAW_MATERIALS;
-  const isLoadingMaterials = false;
-  const settings = MOCK_SETTINGS;
-  const isLoadingSettings = false;
+  const rawMaterialsQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return collection(firestore, 'users', user.uid, 'raw-materials');
+  }, [user, firestore]);
+
+  const settingsQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return collection(firestore, 'users', user.uid, 'settings');
+  }, [user, firestore]);
+  
+  const { data: rawMaterials, isLoading: isLoadingMaterials } = useCollection<RawMaterial>(rawMaterialsQuery);
+  const { data: settingsData, isLoading: isLoadingSettings } = useCollection<Settings>(settingsQuery);
+  const settings = useMemo(() => (settingsData && settingsData.length > 0 ? settingsData[0] : MOCK_SETTINGS), [settingsData]);
+
   
   const [isPricePending, startPriceTransition] = useTransition();
   const [isRecipePending, startRecipeTransition] = useTransition();

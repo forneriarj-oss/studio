@@ -32,6 +32,9 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
+
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -50,16 +53,16 @@ const EMPTY_PRODUCT_STATE = {
   code: `CODE-${Date.now()}`,
 };
 
-const MOCK_RAW_MATERIALS: RawMaterial[] = [
-    { id: 'raw1', code: 'RM001', description: 'Farinha de Trigo', unit: 'KG', cost: 5, supplier: 'Fornecedor A', quantity: 8, minStock: 10 },
-    { id: 'raw2', code: 'RM002', description: 'Ovos', unit: 'UN', cost: 0.5, supplier: 'Fornecedor B', quantity: 20, minStock: 24 },
-    { id: 'raw3', code: 'RM003', description: 'Chocolate em Barra', unit: 'KG', cost: 30, supplier: 'Fornecedor A', quantity: 15, minStock: 5 },
-];
-
-
 export function InventoryClient() {
-  const [products, setProducts] = useState<RawMaterial[]>(MOCK_RAW_MATERIALS);
-  const isLoading = false;
+    const { user } = useUser();
+    const { firestore } = useFirebase();
+
+    const rawMaterialsQuery = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return collection(firestore, 'users', user.uid, 'raw-materials');
+    }, [user, firestore]);
+
+    const { data: products, isLoading } = useCollection<RawMaterial>(rawMaterialsQuery);
 
   const [isNewProductDialogOpen, setIsNewProductDialogOpen] = useState(false);
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
@@ -79,7 +82,7 @@ export function InventoryClient() {
     }
     
     const productToAdd: RawMaterial = { ...newProduct, id: `raw-${Date.now()}` };
-    setProducts(prev => [productToAdd, ...prev]);
+    // setProducts(prev => [productToAdd, ...prev]);
 
     toast({
       title: 'Matéria-Prima Adicionada!',
@@ -106,7 +109,7 @@ export function InventoryClient() {
       return;
     }
 
-    setProducts(prev => prev.map(p => p.id === editProductForm.id ? editProductForm : p));
+    // setProducts(prev => prev.map(p => p.id === editProductForm.id ? editProductForm : p));
 
     toast({
       title: 'Matéria-Prima Atualizada!',
@@ -118,7 +121,7 @@ export function InventoryClient() {
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    setProducts(prev => prev.filter(p => p.id !== productId));
+    // setProducts(prev => prev.filter(p => p.id !== productId));
     toast({
       title: 'Matéria-Prima Removida!',
       description: `O item foi removido do seu inventário.`,

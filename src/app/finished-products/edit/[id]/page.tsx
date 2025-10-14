@@ -16,16 +16,10 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useUser, useCollection, useDoc, useFirebase, useMemoFirebase } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
 
-const MOCK_PRODUCTS: FinishedProduct[] = [
-  { id: 'prod1', sku: 'SKU001', name: 'Bolo de Chocolate', category: 'Bolos', unit: 'UN', recipe: [], finalCost: 15, salePrice: 25, flavors: [{id: 'flav1', name: 'Comum', stock: 8}] },
-  { id: 'prod2', sku: 'SKU002', name: 'Torta de Maçã', category: 'Tortas', unit: 'UN', recipe: [], finalCost: 20, salePrice: 35, flavors: [{id: 'flav2', name: 'Comum', stock: 3}] },
-  { id: 'prod3', sku: 'SKU003', name: 'Café Expresso', category: 'Bebidas', unit: 'UN', recipe: [], finalCost: 2, salePrice: 5, flavors: [{id: 'flav3', name: 'Comum', stock: 50}] },
-];
-const MOCK_RAW_MATERIALS: RawMaterial[] = [
-    { id: 'raw1', code: 'RM001', description: 'Farinha de Trigo', unit: 'KG', cost: 5, supplier: 'Fornecedor A', quantity: 8, minStock: 10 },
-    { id: 'raw2', code: 'RM002', description: 'Ovos', unit: 'UN', cost: 0.5, supplier: 'Fornecedor B', quantity: 20, minStock: 24 },
-];
+
 const MOCK_SETTINGS: Settings = {
     productCategories: ['Bolo', 'Pastel', 'Bebida', 'Salgado'],
     taxes: { icms: 0, iss: 0, pis: 0, cofins: 0 },
@@ -47,13 +41,29 @@ export default function EditFinishedProductPage() {
   const params = useParams();
   const { id: productId } = params;
   const { toast } = useToast();
+  const { user } = useUser();
+  const { firestore } = useFirebase();
 
-  const rawMaterials = MOCK_RAW_MATERIALS;
-  const isLoadingMaterials = false;
-  const product = MOCK_PRODUCTS.find(p => p.id === productId);
-  const isLoadingProduct = false;
-  const settings = MOCK_SETTINGS;
-  const isLoadingSettings = false;
+  const productRef = useMemoFirebase(() => {
+    if (!user || !firestore || !productId) return null;
+    return doc(firestore, 'users', user.uid, 'finished-products', productId as string);
+  }, [user, firestore, productId]);
+
+  const rawMaterialsQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return collection(firestore, 'users', user.uid, 'raw-materials');
+  }, [user, firestore]);
+
+  const settingsQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return collection(firestore, 'users', user.uid, 'settings');
+  }, [user, firestore]);
+
+  const { data: rawMaterials, isLoading: isLoadingMaterials } = useCollection<RawMaterial>(rawMaterialsQuery);
+  const { data: product, isLoading: isLoadingProduct } = useDoc<FinishedProduct>(productRef);
+  const { data: settingsData, isLoading: isLoadingSettings } = useCollection<Settings>(settingsQuery);
+  const settings = useMemo(() => (settingsData && settingsData.length > 0 ? settingsData[0] : MOCK_SETTINGS), [settingsData]);
+
   
   const [isPricePending, startPriceTransition] = useTransition();
   const [isRecipePending, startRecipeTransition] = useTransition();

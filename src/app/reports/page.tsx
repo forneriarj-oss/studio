@@ -16,23 +16,9 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recha
 import type { Sale, Expense, Revenue, FinishedProduct } from '@/lib/types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useUser, useCollection, useFirebase, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
 
-const MOCK_SALES: Sale[] = [
-    { id: 'sale1', productId: 'prod1', flavorId: 'flav1', quantity: 2, unitPrice: 25, date: new Date().toISOString() },
-    { id: 'sale2', productId: 'prod2', flavorId: 'flav2', quantity: 1, unitPrice: 35, date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
-];
-const MOCK_EXPENSES: Expense[] = [
-    { id: 'exp1', amount: 50.20, category: 'Marketing', description: 'Impulsionamento Instagram', date: new Date().toISOString() },
-    { id: 'exp2', amount: 120.00, category: 'Software', description: 'Assinatura Adobe', date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
-];
-const MOCK_REVENUES: Revenue[] = [
-    { id: 'rev1', amount: 150.50, source: 'Venda de produtos', date: new Date().toISOString() },
-    { id: 'rev2', amount: 300.00, source: 'Consultoria', date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
-];
-const MOCK_PRODUCTS: FinishedProduct[] = [
-  { id: 'prod1', sku: 'SKU001', name: 'Bolo de Chocolate', category: 'Bolos', unit: 'UN', recipe: [], finalCost: 15, salePrice: 25, flavors: [{id: 'flav1', name: 'Comum', stock: 8}] },
-  { id: 'prod2', sku: 'SKU002', name: 'Torta de Maçã', category: 'Tortas', unit: 'UN', recipe: [], finalCost: 20, salePrice: 35, flavors: [{id: 'flav2', name: 'Comum', stock: 3}] },
-];
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount);
@@ -46,6 +32,8 @@ export default function ReportsPage() {
     from: startOfMonth(new Date()),
     to: new Date(),
   });
+  const { user } = useUser();
+  const { firestore } = useFirebase();
 
   useEffect(() => {
     setIsClient(true);
@@ -59,14 +47,31 @@ export default function ReportsPage() {
     return { startDate: start, endDate: end };
   }, [dateRange]);
 
-  const sales = MOCK_SALES;
-  const loadingSales = false;
-  const expenses = MOCK_EXPENSES;
-  const loadingExpenses = false;
-  const revenues = MOCK_REVENUES;
-  const loadingRevenues = false;
-  const products = MOCK_PRODUCTS;
-  const loadingProducts = false;
+  const salesQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return query(collection(firestore, 'users', user.uid, 'sales'), where('date', '>=', startDate), where('date', '<=', endDate));
+  }, [user, firestore, startDate, endDate]);
+
+  const expensesQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return query(collection(firestore, 'users', user.uid, 'expenses'), where('date', '>=', startDate), where('date', '<=', endDate));
+  }, [user, firestore, startDate, endDate]);
+
+  const revenuesQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return query(collection(firestore, 'users', user.uid, 'revenues'), where('date', '>=', startDate), where('date', '<=', endDate));
+  }, [user, firestore, startDate, endDate]);
+
+  const productsQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return collection(firestore, 'users', user.uid, 'finished-products');
+  }, [user, firestore]);
+
+  const { data: sales, isLoading: loadingSales } = useCollection<Sale>(salesQuery);
+  const { data: expenses, isLoading: loadingExpenses } = useCollection<Expense>(expensesQuery);
+  const { data: revenues, isLoading: loadingRevenues } = useCollection<Revenue>(revenuesQuery);
+  const { data: products, isLoading: loadingProducts } = useCollection<FinishedProduct>(productsQuery);
+
 
   const reportData = useMemo(() => {
     if (!sales || !expenses || !revenues || !products) return null;
