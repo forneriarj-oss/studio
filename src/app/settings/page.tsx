@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { AlertCircle, Loader, Trash2, Upload } from 'lucide-react';
 import { useAuth, useFirestore, useUser, useDoc, useMemoFirebase, useStorage } from '@/firebase';
-import { doc, setDoc, writeBatch, collection, getDocs } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import type { Settings } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { updateProfile } from 'firebase/auth';
@@ -198,42 +198,6 @@ export default function SettingsPage() {
         }
     };
     
-    const handleDeleteData = async () => {
-        if (!user) {
-            toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
-            return;
-        }
-        setIsSubmitting(true);
-        try {
-            const collectionsToDelete = ['sales', 'revenues', 'expenses'];
-            const batch = writeBatch(firestore);
-
-            for (const collectionName of collectionsToDelete) {
-                const collectionRef = collection(firestore, `users/${user.uid}/${collectionName}`);
-                const snapshot = await getDocs(collectionRef);
-                snapshot.docs.forEach((doc) => {
-                    batch.delete(doc.ref);
-                });
-            }
-
-            await batch.commit();
-
-            toast({
-                title: 'Dados Zerados!',
-                description: 'Todos os dados de vendas, receitas e despesas foram zerados com sucesso!',
-            });
-        } catch (error: any) {
-            console.error("Erro ao zerar dados financeiros:", error);
-            toast({
-                variant: 'destructive',
-                title: 'Erro ao Zerar Dados',
-                description: error.message || "Ocorreu um erro desconhecido.",
-            });
-        } finally {
-            setIsSubmitting(false);
-        }
-    }
-    
     if (isLoading || isUserLoading) {
       return (
          <div className="flex flex-col gap-8">
@@ -255,11 +219,10 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="profile">
-        <TabsList className="grid w-full grid-cols-4 max-w-lg">
+        <TabsList className="grid w-full grid-cols-3 max-w-lg">
           <TabsTrigger value="profile">Perfil</TabsTrigger>
           <TabsTrigger value="pricing">Precificação</TabsTrigger>
           <TabsTrigger value="categories">Categorias</TabsTrigger>
-          <TabsTrigger value="advanced">Avançado</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -430,52 +393,6 @@ export default function SettingsPage() {
                                 <p className="text-sm text-muted-foreground text-center">Nenhuma categoria cadastrada.</p>
                             )}
                         </div>
-                    </div>
-                </CardContent>
-            </Card>
-        </TabsContent>
-        <TabsContent value="advanced">
-            <Card className="mt-6">
-                <CardHeader>
-                    <CardTitle>Avançado</CardTitle>
-                    <CardDescription>Ações permanentes e de alto risco.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>Zona de Perigo</AlertTitle>
-                        <AlertDescription>
-                            A ação abaixo é permanente e não pode ser desfeita. Tenha certeza absoluta antes de continuar.
-                        </AlertDescription>
-                    </Alert>
-                    <div className="mt-4 rounded-lg border border-destructive p-4">
-                         <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="destructive" disabled={isSubmitting}>
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Zerar Dados de Vendas e Caixa
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                <AlertDialogTitle>Você tem certeza absoluta?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Esta ação é irreversível. Todos os registros de <strong>vendas, receitas e despesas</strong> serão permanentemente excluídos. Esta ação não afetará seus produtos ou matérias-primas.
-                                </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction
-                                    onClick={handleDeleteData}
-                                    disabled={isSubmitting}
-                                    className="bg-destructive hover:bg-destructive/90"
-                                >
-                                    {isSubmitting ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                    Sim, zerar os dados
-                                </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
                     </div>
                 </CardContent>
             </Card>
