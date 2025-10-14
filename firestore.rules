@@ -1,40 +1,33 @@
 /**
- * @file Firebase Security Rules for BizView Application
+ * @description This ruleset enforces a strict user-ownership model for all data.
+ * All data (user profiles, expenses, revenues, and appointments) is nested under the /users/{userId} path.
  *
- * @corePhilosophy This ruleset enforces a strict user-ownership model. Users can only access their own data.
- * @dataStructure All user-specific data (expenses, revenues, appointments) is nested under /users/{userId}.
- * @keySecurityDecisions Users can only list their own data. There is no cross-user access.
+ * Data Structure:
+ * - /users/{userId}: Stores user profile information.  Users can only read/write their own profile.
+ * - /users/{userId}/expenses/{expenseId}: Stores expense records for a given user. Only the owning user can manage these.
+ * - /users/{userId}/revenues/{revenueId}: Stores revenue records for a given user. Only the owning user can manage these.
+ * - /users/{userId}/appointments/{appointmentId}: Stores appointment records for a given user. Only the owning user can manage these.
+ *
+ * Key Security Decisions:
+ * - User data is strictly segregated by the 'userId' in the path.
+ * - No public listing of user-owned data is allowed.  Only the owner can list their expenses, revenues, or appointments.
+ * - All write operations require a valid, authenticated user.
+ *
+ * Denormalization for Authorization:
+ *  - All data is nested under a user's path, so ownership can be checked directly against the path without needing to read document data.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile documents.
+     * @description Controls access to user profiles.
      * @path /users/{userId}
-     * @allow (create) Signed-in user creates their own profile.
-     * @allow (get) Signed-in user gets their own profile.
-     * @allow (update) Signed-in user updates their own profile.
-     * @allow (delete) Signed-in user deletes their own profile.
-     * @deny (create) Signed-in user attempts to create a profile with a different user ID.
-     * @deny (get) Signed-in user attempts to get another user's profile.
-     * @deny (update) Signed-in user attempts to update another user's profile.
-     * @deny (delete) Signed-in user attempts to delete another user's profile.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) If the authenticated user's ID matches the 'userId' in the path.
+     * @deny (create) If the authenticated user's ID does not match the 'userId' in the path.
+     * @principle Enforces strict user ownership.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
       allow get: if isOwner(userId);
       allow list: if false;
       allow create: if isOwner(userId);
@@ -43,105 +36,31 @@ service cloud.firestore {
     }
 
     /**
-     * @description Controls access to expense documents for a specific user.
-     * @path /users/{userId}/expenses/{expenseId}
-     * @allow (create) Signed-in user creates an expense under their user ID.
-     * @allow (get) Signed-in user gets an expense under their user ID.
-     * @allow (update) Signed-in user updates an expense under their user ID.
-     * @allow (delete) Signed-in user deletes an expense under their user ID.
-     * @allow (list) Signed-in user lists expenses under their user ID.
-     * @deny (create) Signed-in user attempts to create an expense under a different user ID.
-     * @deny (get) Signed-in user attempts to get an expense under a different user ID.
-     * @deny (update) Signed-in user attempts to update an expense under a different user ID.
-     * @deny (delete) Signed-in user attempts to delete an expense under a different user ID.
-     * @principle Enforces document ownership and path consistency for all operations.
+     * @description Controls access to ALL subcollections and documents 
+     * nested under a specific user ID (e.g., /expenses, /revenues).
+     * @path /users/{userId}/{document=**}
+     * @allow (create) If the authenticated user's ID matches the 'userId' in the path.
+     * @deny (create) If the authenticated user's ID does not match the 'userId' in the path.
+     * @principle Enforces strict user ownership for all subcollections.
      */
-    match /users/{userId}/expenses/{expenseId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
+    match /users/{userId}/{document=**} {
+      allow read, list: if isOwner(userId);
       allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
-    /**
-     * @description Controls access to revenue documents for a specific user.
-     * @path /users/{userId}/revenues/{revenueId}
-     * @allow (create) Signed-in user creates a revenue document under their user ID.
-     * @allow (get) Signed-in user gets a revenue document under their user ID.
-     * @allow (update) Signed-in user updates a revenue document under their user ID.
-     * @allow (delete) Signed-in user deletes a revenue document under their user ID.
-     * @allow (list) Signed-in user lists revenue documents under their user ID.
-     * @deny (create) Signed-in user attempts to create a revenue document under a different user ID.
-     * @deny (get) Signed-in user attempts to get a revenue document under a different user ID.
-     * @deny (update) Signed-in user attempts to update a revenue document under a different user ID.
-     * @deny (delete) Signed-in user attempts to delete a revenue document under a different user ID.
-     * @principle Enforces document ownership and path consistency for all operations.
-     */
-    match /users/{userId}/revenues/{revenueId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-   /**
-     * @description Controls access to appointment documents for a specific user.
-     * @path /users/{userId}/appointments/{appointmentId}
-     * @allow (create) Signed-in user creates an appointment under their user ID.
-     * @allow (get) Signed-in user gets an appointment under their user ID.
-     * @allow (update) Signed-in user updates an appointment under their user ID.
-     * @allow (delete) Signed-in user deletes an appointment under their user ID.
-     * @allow (list) Signed-in user lists appointments under their user ID.
-     * @deny (create) Signed-in user attempts to create an appointment under a different user ID.
-     * @deny (get) Signed-in user attempts to get an appointment under a different user ID.
-     * @deny (update) Signed-in user attempts to update an appointment under a different user ID.
-     * @deny (delete) Signed-in user attempts to delete an appointment under a different user ID.
-     * @principle Enforces document ownership and path consistency for all operations.
-     */
-    match /users/{userId}/appointments/{appointmentId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
 
-      function isOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
+    function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
-      }
-
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
     }
   }
 }
