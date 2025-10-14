@@ -1,145 +1,146 @@
 /**
- * @file Firestore Security Rules for BizView ERP System
- * @core_philosophy This ruleset enforces a strict user-ownership model, leveraging path-based authorization.
- * All data (businesses, expenses, revenues, appointments) is nested under /users/{userId}/businesses/{businessId},
- * ensuring that only the owning user can access and manipulate their respective business data.
- * @data_structure Data is organized hierarchically: /users/{userId}/businesses/{businessId}/[expenses|revenues|appointments]/{recordId}.
- * This structure simplifies security rules based on path parameters.
- * @key_security_decisions
- *  - Strict ownership: Only the authenticated user matching the {userId} path segment can access data in the /users/{userId} tree.
- *  - Path-based authorization: Security is determined solely by the Firestore path, avoiding expensive `get()` calls to parent documents.
- *  - Denormalization: No denormalization is needed due to the path-based ownership model.
- *  - No user listing: Listing all users is not permitted.
- * @structural_segregation Data segregation by user ID and business ID ensures that users can only access their own business-related data.
+ * @fileoverview Firestore Security Rules for BizView.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model. All data is nested under
+ * /users/{userId}/businesses/{businessId}/..., ensuring that only the authenticated user
+ * has access to their own data. Path-based ownership simplifies security rules.
+ *
+ * Data Structure:
+ * - /users/{userId}/businesses/{businessId}: Stores business data owned by a user.
+ * - /users/{userId}/businesses/{businessId}/expenses/{expenseId}: Stores expense records for a business.
+ * - /users/{userId}/businesses/{businessId}/revenues/{revenueId}: Stores revenue records for a business.
+ * - /users/{userId}/businesses/{businessId}/appointments/{appointmentId}: Stores appointment records for a business.
+ *
+ * Key Security Decisions:
+ * - User listing is disallowed.
+ * - All write operations are restricted to the owner of the data.
+ * - Data validation is relaxed to allow for rapid prototyping (focus on auth).
+ *
+ * Denormalization for Authorization:
+ * The data structure inherently denormalizes the user-business relationship into the paths.
+ * For example, a path like `/users/{userId}/businesses/{businessId}/expenses/{expenseId}`
+ * directly encodes that the `expense` belongs to a `business` owned by the specified `user`.
+ * This avoids the need for expensive `get()` calls to check relationships.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to business documents owned by a specific user.
+     * @description Checks if the request is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the authenticated user ID matches the provided user ID.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the authenticated user is the existing owner of the document.
+     */
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Rules for the /users/{userId}/businesses/{businessId} collection.
      * @path /users/{userId}/businesses/{businessId}
-     * @allow (create) - User 'user123' creates a new business with ID 'business456'.
-     *   - Request: { auth: { uid: 'user123' }, resource: { data: { id: 'business456', name: 'My Business' } } }
-     * @allow (get) - User 'user123' retrieves their business with ID 'business456'.
-     *   - Request: { auth: { uid: 'user123' } }
-     * @allow (update) - User 'user123' updates their business with ID 'business456'.
-     *   - Request: { auth: { uid: 'user123' }, resource: { data: { id: 'business456', name: 'Updated Business Name' } } }
-     * @allow (delete) - User 'user123' deletes their business with ID 'business456'.
-     *   - Request: { auth: { uid: 'user123' } }
-     * @deny (create) - User 'anotherUser' attempts to create a business under 'user123's path.
-     *   - Request: { auth: { uid: 'anotherUser' }, resource: { data: { id: 'anyBusinessId', name: 'My Business' } } }
-     * @deny (update) - User 'anotherUser' attempts to update 'user123's business.
-     *   - Request: { auth: { uid: 'anotherUser' } }
-     * @deny (delete) - User 'anotherUser' attempts to delete 'user123's business.
-     *   - Request: { auth: { uid: 'anotherUser' } }
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) User 'user123' can create a business with ID 'business456' under their user ID if authenticated.
+     * @allow (get) User 'user123' can read a business with ID 'business456' under their user ID if authenticated.
+     * @allow (list) User 'user123' can list businesses under their user ID if authenticated.
+     * @allow (update) User 'user123' can update a business with ID 'business456' under their user ID if authenticated.
+     * @allow (delete) User 'user123' can delete a business with ID 'business456' under their user ID if authenticated.
+     * @deny (create) User 'user456' cannot create a business under the 'user123' user ID.
+     * @deny (update) User 'user456' cannot update a business under the 'user123' user ID.
+     * @deny (delete) User 'user456' cannot delete a business under the 'user123' user ID.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/businesses/{businessId} {
-      // Allow anyone to get the business if it exists.
-      allow get: if isSignedIn();
-      // Allow the user to list businesses if they are signed in and are the owner.
+      allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      // Allow the user to create a business if they are signed in and the businessId matches.
-      allow create: if isSignedIn() && request.auth.uid == userId && request.resource.data.id == businessId;
-      // Allow the user to update a business if they are the owner and the business exists.
+      allow create: if isOwner(userId) && request.resource.data.id == businessId;
       allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      // Allow the user to delete a business if they are the owner and the business exists.
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to expense documents for a specific business owned by a user.
+     * @description Rules for the /users/{userId}/businesses/{businessId}/expenses/{expenseId} collection.
      * @path /users/{userId}/businesses/{businessId}/expenses/{expenseId}
-     * @allow (create) - User 'user123' creates a new expense with ID 'expense789' for their business 'business456'.
-     *   - Request: { auth: { uid: 'user123' }, resource: { data: { id: 'expense789', businessId: 'business456', amount: 100 } } }
-     * @allow (get) - User 'user123' retrieves expense 'expense789' for their business 'business456'.
-     *   - Request: { auth: { uid: 'user123' } }
-     * @allow (update) - User 'user123' updates expense 'expense789' for their business 'business456'.
-     *   - Request: { auth: { uid: 'user123' }, resource: { data: { id: 'expense789', businessId: 'business456', amount: 120 } } }
-     * @allow (delete) - User 'user123' deletes expense 'expense789' for their business 'business456'.
-     *   - Request: { auth: { uid: 'user123' } }
-     * @deny (create) - User 'anotherUser' attempts to create an expense under 'user123's business.
-     *   - Request: { auth: { uid: 'anotherUser' }, resource: { data: { id: 'anyExpenseId', businessId: 'business456', amount: 50 } } }
-     * @deny (update) - User 'anotherUser' attempts to update 'user123's expense.
-     *   - Request: { auth: { uid: 'anotherUser' } }
-     * @deny (delete) - User 'anotherUser' attempts to delete 'user123's expense.
-     *   - Request: { auth: { uid: 'anotherUser' } }
-     * @principle Enforces document ownership for writes and allows read access to the owner.
+     * @allow (create) User 'user123' can create an expense with ID 'expense789' under their business 'business456' if authenticated.
+     * @allow (get) User 'user123' can read an expense with ID 'expense789' under their business 'business456' if authenticated.
+     * @allow (list) User 'user123' can list expenses under their business 'business456' if authenticated.
+     * @allow (update) User 'user123' can update an expense with ID 'expense789' under their business 'business456' if authenticated.
+     * @allow (delete) User 'user123' can delete an expense with ID 'expense789' under their business 'business456' if authenticated.
+     * @deny (create) User 'user456' cannot create an expense under business 'business456' owned by 'user123'.
+     * @deny (update) User 'user456' cannot update an expense under business 'business456' owned by 'user123'.
+     * @deny (delete) User 'user456' cannot delete an expense under business 'business456' owned by 'user123'.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/businesses/{businessId}/expenses/{expenseId} {
-      allow get: if isSignedIn();
+      allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.businessId == businessId && request.resource.data.id == expenseId;
-      allow update: if isExistingOwner(userId) && request.resource.data.businessId == businessId && request.resource.data.id == resource.data.id;
+      allow create: if isOwner(userId) && request.resource.data.businessId == businessId;
+      allow update: if isExistingOwner(userId) && request.resource.data.businessId == businessId;
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to revenue documents for a specific business owned by a user.
+     * @description Rules for the /users/{userId}/businesses/{businessId}/revenues/{revenueId} collection.
      * @path /users/{userId}/businesses/{businessId}/revenues/{revenueId}
-     * @allow (create) - User 'user123' creates a new revenue record with ID 'revenueABC' for their business 'business456'.
-     *   - Request: { auth: { uid: 'user123' }, resource: { data: { id: 'revenueABC', businessId: 'business456', amount: 200 } } }
-     * @allow (get) - User 'user123' retrieves revenue record 'revenueABC' for their business 'business456'.
-     *   - Request: { auth: { uid: 'user123' } }
-     * @allow (update) - User 'user123' updates revenue record 'revenueABC' for their business 'business456'.
-     *   - Request: { auth: { uid: 'user123' }, resource: { data: { id: 'revenueABC', businessId: 'business456', amount: 220 } } }
-     * @allow (delete) - User 'user123' deletes revenue record 'revenueABC' for their business 'business456'.
-     *   - Request: { auth: { uid: 'user123' } }
-     * @deny (create) - User 'anotherUser' attempts to create a revenue record under 'user123's business.
-     *   - Request: { auth: { uid: 'anotherUser' }, resource: { data: { id: 'anyRevenueId', businessId: 'business456', amount: 100 } } }
-     * @deny (update) - User 'anotherUser' attempts to update 'user123's revenue record.
-     *   - Request: { auth: { uid: 'anotherUser' } }
-     * @deny (delete) - User 'anotherUser' attempts to delete 'user123's revenue record.
-     *   - Request: { auth: { uid: 'anotherUser' } }
-     * @principle Enforces document ownership for writes and allows read access to the owner.
+     * @allow (create) User 'user123' can create a revenue with ID 'revenue101' under their business 'business456' if authenticated.
+     * @allow (get) User 'user123' can read a revenue with ID 'revenue101' under their business 'business456' if authenticated.
+     * @allow (list) User 'user123' can list revenues under their business 'business456' if authenticated.
+     * @allow (update) User 'user123' can update a revenue with ID 'revenue101' under their business 'business456' if authenticated.
+     * @allow (delete) User 'user123' can delete a revenue with ID 'revenue101' under their business 'business456' if authenticated.
+     * @deny (create) User 'user456' cannot create a revenue under business 'business456' owned by 'user123'.
+     * @deny (update) User 'user456' cannot update a revenue under business 'business456' owned by 'user123'.
+     * @deny (delete) User 'user456' cannot delete a revenue under business 'business456' owned by 'user123'.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/businesses/{businessId}/revenues/{revenueId} {
-      allow get: if isSignedIn();
+      allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.businessId == businessId && request.resource.data.id == revenueId;
-      allow update: if isExistingOwner(userId) && request.resource.data.businessId == businessId && request.resource.data.id == resource.data.id;
+      allow create: if isOwner(userId) && request.resource.data.businessId == businessId;
+      allow update: if isExistingOwner(userId) && request.resource.data.businessId == businessId;
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to appointment documents for a specific business owned by a user.
+     * @description Rules for the /users/{userId}/businesses/{businessId}/appointments/{appointmentId} collection.
      * @path /users/{userId}/businesses/{businessId}/appointments/{appointmentId}
-     * @allow (create) - User 'user123' creates a new appointment with ID 'appointmentXYZ' for their business 'business456'.
-     *   - Request: { auth: { uid: 'user123' }, resource: { data: { id: 'appointmentXYZ', businessId: 'business456', title: 'Meeting' } } }
-     * @allow (get) - User 'user123' retrieves appointment 'appointmentXYZ' for their business 'business456'.
-     *   - Request: { auth: { uid: 'user123' } }
-     * @allow (update) - User 'user123' updates appointment 'appointmentXYZ' for their business 'business456'.
-     *   - Request: { auth: { uid: 'user123' }, resource: { data: { id: 'appointmentXYZ', businessId: 'business456', title: 'Updated Meeting Time' } } }
-     * @allow (delete) - User 'user123' deletes appointment 'appointmentXYZ' for their business 'business456'.
-     *   - Request: { auth: { uid: 'user123' } }
-     * @deny (create) - User 'anotherUser' attempts to create an appointment under 'user123's business.
-     *   - Request: { auth: { uid: 'anotherUser' }, resource: { data: { id: 'anyAppointmentId', businessId: 'business456', title: 'Unauthorized Meeting' } } }
-     * @deny (update) - User 'anotherUser' attempts to update 'user123's appointment.
-     *   - Request: { auth: { uid: 'anotherUser' } }
-     * @deny (delete) - User 'anotherUser' attempts to delete 'user123's appointment.
-     *   - Request: { auth: { uid: 'anotherUser' } }
-     * @principle Enforces document ownership for writes and allows read access to the owner.
+     * @allow (create) User 'user123' can create an appointment with ID 'appointment121' under their business 'business456' if authenticated.
+     * @allow (get) User 'user123' can read an appointment with ID 'appointment121' under their business 'business456' if authenticated.
+     * @allow (list) User 'user123' can list appointments under their business 'business456' if authenticated.
+     * @allow (update) User 'user123' can update an appointment with ID 'appointment121' under their business 'business456' if authenticated.
+     * @allow (delete) User 'user123' can delete an appointment with ID 'appointment121' under their business 'business456' if authenticated.
+     * @deny (create) User 'user456' cannot create an appointment under business 'business456' owned by 'user123'.
+     * @deny (update) User 'user456' cannot update an appointment under business 'business456' owned by 'user123'.
+     * @deny (delete) User 'user456' cannot delete an appointment under business 'business456' owned by 'user123'.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/businesses/{businessId}/appointments/{appointmentId} {
-      allow get: if isSignedIn();
+      allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.businessId == businessId && request.resource.data.id == appointmentId;
-      allow update: if isExistingOwner(userId) && request.resource.data.businessId == businessId && request.resource.data.id == resource.data.id;
+      allow create: if isOwner(userId) && request.resource.data.businessId == businessId;
+      allow update: if isExistingOwner(userId) && request.resource.data.businessId == businessId;
       allow delete: if isExistingOwner(userId);
     }
-  }
-
-  // Helper Functions
-  function isSignedIn() {
-    return request.auth != null;
-  }
-
-  function isOwner(userId) {
-    return request.auth.uid == userId;
-  }
-
-  function isExistingOwner(userId) {
-    return isOwner(userId) && resource != null;
+    /**
+     * @description Rules for the /users/{userId}/settings/{settingId} collection.
+     * @path /users/{userId}/settings/{settingId}
+     */
+    match /users/{userId}/settings/{settingId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
   }
 }
