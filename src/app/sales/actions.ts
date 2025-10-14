@@ -32,8 +32,8 @@ export async function cancelSale(sale: Sale): Promise<{ success: boolean; messag
     if (!user) {
         return { success: false, message: "Usuário não autenticado." };
     }
-    if (!sale.id) {
-        return { success: false, message: "ID da venda inválido." };
+    if (!sale.id || !sale.revenueId) {
+        return { success: false, message: "ID da venda ou da receita inválido." };
     }
     const adminApp = await getAdminApp();
     const db = getFirestore(adminApp);
@@ -42,9 +42,8 @@ export async function cancelSale(sale: Sale): Promise<{ success: boolean; messag
     const saleRef = userRef.collection('sales').doc(sale.id);
     const productRef = userRef.collection('finished-products').doc(sale.productId);
     
-    // O ID da receita é derivado do ID da venda para garantir a atomicidade
-    const revenueId = sale.revenueId || `rev_${sale.id}`;
-    const revenueRef = userRef.collection('revenues').doc(revenueId);
+    // Use the revenueId directly from the sale object
+    const revenueRef = userRef.collection('revenues').doc(sale.revenueId);
 
     try {
         await db.runTransaction(async (transaction) => {

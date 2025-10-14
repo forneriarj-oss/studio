@@ -103,25 +103,27 @@ export default function SalesPage() {
     const selectedProductForDialog = useMemo(() => getProduct(newSale.productId), [newSale.productId, products]);
 
     const { finalSalePrice, saleUnitPrice } = useMemo(() => {
-      if (!selectedProductForDialog) return { finalSalePrice: 0, saleUnitPrice: 0 };
-    
-      let basePrice = selectedProductForDialog.salePrice;
-      if (newSale.location === 'iFood') {
-        basePrice *= 1.75; // 75% markup for iFood
-      }
-    
-      let total = basePrice * newSale.quantity;
-    
-      if (newSale.location === 'Delivery') {
-        total += deliveryFee;
-      }
-    
-      return { finalSalePrice: total, saleUnitPrice: basePrice };
-    }, [newSale.quantity, newSale.location, deliveryFee, selectedProductForDialog]);
-
-    useEffect(() => {
-        setNewSale(prev => ({...prev, unitPrice: saleUnitPrice }));
-    }, [saleUnitPrice]);
+        if (!selectedProductForDialog) return { finalSalePrice: 0, saleUnitPrice: 0 };
+      
+        let basePrice = selectedProductForDialog.salePrice;
+        if (newSale.location === 'iFood') {
+          basePrice *= 1.75; // 75% markup for iFood
+        }
+      
+        let total = basePrice * newSale.quantity;
+      
+        if (newSale.location === 'Delivery') {
+          total += deliveryFee;
+        }
+      
+        return { finalSalePrice: total, saleUnitPrice: basePrice };
+      }, [newSale.quantity, newSale.location, deliveryFee, selectedProductForDialog]);
+      
+      useEffect(() => {
+        if (saleUnitPrice !== newSale.unitPrice) {
+          setNewSale(prev => ({...prev, unitPrice: saleUnitPrice }));
+        }
+      }, [saleUnitPrice, newSale.unitPrice]);
 
 
     const getFlavor = (product: FinishedProduct | undefined, flavorId: string): Flavor | undefined => {
@@ -154,39 +156,40 @@ export default function SalesPage() {
             });
             return;
         }
+        
+        // Use a batch to ensure atomicity
+        const batch = writeBatch(firestore);
 
+        // 1. Create a reference for the revenue document first to get its ID
+        const revenuesRef = collection(firestore, `users/${user.uid}/revenues`);
+        const revenueDocRef = doc(revenuesRef);
+
+        // 2. Prepare the revenue document
+        const revenueFromSale: Omit<Revenue, 'id'> = {
+          amount: finalSalePrice,
+          source: `Venda - ${product.name} (${flavor.name})`,
+          date: new Date().toISOString(),
+          paymentMethod: newSale.paymentMethod,
+        };
+        batch.set(revenueDocRef, revenueFromSale);
+
+
+        // 3. Prepare the sale document with the revenue ID
         const saleToAdd: Omit<Sale, 'id'> = {
             productId: newSale.productId,
             flavorId: newSale.flavorId,
             quantity: newSale.quantity,
             unitPrice: newSale.unitPrice,
-            date: new Date().toISOString(),
+            date: revenueFromSale.date, // Use the same date for consistency
             paymentMethod: newSale.paymentMethod,
             location: newSale.location,
+            revenueId: revenueDocRef.id, // Store the actual ID of the revenue doc
         };
+        const salesCollectionRef = collection(firestore, `users/${user.uid}/sales`);
+        batch.set(doc(salesCollectionRef), saleToAdd);
+
         
-        const revenueFromSale: Omit<Revenue, 'id'> = {
-          amount: finalSalePrice,
-          source: `Venda - ${product.name} (${flavor.name})`,
-          date: saleToAdd.date,
-          paymentMethod: saleToAdd.paymentMethod,
-        };
-
-        // Use a batch to ensure atomicity
-        const batch = writeBatch(firestore);
-
-        // 1. Add the sale document
-        const salesRef = collection(firestore, `users/${user.uid}/sales`);
-        const saleDocRef = doc(salesRef);
-        batch.set(saleDocRef, {...saleToAdd, revenueId: `rev_${saleDocRef.id}` });
-
-
-        // 2. Add the revenue document
-        const revenuesRef = collection(firestore, `users/${user.uid}/revenues`);
-        const revenueDocRef = doc(revenuesRef, `rev_${saleDocRef.id}`);
-        batch.set(revenueDocRef, revenueFromSale);
-        
-        // 3. Update the product stock
+        // 4. Update the product stock
         const productDocRef = doc(firestore, `users/${user.uid}/finished-products`, product.id!);
         const newFlavors = product.flavors.map(f => 
             f.id === newSale.flavorId ? { ...f, stock: f.stock - newSale.quantity } : f
