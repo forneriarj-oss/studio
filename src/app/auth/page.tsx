@@ -22,6 +22,18 @@ import { User, signInWithEmailAndPassword, createUserWithEmailAndPassword } from
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 
+async function createSession(user: User) {
+  const idToken = await user.getIdToken();
+  const response = await fetch('/api/auth/session', {
+    method: 'POST',
+    body: idToken,
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to create session');
+  }
+}
+
 async function ensureUserProfile(firestore: any, user: User) {
   if (!user) return;
   const userDocRef = doc(firestore, `users/${user.uid}`);
@@ -56,7 +68,10 @@ export default function AuthPage() {
     setIsSubmitting(true);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      await ensureUserProfile(firestore, userCredential.user);
+      await Promise.all([
+        ensureUserProfile(firestore, userCredential.user),
+        createSession(userCredential.user)
+      ]);
       toast({ title: 'Login bem-sucedido!' });
       router.push('/');
     } catch (error: any) {
@@ -74,7 +89,10 @@ export default function AuthPage() {
     setIsSubmitting(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await ensureUserProfile(firestore, userCredential.user);
+      await Promise.all([
+        ensureUserProfile(firestore, userCredential.user),
+        createSession(userCredential.user)
+      ]);
       toast({ title: 'Conta criada com sucesso!', description: 'Você será redirecionado em breve.' });
        router.push('/');
     } catch (error: any) {
@@ -91,7 +109,11 @@ export default function AuthPage() {
   const onAnonymousSignIn = async () => {
     setIsSubmitting(true);
     try {
-        await handleAnonymousSignIn(auth);
+        const userCredential = await handleAnonymousSignIn(auth);
+        await Promise.all([
+          ensureUserProfile(firestore, userCredential.user),
+          createSession(userCredential.user)
+        ]);
         toast({ title: 'Login anônimo bem-sucedido!' });
         router.push('/');
     } catch (error: any)
