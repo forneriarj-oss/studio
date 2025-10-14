@@ -12,12 +12,12 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Download } from 'lucide-react';
+import { CalendarIcon, Download, FileSpreadsheet } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 import type { Sale, Expense, Revenue, FinishedProduct } from '@/lib/types';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount);
@@ -120,6 +120,25 @@ export default function ReportsPage() {
     }
 
   }, [sales, expenses, revenues, products]);
+  
+  const exportToCSV = () => {
+    if (!reportData) return;
+    
+    const headers = "Produto,Quantidade Vendida,Valor Bruto,Custo Total,Lucro Bruto\n";
+    const csvContent = reportData.salesByProduct.map(p => 
+      [p.name.replace(/,/g, ''), p.quantity, p.totalValue, p.totalCost, p.totalValue - p.totalCost].join(',')
+    ).join('\n');
+    
+    const blob = new Blob([headers + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "relatorio_vendas.csv");
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 
   const exportToPDF = () => {
     if (!reportData || !dateRange?.from || !dateRange?.to) return;
@@ -132,7 +151,7 @@ export default function ReportsPage() {
     doc.setFontSize(10);
     doc.text(`Período: ${startDateFormatted} a ${endDateFormatted}`, 14, 26);
 
-    doc.autoTable({
+    autoTable(doc, {
         startY: 35,
         head: [['Métrica Financeira', 'Valor']],
         body: [
@@ -143,6 +162,8 @@ export default function ReportsPage() {
         ],
         theme: 'striped',
     });
+
+    const finalY = (doc as any).lastAutoTable.finalY;
 
     doc.addPage();
     doc.text(`Relatório de Vendas por Produto`, 14, 20);
@@ -157,7 +178,7 @@ export default function ReportsPage() {
         formatCurrency(p.totalValue - p.totalCost)
     ]);
 
-    doc.autoTable({
+    autoTable(doc, {
         startY: 35,
         head: [['Produto', 'Qtde Vendida', 'Valor Bruto', 'Custo Total', 'Lucro Bruto']],
         body: salesTableData,
@@ -212,6 +233,10 @@ export default function ReportsPage() {
                 />
                 </PopoverContent>
             </Popover>
+            <Button onClick={exportToCSV} variant="outline" disabled={isLoading || !reportData}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Exportar CSV
+            </Button>
             <Button onClick={exportToPDF} disabled={isLoading || !reportData}>
                 <Download className="mr-2 h-4 w-4" />
                 Exportar PDF

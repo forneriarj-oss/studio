@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useState, useMemo, useEffect } from 'react';
-import { subDays, startOfWeek, endOfWeek, startOfMonth, format } from 'date-fns';
+import { subDays, startOfWeek, startOfMonth, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   BarChart,
