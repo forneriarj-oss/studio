@@ -1,19 +1,16 @@
 'use client'
 
-import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
 import { CalendarClient } from "./calendar-client";
 import type { Appointment } from '@/lib/types';
 
-export default function CalendarPage() {
-  const { user } = useUser();
-  const firestore = useFirestore();
+const MOCK_APPOINTMENTS: Appointment[] = [
+    { id: '1', startTime: new Date().toISOString(), endTime: new Date(new Date().setHours(new Date().getHours() + 1)).toISOString(), description: 'Reunião com Fornecedor de Embalagens' },
+    { id: '2', startTime: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(), endTime: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(), description: 'Entrevista com novo confeiteiro' },
+];
 
-  const appointmentsRef = useMemoFirebase(
-    () => (user ? collection(firestore, `users/${user.uid}/appointments`) : null),
-    [firestore, user]
-  );
-  const { data: appointments, isLoading } = useCollection<Appointment>(appointmentsRef);
+export default function CalendarPage() {
+  const appointments = MOCK_APPOINTMENTS;
+  const isLoading = false;
 
   return (
     <div className="flex flex-col gap-8">

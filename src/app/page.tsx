@@ -1,8 +1,6 @@
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,18 +18,30 @@ const formatCurrency = (amount: number) => {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
+// Mock Data
+const MOCK_REVENUES: Revenue[] = [
+  { id: 'rev1', source: 'Venda de Bolo de Chocolate', amount: 50, date: new Date().toISOString(), paymentMethod: 'PIX' },
+  { id: 'rev2', source: 'Venda de Torta de Maçã', amount: 75, date: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString(), paymentMethod: 'Cartão' },
+];
+
+const MOCK_SALES: Sale[] = [
+  { id: 'sale1', productId: 'prod1', flavorId: 'flav1', quantity: 2, unitPrice: 25, date: new Date().toISOString() },
+];
+
+const MOCK_PRODUCTS: FinishedProduct[] = [
+  { id: 'prod1', sku: 'SKU001', name: 'Bolo de Chocolate', category: 'Bolos', unit: 'UN', recipe: [], finalCost: 15, salePrice: 25, flavors: [{id: 'flav1', name: 'Comum', stock: 8}] },
+  { id: 'prod2', sku: 'SKU002', name: 'Torta de Maçã', category: 'Tortas', unit: 'UN', recipe: [], finalCost: 20, salePrice: 35, flavors: [{id: 'flav2', name: 'Comum', stock: 3}] },
+];
+
+const MOCK_RAW_MATERIALS: RawMaterial[] = [
+    { id: 'raw1', code: 'RM001', description: 'Farinha de Trigo', unit: 'KG', cost: 5, supplier: 'Fornecedor A', quantity: 8, minStock: 10 },
+    { id: 'raw2', code: 'RM002', description: 'Ovos', unit: 'UN', cost: 0.5, supplier: 'Fornecedor B', quantity: 20, minStock: 24 },
+];
+
+
 export default function Home() {
-  const { user, isUserLoading } = useUser();
-  const router = useRouter();
-  const firestore = useFirestore();
   const [timeRange, setTimeRange] = useState('month');
   const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push('/auth');
-    }
-  }, [user, isUserLoading, router]);
 
   useEffect(() => {
     setIsClient(true);
@@ -60,34 +70,11 @@ export default function Home() {
     return { startDate: start, endDate: end };
   }, [timeRange]);
 
-  // Firestore Hooks
-  const salesQuery = useMemoFirebase(() => (
-    user ? query(
-      collection(firestore, `users/${user.uid}/sales`),
-      where('date', '>=', startDate.toISOString()),
-      where('date', '<=', endDate.toISOString())
-    ) : null
-  ), [firestore, user, startDate, endDate]);
-  const { data: filteredSales } = useCollection<Sale>(salesQuery);
-
-  const revenuesQuery = useMemoFirebase(() => (
-    user ? query(
-      collection(firestore, `users/${user.uid}/revenues`),
-      where('date', '>=', startDate.toISOString()),
-      where('date', '<=', endDate.toISOString())
-    ) : null
-  ), [firestore, user, startDate, endDate]);
-  const { data: filteredRevenues } = useCollection<Revenue>(revenuesQuery);
-  
-  const productsRef = useMemoFirebase(() => (
-    user ? collection(firestore, `users/${user.uid}/finished-products`) : null
-  ), [firestore, user]);
-  const { data: allProducts } = useCollection<FinishedProduct>(productsRef);
-
-  const rawMaterialsRef = useMemoFirebase(() => (
-    user ? collection(firestore, `users/${user.uid}/raw-materials`) : null
-  ), [firestore, user]);
-  const { data: allRawMaterials } = useCollection<RawMaterial>(rawMaterialsRef);
+  // Using Mock Data
+  const filteredSales = MOCK_SALES;
+  const filteredRevenues = MOCK_REVENUES;
+  const allProducts = MOCK_PRODUCTS;
+  const allRawMaterials = MOCK_RAW_MATERIALS;
 
 
   const { totalRevenue, grossProfit, salesCount, cmv } = useMemo(() => {
@@ -214,7 +201,7 @@ export default function Home() {
     }, [filteredRevenues]);
 
 
-  if (isUserLoading || !user || !isClient) {
+  if (!isClient) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader className="h-16 w-16 animate-spin" />

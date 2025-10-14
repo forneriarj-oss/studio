@@ -20,8 +20,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, addDoc, doc, updateDoc, runTransaction } from 'firebase/firestore';
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -30,22 +28,24 @@ const formatCurrency = (amount: number) => {
     }).format(amount);
 };
 
+const MOCK_PURCHASES: Purchase[] = [
+    { id: 'pur1', productId: 'raw1', quantity: 10, unitCost: 5, date: new Date().toISOString() },
+    { id: 'pur2', productId: 'raw2', quantity: 50, unitCost: 0.45, date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
+];
+
+const MOCK_RAW_MATERIALS: RawMaterial[] = [
+    { id: 'raw1', code: 'RM001', description: 'Farinha de Trigo', unit: 'KG', cost: 5, supplier: 'Fornecedor A', quantity: 8, minStock: 10 },
+    { id: 'raw2', code: 'RM002', description: 'Ovos', unit: 'UN', cost: 0.5, supplier: 'Fornecedor B', quantity: 20, minStock: 24 },
+];
+
 export default function PurchasesPage() {
-    const { user } = useUser();
-    const firestore = useFirestore();
     const { toast } = useToast();
     
-    const purchasesRef = useMemoFirebase(
-      () => (user ? collection(firestore, `users/${user.uid}/purchases`) : null),
-      [firestore, user]
-    );
-    const { data: purchases, isLoading: isLoadingPurchases } = useCollection<Purchase>(purchasesRef);
+    const [purchases, setPurchases] = useState<Purchase[]>(MOCK_PURCHASES);
+    const isLoadingPurchases = false;
     
-    const rawMaterialsRef = useMemoFirebase(
-      () => (user ? collection(firestore, `users/${user.uid}/raw-materials`) : null),
-      [firestore, user]
-    );
-    const { data: rawMaterials, isLoading: isLoadingMaterials } = useCollection<RawMaterial>(rawMaterialsRef);
+    const rawMaterials = MOCK_RAW_MATERIALS;
+    const isLoadingMaterials = false;
 
 
     const [isNewPurchaseOpen, setIsNewPurchaseOpen] = useState(false);
@@ -57,10 +57,6 @@ export default function PurchasesPage() {
     });
 
     const handleAddPurchase = async () => {
-        if (!user || !firestore) {
-          toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
-          return;
-        }
         if (!newPurchase.productId || newPurchase.quantity <= 0 || newPurchase.unitCost < 0) {
             toast({
                 variant: 'destructive',
@@ -70,53 +66,26 @@ export default function PurchasesPage() {
             return;
         }
 
-        const materialRef = doc(firestore, `users/${user.uid}/raw-materials`, newPurchase.productId);
+        const purchaseToAdd: Purchase = {
+            id: `pur-${Date.now()}`,
+            ...newPurchase
+        };
+        
+        setPurchases(prev => [purchaseToAdd, ...prev]);
 
-        try {
-            await runTransaction(firestore, async (transaction) => {
-                const materialDoc = await transaction.get(materialRef);
-                if (!materialDoc.exists()) {
-                    throw new Error("Matéria-prima não encontrada!");
-                }
-
-                // 1. Add purchase record
-                const purchaseToAdd: Omit<Purchase, 'id'> = {
-                    productId: newPurchase.productId,
-                    quantity: newPurchase.quantity,
-                    unitCost: newPurchase.unitCost,
-                    date: new Date(newPurchase.date).toISOString()
-                };
-                const purchasesCollectionRef = collection(firestore, `users/${user.uid}/purchases`);
-                transaction.set(doc(purchasesCollectionRef), purchaseToAdd);
-                
-                // 2. Update raw material stock
-                const currentQuantity = materialDoc.data().quantity || 0;
-                const newQuantity = currentQuantity + newPurchase.quantity;
-                transaction.update(materialRef, { quantity: newQuantity });
-            });
-
-            toast({
-                title: 'Compra registrada!',
-                description: `Estoque da matéria-prima atualizado.`,
-            });
-            
-            // Reset form and close dialog
-            setNewPurchase({
-                productId: '',
-                quantity: 1,
-                unitCost: 0,
-                date: new Date().toISOString().split('T')[0]
-            });
-            setIsNewPurchaseOpen(false);
-
-        } catch (error: any) {
-            console.error("Purchase transaction failed: ", error);
-            toast({
-                variant: 'destructive',
-                title: 'Erro na Transação',
-                description: error.message || 'Não foi possível registrar a compra e atualizar o estoque.',
-            });
-        }
+        toast({
+            title: 'Compra registrada!',
+            description: `Estoque da matéria-prima atualizado.`,
+        });
+        
+        // Reset form and close dialog
+        setNewPurchase({
+            productId: '',
+            quantity: 1,
+            unitCost: 0,
+            date: new Date().toISOString().split('T')[0]
+        });
+        setIsNewPurchaseOpen(false);
     }
 
     const getProductDescription = (productId: string) => {

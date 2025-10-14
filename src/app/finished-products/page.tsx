@@ -20,9 +20,12 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, deleteDoc, doc } from 'firebase/firestore';
 
+const MOCK_PRODUCTS: FinishedProduct[] = [
+  { id: 'prod1', sku: 'SKU001', name: 'Bolo de Chocolate', category: 'Bolos', unit: 'UN', recipe: [], finalCost: 15, salePrice: 25, flavors: [{id: 'flav1', name: 'Comum', stock: 8}] },
+  { id: 'prod2', sku: 'SKU002', name: 'Torta de Maçã', category: 'Tortas', unit: 'UN', recipe: [], finalCost: 20, salePrice: 35, flavors: [{id: 'flav2', name: 'Comum', stock: 3}] },
+  { id: 'prod3', sku: 'SKU003', name: 'Café Expresso', category: 'Bebidas', unit: 'UN', recipe: [], finalCost: 2, salePrice: 5, flavors: [{id: 'flav3', name: 'Comum', stock: 50}] },
+];
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -32,13 +35,8 @@ const formatCurrency = (amount: number) => {
 };
 
 export default function ProductsPage() {
-  const { user } = useUser();
-  const firestore = useFirestore();
-  const finishedProductsRef = useMemoFirebase(
-    () => (user ? collection(firestore, `users/${user.uid}/finished-products`) : null),
-    [firestore, user]
-  );
-  const { data: products, isLoading } = useCollection<FinishedProduct>(finishedProductsRef);
+  const [products, setProducts] = useState<FinishedProduct[]>(MOCK_PRODUCTS);
+  const isLoading = false;
   
   const [filterCategory, setFilterCategory] = useState('todos');
   const { toast } = useToast();
@@ -59,9 +57,7 @@ export default function ProductsPage() {
   }, [products, filterCategory]);
 
   const handleDeleteProduct = async (productId: string) => {
-    if (!user) return;
-    const docRef = doc(firestore, `users/${user.uid}/finished-products`, productId);
-    await deleteDoc(docRef);
+    setProducts(prev => prev.filter(p => p.id !== productId));
     toast({
       title: 'Produto Excluído',
       description: 'O produto foi removido da sua lista.',

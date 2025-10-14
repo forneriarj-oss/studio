@@ -7,69 +7,33 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { AlertCircle, Loader, Trash2, Upload } from 'lucide-react';
-import { useAuth, useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
 import type { Settings } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { updateProfile } from 'firebase/auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-
 
 const DEFAULT_SETTINGS: Settings = {
-    productCategories: ['Bolo', 'Pastel', 'Bebida'],
-    taxes: { icms: 0, iss: 0, pis: 0, cofins: 0 },
-    paymentRates: { credit: 0, debit: 0, pix: 0, mercadoPago: 0 },
-    platformFees: { ifood: 0, taNaMesa: 0 },
-    profitMargin: 30
+    productCategories: ['Bolo', 'Pastel', 'Bebida', 'Salgado'],
+    taxes: { icms: 7, iss: 5, pis: 1.65, cofins: 7.6 },
+    paymentRates: { credit: 4.99, debit: 1.99, pix: 0, mercadoPago: 4.99 },
+    platformFees: { ifood: 27, taNaMesa: 12 },
+    profitMargin: 200
 };
 
 export default function SettingsPage() {
     const { toast } = useToast();
-    const { user, isUserLoading } = useUser();
-    const firestore = useFirestore();
-
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const settingsRef = useMemoFirebase(
-      () => (user ? doc(firestore, `users/${user.uid}/settings/app-settings`) : null),
-      [firestore, user]
-    );
-    const { data: settings, isLoading } = useDoc<Settings>(settingsRef);
+    const isLoading = false;
+    const isUserLoading = false;
     
     const [localSettings, setLocalSettings] = useState<Settings>(DEFAULT_SETTINGS);
     const [newCategory, setNewCategory] = useState('');
     
-    const [displayName, setDisplayName] = useState(user?.displayName || '');
+    const mockUser = { displayName: 'Usuário Demo', email: 'demo@example.com', photoURL: null };
+    const [displayName, setDisplayName] = useState(mockUser.displayName || '');
     const [photoFile, setPhotoFile] = useState<File | null>(null);
-    const [photoPreview, setPhotoPreview] = useState<string | null>(user?.photoURL || null);
+    const [photoPreview, setPhotoPreview] = useState<string | null>(mockUser.photoURL || null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    useEffect(() => {
-        if (settings) {
-            setLocalSettings(s => ({...s, ...settings}));
-        } else if (!isLoading && !settings) {
-            setLocalSettings(DEFAULT_SETTINGS);
-        }
-    }, [settings, isLoading]);
-
-    useEffect(() => {
-      if (user) {
-        setDisplayName(user.displayName || '');
-        setPhotoPreview(user.photoURL || null);
-      }
-    }, [user]);
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -100,23 +64,15 @@ export default function SettingsPage() {
     };
 
     const handleSaveChanges = async () => {
-        if (!settingsRef) return;
         setIsSubmitting(true);
-        try {
-            await setDoc(settingsRef, localSettings, { merge: true });
+        // Simulate save
+        setTimeout(() => {
             toast({
                 title: 'Configurações Salvas!',
-                description: 'Suas alterações foram salvas com sucesso.',
+                description: 'Suas alterações foram salvas com sucesso (simulação).',
             });
-        } catch (error: any) {
-             toast({
-                variant: 'destructive',
-                title: 'Erro ao Salvar',
-                description: error.message || 'Ocorreu um erro desconhecido.',
-            });
-        } finally {
             setIsSubmitting(false);
-        }
+        }, 1000);
     };
 
     const handleAddCategory = async () => {
@@ -130,76 +86,28 @@ export default function SettingsPage() {
         }
         
         const updatedCategories = [...(localSettings.productCategories || []), newCategory.trim()];
-        
-        if (settingsRef) {
-          try {
-            await setDoc(settingsRef, { productCategories: updatedCategories }, { merge: true });
-            setLocalSettings({...localSettings, productCategories: updatedCategories });
-            setNewCategory('');
-            toast({ title: 'Sucesso', description: `Categoria "${newCategory.trim()}" adicionada.` });
-          } catch(error: any) {
-            toast({ variant: 'destructive', title: 'Erro', description: `Não foi possível adicionar a categoria.` });
-          }
-        }
+        setLocalSettings({...localSettings, productCategories: updatedCategories });
+        setNewCategory('');
+        toast({ title: 'Sucesso', description: `Categoria "${newCategory.trim()}" adicionada.` });
     };
 
     const handleRemoveCategory = async (categoryToRemove: string) => {
         const updatedCategories = localSettings.productCategories?.filter(cat => cat !== categoryToRemove) || [];
-        
-        if (settingsRef) {
-          try {
-            await setDoc(settingsRef, { productCategories: updatedCategories }, { merge: true });
-            setLocalSettings({...localSettings, productCategories: updatedCategories });
-            toast({ title: 'Sucesso', description: `Categoria "${categoryToRemove}" removida.` });
-          } catch(error: any) {
-            toast({ variant: 'destructive', title: 'Erro', description: `Não foi possível remover a categoria.` });
-          }
-        }
+        setLocalSettings({...localSettings, productCategories: updatedCategories });
+        toast({ title: 'Sucesso', description: `Categoria "${categoryToRemove}" removida.` });
     };
 
     const handleProfileUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user) {
-            toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
-            return;
-        }
         setIsSubmitting(true);
-        let finalPhotoURL = user.photoURL;
-
-        try {
-            if (photoFile) {
-                // The useStorage hook and related logic has been removed to fix a build error.
-                // Re-implementing the photo upload requires creating and exporting the useStorage hook correctly.
-                toast({
-                    variant: 'destructive',
-                    title: 'Funcionalidade Indisponível',
-                    description: 'O upload de fotos está temporariamente desativado.',
-                });
-                setIsSubmitting(false);
-                return;
-            }
-
-            await updateProfile(user, { displayName, photoURL: finalPhotoURL });
-            
-            const userDocRef = doc(firestore, `users/${user.uid}`);
-            await setDoc(userDocRef, { 
-                displayName: displayName, 
-                photoURL: finalPhotoURL 
-            }, { merge: true });
-
+        // Simulate update
+        setTimeout(() => {
             toast({
                 title: 'Perfil Atualizado!',
-                description: 'Seu perfil foi atualizado com sucesso.',
+                description: 'Seu perfil foi atualizado com sucesso (simulação).',
             });
-        } catch (error: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Erro ao Atualizar',
-                description: error.message || 'Ocorreu um erro desconhecido.',
-            });
-        } finally {
             setIsSubmitting(false);
-        }
+        }, 1000);
     };
     
     if (isLoading || isUserLoading) {
@@ -242,7 +150,7 @@ export default function SettingsPage() {
                             <div className="flex items-center gap-4">
                                 <Avatar className="h-20 w-20 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                                     <AvatarImage src={photoPreview || ''} alt={displayName || ''} />
-                                    <AvatarFallback>{(displayName || user?.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
+                                    <AvatarFallback>{(displayName || mockUser?.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
                                 </Avatar>
                                 <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
                                     <Upload className="mr-2 h-4 w-4" />
@@ -260,7 +168,7 @@ export default function SettingsPage() {
 
                         <div className="space-y-2">
                             <Label htmlFor="email">Email</Label>
-                            <Input id="email" type="email" value={user?.email || ''} disabled />
+                            <Input id="email" type="email" value={mockUser?.email || ''} disabled />
                         </div>
                          <div className="space-y-2">
                             <Label htmlFor="displayName">Nome de Exibição</Label>

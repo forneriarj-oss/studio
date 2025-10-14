@@ -14,9 +14,18 @@ import { useToast } from '@/hooks/use-toast';
 import { getPriceSuggestion, getRecipeSuggestion } from './actions';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth, useFirestore, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { addDoc, collection, doc } from 'firebase/firestore';
 
+const MOCK_RAW_MATERIALS: RawMaterial[] = [
+    { id: 'raw1', code: 'RM001', description: 'Farinha de Trigo', unit: 'KG', cost: 5, supplier: 'Fornecedor A', quantity: 8, minStock: 10 },
+    { id: 'raw2', code: 'RM002', description: 'Ovos', unit: 'UN', cost: 0.5, supplier: 'Fornecedor B', quantity: 20, minStock: 24 },
+];
+const MOCK_SETTINGS: Settings = {
+    productCategories: ['Bolo', 'Pastel', 'Bebida', 'Salgado'],
+    taxes: { icms: 0, iss: 0, pis: 0, cofins: 0 },
+    paymentRates: { credit: 0, debit: 0, pix: 0, mercadoPago: 0 },
+    platformFees: { ifood: 0, taNaMesa: 0 },
+    profitMargin: 30
+};
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -28,31 +37,19 @@ const formatCurrency = (amount: number) => {
 export default function NewFinishedProductPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user } = useUser();
-  const firestore = useFirestore();
-
-  const rawMaterialsRef = useMemoFirebase(
-    () => (user ? collection(firestore, `users/${user.uid}/raw-materials`) : null),
-    [firestore, user]
-  );
-  const { data: rawMaterials, isLoading: isLoadingMaterials } = useCollection<RawMaterial>(rawMaterialsRef);
   
-  const settingsRef = useMemoFirebase(
-    () => (user ? doc(firestore, `users/${user.uid}/settings/app-settings`) : null),
-    [firestore, user]
-  );
-  const { data: settings, isLoading: isLoadingSettings } = useDoc<Settings>(settingsRef);
+  const rawMaterials = MOCK_RAW_MATERIALS;
+  const isLoadingMaterials = false;
+  const settings = MOCK_SETTINGS;
+  const isLoadingSettings = false;
   
   const [isPricePending, startPriceTransition] = useTransition();
   const [isRecipePending, startRecipeTransition] = useTransition();
   const [priceSuggestion, setPriceSuggestion] = useState<{ price: number; justification: string } | null>(null);
 
   const [productName, setProductName] = useState('');
-  
   const [selectedCategory, setSelectedCategory] = useState('');
-  
   const [unit, setUnit] = useState('UN');
-  
   const [recipe, setRecipe] = useState<RecipeItem[]>([]);
   const [newRecipeItem, setNewRecipeItem] = useState<{ id: string, qty: number | '' }>({ id: '', qty: '' });
 
@@ -135,25 +132,6 @@ export default function NewFinishedProductPage() {
         });
       return;
     }
-    if (!user) {
-        toast({ variant: 'destructive', title: 'Usuário não autenticado.' });
-        return;
-    }
-
-    const finishedProductsRef = collection(firestore, `users/${user.uid}/finished-products`);
-    
-    const newProduct: Omit<FinishedProduct, 'id'> = {
-      sku: `SKU-${Date.now()}`,
-      name: productName,
-      category: selectedCategory,
-      unit,
-      recipe,
-      finalCost,
-      salePrice,
-      flavors: flavors.length > 0 ? flavors : [{ id: 'default', name: 'Padrão', stock: 0 }],
-    };
-
-    await addDoc(finishedProductsRef, newProduct);
     
     toast({
       title: 'Produto Salvo!',
@@ -269,7 +247,7 @@ export default function NewFinishedProductPage() {
                         <SelectValue placeholder="Selecione uma categoria" />
                     </SelectTrigger>
                     <SelectContent>
-                        {isLoadingSettings ? <SelectItem value="loading" disabled>Carregando...</SelectItem> :
+                        {isLoadingSettings ? <SelectItem value="loading" disabled>Carregando...</SelectItem> : 
                         settings?.productCategories?.map(cat => (
                             <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                         ))}

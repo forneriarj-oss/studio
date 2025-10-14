@@ -2,9 +2,6 @@
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import type { Expense, ExpenseCategory, PaymentMethod } from '@/lib/types';
-import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { addDoc, collection } from 'firebase/firestore';
-
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -20,6 +17,13 @@ const formatCurrency = (amount: number) => {
     }).format(amount);
 };
 
+const MOCK_EXPENSES: Expense[] = [
+    { id: 'exp1', amount: 50.20, category: 'Marketing', description: 'Impulsionamento Instagram', date: new Date().toISOString(), paymentMethod: 'Cartão' },
+    { id: 'exp2', amount: 120.00, category: 'Software', description: 'Assinatura Adobe', date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), paymentMethod: 'Cartão' },
+    { id: 'exp3', amount: 800.00, category: 'Outros', description: 'Aluguel do Espaço', date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), paymentMethod: 'PIX' },
+];
+
+
 const categories: ExpenseCategory[] = ['Marketing', 'Vendas', 'Software', 'Equipe', 'Outros'];
 const paymentMethods: PaymentMethod[] = ['PIX', 'Cartão', 'Dinheiro'];
 const categoryTranslations: Record<ExpenseCategory, string> = {
@@ -34,28 +38,19 @@ const expenseCategoriesForSelect: ExpenseCategory[] = ['Marketing', 'Vendas', 'S
 
 
 export default function ExpensesPage() {
-  const { user } = useUser();
-  const firestore = useFirestore();
-  const expensesRef = useMemoFirebase(
-    () => (user ? collection(firestore, `users/${user.uid}/expenses`) : null),
-    [firestore, user]
-  );
-  const { data: expenseList, isLoading } = useCollection<Expense>(expensesRef);
+  const [expenseList, setExpenseList] = useState<Expense[]>(MOCK_EXPENSES);
+  const isLoading = false;
 
   const { toast } = useToast();
 
   const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] useState('');
   const [category, setCategory] = useState<ExpenseCategory | ''>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !expensesRef) {
-      toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
-      return;
-    }
     if (!description || !amount || !category || !date) {
       toast({
         variant: 'destructive',
@@ -65,15 +60,16 @@ export default function ExpensesPage() {
       return;
     }
 
-    const newExpense: Omit<Expense, 'id'> = {
+    const newExpense: Expense = {
+      id: `exp-${Date.now()}`,
       description,
       amount: parseFloat(amount),
       category: category as ExpenseCategory,
       paymentMethod: paymentMethod as PaymentMethod,
       date: new Date(date).toISOString(),
     };
-
-    await addDoc(expensesRef, newExpense);
+    
+    setExpenseList(prev => [newExpense, ...prev]);
 
     toast({
       title: 'Despesa Adicionada!',

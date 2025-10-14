@@ -7,8 +7,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { LogOut, User } from "lucide-react";
 import { Nav } from "./nav";
-import { useUser, useAuth } from "@/firebase";
-import { handleSignOut } from "@/firebase/auth/service";
 import { useRouter } from "next/navigation";
 import { Box } from 'lucide-react';
 import Link from 'next/link';
@@ -21,12 +19,9 @@ const Logo = () => (
 )
 
 export function AppSidebar() {
-  const { user } = useUser();
-  const auth = useAuth();
   const router = useRouter();
 
   const onSignOut = async () => {
-    await handleSignOut(auth);
     router.push('/auth');
   }
 
@@ -36,20 +31,13 @@ export function AppSidebar() {
         <Logo />
       </SidebarHeader>
       <SidebarContent className="p-2">
-        { user && <Nav /> }
+        <Nav />
       </SidebarContent>
       <SidebarFooter>
-        { user ? (
           <Button variant="ghost" className="w-full justify-start gap-2" onClick={onSignOut}>
             <LogOut size={16} />
             <span className="group-data-[collapsible=icon]:hidden">Sair</span>
           </Button>
-        ) : (
-          <Button variant="ghost" className="w-full justify-start gap-2" onClick={() => router.push('/auth')}>
-            <User size={16} />
-            <span className="group-data-[collapsible=icon]:hidden">Login</span>
-          </Button>
-        )}
       </SidebarFooter>
     </>
   );

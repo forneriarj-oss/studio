@@ -16,8 +16,23 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useAuth, useFirestore, useUser, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, updateDoc } from 'firebase/firestore';
+
+const MOCK_PRODUCTS: FinishedProduct[] = [
+  { id: 'prod1', sku: 'SKU001', name: 'Bolo de Chocolate', category: 'Bolos', unit: 'UN', recipe: [], finalCost: 15, salePrice: 25, flavors: [{id: 'flav1', name: 'Comum', stock: 8}] },
+  { id: 'prod2', sku: 'SKU002', name: 'Torta de Maçã', category: 'Tortas', unit: 'UN', recipe: [], finalCost: 20, salePrice: 35, flavors: [{id: 'flav2', name: 'Comum', stock: 3}] },
+  { id: 'prod3', sku: 'SKU003', name: 'Café Expresso', category: 'Bebidas', unit: 'UN', recipe: [], finalCost: 2, salePrice: 5, flavors: [{id: 'flav3', name: 'Comum', stock: 50}] },
+];
+const MOCK_RAW_MATERIALS: RawMaterial[] = [
+    { id: 'raw1', code: 'RM001', description: 'Farinha de Trigo', unit: 'KG', cost: 5, supplier: 'Fornecedor A', quantity: 8, minStock: 10 },
+    { id: 'raw2', code: 'RM002', description: 'Ovos', unit: 'UN', cost: 0.5, supplier: 'Fornecedor B', quantity: 20, minStock: 24 },
+];
+const MOCK_SETTINGS: Settings = {
+    productCategories: ['Bolo', 'Pastel', 'Bebida', 'Salgado'],
+    taxes: { icms: 0, iss: 0, pis: 0, cofins: 0 },
+    paymentRates: { credit: 0, debit: 0, pix: 0, mercadoPago: 0 },
+    platformFees: { ifood: 0, taNaMesa: 0 },
+    profitMargin: 30
+};
 
 
 const formatCurrency = (amount: number) => {
@@ -32,26 +47,13 @@ export default function EditFinishedProductPage() {
   const params = useParams();
   const { id: productId } = params;
   const { toast } = useToast();
-  const { user } = useUser();
-  const firestore = useFirestore();
 
-  const rawMaterialsRef = useMemoFirebase(
-    () => (user ? collection(firestore, `users/${user.uid}/raw-materials`) : null),
-    [firestore, user]
-  );
-  const { data: rawMaterials, isLoading: isLoadingMaterials } = useCollection<RawMaterial>(rawMaterialsRef);
-
-  const productRef = useMemoFirebase(
-    () => (user && productId ? doc(firestore, `users/${user.uid}/finished-products/${productId}`) : null),
-    [firestore, user, productId]
-  );
-  const { data: product, isLoading: isLoadingProduct } = useDoc<FinishedProduct>(productRef);
-  
-  const settingsRef = useMemoFirebase(
-    () => (user ? doc(firestore, `users/${user.uid}/settings/app-settings`) : null),
-    [firestore, user]
-  );
-  const { data: settings, isLoading: isLoadingSettings } = useDoc<Settings>(settingsRef);
+  const rawMaterials = MOCK_RAW_MATERIALS;
+  const isLoadingMaterials = false;
+  const product = MOCK_PRODUCTS.find(p => p.id === productId);
+  const isLoadingProduct = false;
+  const settings = MOCK_SETTINGS;
+  const isLoadingSettings = false;
   
   const [isPricePending, startPriceTransition] = useTransition();
   const [isRecipePending, startRecipeTransition] = useTransition();
@@ -157,20 +159,7 @@ export default function EditFinishedProductPage() {
         });
       return;
     }
-    if (!productRef) return;
     
-    const updatedData = {
-      name: productName,
-      category: selectedCategory,
-      unit,
-      recipe,
-      finalCost,
-      salePrice,
-      flavors,
-    };
-
-    await updateDoc(productRef, updatedData);
-
     toast({
       title: 'Produto Atualizado!',
       description: `${productName} foi atualizado com sucesso.`,
@@ -208,7 +197,7 @@ export default function EditFinishedProductPage() {
         setSalePrice(result.suggestion.suggestedPrice);
         setPriceSuggestion({
             price: result.suggestion.suggestedPrice,
-            justification: result.suggestion.justification,
+            justification: result.suggestion,
         });
         toast({
           title: 'Preço Sugerido!',

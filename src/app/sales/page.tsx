@@ -1,9 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { addDoc, collection, doc, writeBatch, query, orderBy, limit } from 'firebase/firestore';
-
 import type { Sale, FinishedProduct, PaymentMethod, Flavor, Revenue } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -20,9 +17,18 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+
+const MOCK_PRODUCTS: FinishedProduct[] = [
+  { id: 'prod1', sku: 'SKU001', name: 'Bolo de Chocolate', category: 'Bolos', unit: 'UN', recipe: [], finalCost: 15, salePrice: 25, flavors: [{id: 'flav1', name: 'Comum', stock: 8}] },
+  { id: 'prod2', sku: 'SKU002', name: 'Torta de Maçã', category: 'Tortas', unit: 'UN', recipe: [], finalCost: 20, salePrice: 35, flavors: [{id: 'flav2', name: 'Comum', stock: 3}] },
+  { id: 'prod3', sku: 'SKU003', name: 'Café Expresso', category: 'Bebidas', unit: 'UN', recipe: [], finalCost: 2, salePrice: 5, flavors: [{id: 'flav3', name: 'Comum', stock: 0}] },
+];
+const MOCK_SALES: Sale[] = [
+    { id: 'sale1', productId: 'prod1', flavorId: 'flav1', quantity: 2, unitPrice: 25, date: new Date().toISOString(), location: 'Balcão' },
+    { id: 'sale2', productId: 'prod2', flavorId: 'flav2', quantity: 1, unitPrice: 35, date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), location: 'iFood' },
+];
 
 const paymentMethods: PaymentMethod[] = ['PIX', 'Cartão', 'Dinheiro'];
 const saleLocations = ['Balcão', 'iFood', 'Delivery'];
@@ -39,21 +45,12 @@ const formatCurrency = (amount: number) => {
 
 
 export default function SalesPage() {
-    const { user } = useUser();
-    const firestore = useFirestore();
     const { toast } = useToast();
 
-    const productsRef = useMemoFirebase(
-      () => (user ? collection(firestore, `users/${user.uid}/finished-products`) : null),
-      [firestore, user]
-    );
-    const { data: products, isLoading: isLoadingProducts } = useCollection<FinishedProduct>(productsRef);
-
-    const salesRef = useMemoFirebase(
-      () => (user ? query(collection(firestore, `users/${user.uid}/sales`), orderBy('date', 'desc'), limit(50)) : null),
-      [firestore, user]
-    );
-    const { data: sales, isLoading: isLoadingSales } = useCollection<Sale>(salesRef);
+    const [products, setProducts] = useState<FinishedProduct[]>(MOCK_PRODUCTS);
+    const isLoadingProducts = false;
+    const [sales, setSales] = useState<Sale[]>(MOCK_SALES);
+    const isLoadingSales = false;
     
     const [isClient, setIsClient] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -118,11 +115,6 @@ export default function SalesPage() {
     }
 
     const handleAddSale = async () => {
-        if (!user || !firestore) {
-            toast({ variant: "destructive", title: "Erro", description: "Usuário não autenticado." });
-            return;
-        }
-
         const product = getProduct(newSale.productId);
         const flavor = getFlavor(product, newSale.flavorId);
 
@@ -143,61 +135,31 @@ export default function SalesPage() {
             });
             return;
         }
-        
-        // Use a batch to ensure atomicity
-        const batch = writeBatch(firestore);
 
-        // 1. Create a reference for the revenue document first to get its ID
-        const revenuesRef = collection(firestore, `users/${user.uid}/revenues`);
-        const revenueDocRef = doc(revenuesRef);
-
-        // 2. Prepare the revenue document
-        const revenueFromSale: Omit<Revenue, 'id'> = {
-          amount: finalSalePrice,
-          source: `Venda - ${product.name} (${flavor.name})`,
-          date: new Date().toISOString(),
-          paymentMethod: newSale.paymentMethod,
+        // Add to sales
+        const saleToAdd: Sale = {
+            id: `sale-${Date.now()}`,
+            ...newSale,
+            date: new Date().toISOString(),
         };
-        batch.set(revenueDocRef, revenueFromSale);
+        setSales(prev => [saleToAdd, ...prev]);
 
-
-        // 3. Prepare the sale document with the revenue ID
-        const saleToAdd: Omit<Sale, 'id'> = {
-            productId: newSale.productId,
-            flavorId: newSale.flavorId,
-            quantity: newSale.quantity,
-            unitPrice: newSale.unitPrice,
-            date: revenueFromSale.date, // Use the same date for consistency
-            paymentMethod: newSale.paymentMethod,
-            location: newSale.location,
-            revenueId: revenueDocRef.id, // Store the actual ID of the revenue doc
-        };
-        const salesCollectionRef = collection(firestore, `users/${user.uid}/sales`);
-        batch.set(doc(salesCollectionRef), saleToAdd);
-
+        // Update product stock
+        setProducts(prevProducts => prevProducts.map(p => {
+            if (p.id === newSale.productId) {
+                const newFlavors = p.flavors.map(f => 
+                    f.id === newSale.flavorId ? { ...f, stock: f.stock - newSale.quantity } : f
+                );
+                return { ...p, flavors: newFlavors };
+            }
+            return p;
+        }));
         
-        // 4. Update the product stock
-        const productDocRef = doc(firestore, `users/${user.uid}/finished-products`, product.id!);
-        const newFlavors = product.flavors.map(f => 
-            f.id === newSale.flavorId ? { ...f, stock: f.stock - newSale.quantity } : f
-        );
-        batch.update(productDocRef, { flavors: newFlavors });
-
-        try {
-            await batch.commit();
-            toast({
-                title: 'Venda registrada!',
-                description: `Estoque do produto atualizado e receita registrada.`,
-            });
-            setIsDialogOpen(false);
-        } catch (error) {
-            console.error("Sale Error:", error);
-            toast({
-                variant: 'destructive',
-                title: 'Erro',
-                description: 'Não foi possível registrar a venda. Tente novamente.',
-            });
-        }
+        toast({
+            title: 'Venda registrada!',
+            description: `Estoque do produto atualizado e receita registrada.`,
+        });
+        setIsDialogOpen(false);
     }
 
     const openSaleDialog = (product: FinishedProduct) => {
@@ -390,7 +352,7 @@ export default function SalesPage() {
                 )}
                  {newSale.location === 'Delivery' && deliveryFee > 0 && (
                     <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Taxa de Entrega</span>
+                        <span>Taxa de Entrega</span>
                         <span>{formatCurrency(deliveryFee)}</span>
                     </div>
                 )}

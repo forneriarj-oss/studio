@@ -46,16 +46,6 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import {
-  useAuth,
-  useFirestore,
-  useUser,
-  useCollection,
-  useMemoFirebase,
-  errorEmitter,
-  FirestorePermissionError,
-} from '@/firebase';
-import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
 import {
@@ -71,6 +61,21 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+
+const MOCK_REVENUES: Revenue[] = [
+    { id: 'rev1', amount: 150.50, source: 'Venda de produtos', date: new Date().toISOString(), paymentMethod: 'PIX' },
+    { id: 'rev2', amount: 300.00, source: 'Consultoria', date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), paymentMethod: 'Cartão' },
+];
+const MOCK_EXPENSES: Expense[] = [
+    { id: 'exp1', amount: 50.20, category: 'Marketing', description: 'Impulsionamento Instagram', date: new Date().toISOString(), paymentMethod: 'Cartão' },
+    { id: 'exp2', amount: 120.00, category: 'Software', description: 'Assinatura Adobe', date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), paymentMethod: 'Cartão' },
+];
+const MOCK_SALES: Sale[] = [
+    { id: 'sale1', productId: 'prod1', flavorId: 'flav1', quantity: 2, unitPrice: 25, date: new Date().toISOString() },
+];
+const MOCK_PRODUCTS: Product[] = [
+  { id: 'prod1', sku: 'SKU001', name: 'Bolo de Chocolate', category: 'Bolos', unit: 'UN', recipe: [], finalCost: 15, salePrice: 25, flavors: [{id: 'flav1', name: 'Comum', stock: 8}] },
+];
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -111,8 +116,6 @@ const categoryTranslations: Record<ExpenseCategory, string> = {
 };
 
 function CashFlowTransactionDialog() {
-  const { user } = useUser();
-  const firestore = useFirestore();
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -133,10 +136,6 @@ function CashFlowTransactionDialog() {
   };
 
   const handleSave = async () => {
-    if (!user) {
-      toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
-      return;
-    }
     if (!type || !description || !amount) {
       toast({ variant: 'destructive', title: 'Erro', description: 'Por favor, preencha todos os campos obrigatórios.' });
       return;
@@ -147,37 +146,8 @@ function CashFlowTransactionDialog() {
     }
 
     if (type === 'revenue') {
-        const revenuesRef = collection(firestore, `users/${user.uid}/revenues`);
-        const data = {
-          source: description,
-          amount: parseFloat(amount),
-          date: new Date(date).toISOString(),
-          paymentMethod: paymentMethod,
-        };
-        addDoc(revenuesRef, data).catch(error => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: revenuesRef.path,
-            operation: 'create',
-            requestResourceData: data,
-          }));
-        });
         toast({ title: 'Receita adicionada!', description: `${description} foi registrada.` });
       } else {
-        const expensesRef = collection(firestore, `users/${user.uid}/expenses`);
-        const data = {
-          description,
-          amount: parseFloat(amount),
-          category,
-          date: new Date(date).toISOString(),
-          paymentMethod,
-        };
-        addDoc(expensesRef, data).catch(error => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: expensesRef.path,
-            operation: 'create',
-            requestResourceData: data,
-          }));
-        });
          toast({ title: 'Despesa adicionada!', description: `${description} foi registrada.` });
       }
       resetForm();
@@ -292,8 +262,6 @@ function CashFlowTransactionDialog() {
 export default function CashFlowPage() {
   const [timeRange, setTimeRange] = useState('7d');
   const [isClient, setIsClient] = useState(false);
-  const { user } = useUser();
-  const firestore = useFirestore();
 
   useEffect(() => {
     setIsClient(true);
@@ -327,51 +295,10 @@ export default function CashFlowPage() {
     return { startDate, endDate };
   }, [timeRange, isClient]);
 
-  const revenuesQuery = useMemoFirebase(
-    () =>
-      user && startDate && endDate
-        ? query(
-            collection(firestore, `users/${user.uid}/revenues`),
-            where('date', '>=', startDate.toISOString()),
-            where('date', '<=', endDate.toISOString())
-          )
-        : null,
-    [firestore, user, startDate, endDate]
-  );
-  const { data: filteredRevenues } = useCollection<Revenue>(revenuesQuery);
-
-  const expensesQuery = useMemoFirebase(
-    () =>
-      user && startDate-end date
-        ? query(
-            collection(firestore, `users/${user.uid}/expenses`),
-            where('date', '>=', startDate.toISOString()),
-            where('date', '<=', endDate.toISOString())
-          )
-        : null,
-    [firestore, user, startDate, endDate]
-  );
-  const { data: filteredExpenses } = useCollection<Expense>(expensesQuery);
-
-  const salesQuery = useMemoFirebase(
-    () =>
-      user && startDate && endDate
-        ? query(
-            collection(firestore, `users/${user.uid}/sales`),
-            where('date', '>=', startDate.toISOString()),
-            where('date', '<=', endDate.toISOString())
-          )
-        : null,
-    [firestore, user, startDate, endDate]
-  );
-  const { data: filteredSales } = useCollection<Sale>(salesQuery);
-
-  const productsRef = useMemoFirebase(
-    () =>
-      user ? collection(firestore, `users/${user.uid}/finished-products`) : null,
-    [firestore, user]
-  );
-  const { data: allProducts } = useCollection<Product>(productsRef);
+  const filteredRevenues = MOCK_REVENUES;
+  const filteredExpenses = MOCK_EXPENSES;
+  const filteredSales = MOCK_SALES;
+  const allProducts = MOCK_PRODUCTS;
 
   const totalRevenue =
     filteredRevenues?.reduce((acc, curr) => acc + curr.amount, 0) || 0;

@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
 import { DateRange } from 'react-day-picker';
 import { addDays, format, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -19,6 +17,23 @@ import type { Sale, Expense, Revenue, FinishedProduct } from '@/lib/types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+const MOCK_SALES: Sale[] = [
+    { id: 'sale1', productId: 'prod1', flavorId: 'flav1', quantity: 2, unitPrice: 25, date: new Date().toISOString() },
+    { id: 'sale2', productId: 'prod2', flavorId: 'flav2', quantity: 1, unitPrice: 35, date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
+];
+const MOCK_EXPENSES: Expense[] = [
+    { id: 'exp1', amount: 50.20, category: 'Marketing', description: 'Impulsionamento Instagram', date: new Date().toISOString() },
+    { id: 'exp2', amount: 120.00, category: 'Software', description: 'Assinatura Adobe', date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
+];
+const MOCK_REVENUES: Revenue[] = [
+    { id: 'rev1', amount: 150.50, source: 'Venda de produtos', date: new Date().toISOString() },
+    { id: 'rev2', amount: 300.00, source: 'Consultoria', date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
+];
+const MOCK_PRODUCTS: FinishedProduct[] = [
+  { id: 'prod1', sku: 'SKU001', name: 'Bolo de Chocolate', category: 'Bolos', unit: 'UN', recipe: [], finalCost: 15, salePrice: 25, flavors: [{id: 'flav1', name: 'Comum', stock: 8}] },
+  { id: 'prod2', sku: 'SKU002', name: 'Torta de Maçã', category: 'Tortas', unit: 'UN', recipe: [], finalCost: 20, salePrice: 35, flavors: [{id: 'flav2', name: 'Comum', stock: 3}] },
+];
+
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount);
 };
@@ -26,8 +41,6 @@ const formatCurrency = (amount: number) => {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF'];
 
 export default function ReportsPage() {
-  const { user } = useUser();
-  const firestore = useFirestore();
   const [isClient, setIsClient] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
@@ -46,37 +59,14 @@ export default function ReportsPage() {
     return { startDate: start, endDate: end };
   }, [dateRange]);
 
-  const salesQuery = useMemoFirebase(() => 
-    user ? query(
-      collection(firestore, `users/${user.uid}/sales`),
-      where('date', '>=', startDate.toISOString()),
-      where('date', '<=', endDate.toISOString())
-    ) : null
-  , [firestore, user, startDate, endDate]);
-  const { data: sales, isLoading: loadingSales } = useCollection<Sale>(salesQuery);
-
-  const expensesQuery = useMemoFirebase(() => 
-    user ? query(
-      collection(firestore, `users/${user.uid}/expenses`),
-      where('date', '>=', startDate.toISOString()),
-      where('date', '<=', endDate.toISOString())
-    ) : null
-  , [firestore, user, startDate, endDate]);
-  const { data: expenses, isLoading: loadingExpenses } = useCollection<Expense>(expensesQuery);
-  
-  const revenuesQuery = useMemoFirebase(() => 
-    user ? query(
-      collection(firestore, `users/${user.uid}/revenues`),
-      where('date', '>=', startDate.toISOString()),
-      where('date', '<=', endDate.toISOString())
-    ) : null
-  , [firestore, user, startDate, endDate]);
-  const { data: revenues, isLoading: loadingRevenues } = useCollection<Revenue>(revenuesQuery);
-  
-  const productsRef = useMemoFirebase(() => 
-    user ? collection(firestore, `users/${user.uid}/finished-products`) : null
-  , [firestore, user]);
-  const { data: products, isLoading: loadingProducts } = useCollection<FinishedProduct>(productsRef);
+  const sales = MOCK_SALES;
+  const loadingSales = false;
+  const expenses = MOCK_EXPENSES;
+  const loadingExpenses = false;
+  const revenues = MOCK_REVENUES;
+  const loadingRevenues = false;
+  const products = MOCK_PRODUCTS;
+  const loadingProducts = false;
 
   const reportData = useMemo(() => {
     if (!sales || !expenses || !revenues || !products) return null;

@@ -1,8 +1,5 @@
 'use client';
 import { useState } from 'react';
-import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { addDoc, collection } from 'firebase/firestore';
-
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -22,14 +19,15 @@ const formatCurrency = (amount: number) => {
     }).format(amount);
   };
 
+const MOCK_REVENUES: Revenue[] = [
+    { id: 'rev1', amount: 250, source: 'Venda de Bolo de Chocolate', date: new Date().toISOString(), paymentMethod: 'PIX' },
+    { id: 'rev2', amount: 120, source: 'Venda de Tortas', date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), paymentMethod: 'Cartão' },
+    { id: 'rev3', amount: 80, source: 'Venda de Café', date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), paymentMethod: 'Dinheiro' },
+];
+
 export default function RevenuePage() {
-  const { user } = useUser();
-  const firestore = useFirestore();
-  const revenuesRef = useMemoFirebase(
-    () => (user ? collection(firestore, `users/${user.uid}/revenues`) : null),
-    [firestore, user]
-  );
-  const { data: revenues, isLoading } = useCollection<Revenue>(revenuesRef);
+  const [revenues, setRevenues] = useState<Revenue[]>(MOCK_REVENUES);
+  const isLoading = false;
 
   const [newRevenue, setNewRevenue] = useState({
     source: '',
@@ -40,10 +38,6 @@ export default function RevenuePage() {
   const { toast } = useToast();
 
   const handleAddRevenue = async () => {
-    if (!user || !revenuesRef) {
-      toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
-      return;
-    }
     if (!newRevenue.source || !newRevenue.amount) {
       toast({
         variant: 'destructive',
@@ -53,14 +47,15 @@ export default function RevenuePage() {
       return;
     }
 
-    const revenueToAdd: Omit<Revenue, 'id'> = {
+    const revenueToAdd: Revenue = {
+      id: `rev-${Date.now()}`,
       source: newRevenue.source,
       amount: parseFloat(newRevenue.amount),
       date: new Date(newRevenue.date).toISOString(),
       paymentMethod: newRevenue.paymentMethod,
     };
     
-    await addDoc(revenuesRef, revenueToAdd);
+    setRevenues(prev => [revenueToAdd, ...prev]);
 
     toast({
       title: 'Receita Adicionada!',

@@ -32,8 +32,6 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { addDoc, collection, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -52,18 +50,20 @@ const EMPTY_PRODUCT_STATE = {
   code: `CODE-${Date.now()}`,
 };
 
+const MOCK_RAW_MATERIALS: RawMaterial[] = [
+    { id: 'raw1', code: 'RM001', description: 'Farinha de Trigo', unit: 'KG', cost: 5, supplier: 'Fornecedor A', quantity: 8, minStock: 10 },
+    { id: 'raw2', code: 'RM002', description: 'Ovos', unit: 'UN', cost: 0.5, supplier: 'Fornecedor B', quantity: 20, minStock: 24 },
+    { id: 'raw3', code: 'RM003', description: 'Chocolate em Barra', unit: 'KG', cost: 30, supplier: 'Fornecedor A', quantity: 15, minStock: 5 },
+];
+
+
 export function InventoryClient() {
-  const { user } = useUser();
-  const firestore = useFirestore();
-  const rawMaterialsRef = useMemoFirebase(
-    () => (user ? collection(firestore, `users/${user.uid}/raw-materials`) : null),
-    [firestore, user]
-  );
-  const { data: products, isLoading } = useCollection<RawMaterial>(rawMaterialsRef);
+  const [products, setProducts] = useState<RawMaterial[]>(MOCK_RAW_MATERIALS);
+  const isLoading = false;
 
   const [isNewProductDialogOpen, setIsNewProductDialogOpen] = useState(false);
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
-  const [editProductForm, setEditProductForm] = useState<RawMaterial & { id: string } | null>(null);
+  const [editProductForm, setEditProductForm] = useState<RawMaterial | null>(null);
 
   const { toast } = useToast();
   const [newProduct, setNewProduct] = useState(EMPTY_PRODUCT_STATE);
@@ -77,10 +77,9 @@ export function InventoryClient() {
       });
       return;
     }
-
-    if (!rawMaterialsRef) return;
-
-    await addDoc(rawMaterialsRef, newProduct);
+    
+    const productToAdd: RawMaterial = { ...newProduct, id: `raw-${Date.now()}` };
+    setProducts(prev => [productToAdd, ...prev]);
 
     toast({
       title: 'Matéria-Prima Adicionada!',
@@ -90,13 +89,13 @@ export function InventoryClient() {
     setIsNewProductDialogOpen(false);
   };
 
-  const handleOpenEditDialog = (product: RawMaterial & { id: string }) => {
+  const handleOpenEditDialog = (product: RawMaterial) => {
     setEditProductForm(product);
     setIsEditProductDialogOpen(true);
   };
 
   const handleEditProduct = async () => {
-    if (!editProductForm || !user) return;
+    if (!editProductForm) return;
 
     if (!editProductForm.description || !editProductForm.unit || editProductForm.cost < 0 || editProductForm.quantity < 0) {
       toast({
@@ -107,9 +106,7 @@ export function InventoryClient() {
       return;
     }
 
-    const docRef = doc(firestore, `users/${user.uid}/raw-materials`, editProductForm.id);
-    const { id, ...dataToUpdate } = editProductForm;
-    await updateDoc(docRef, dataToUpdate);
+    setProducts(prev => prev.map(p => p.id === editProductForm.id ? editProductForm : p));
 
     toast({
       title: 'Matéria-Prima Atualizada!',
@@ -121,9 +118,7 @@ export function InventoryClient() {
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    if (!user) return;
-    const docRef = doc(firestore, `users/${user.uid}/raw-materials`, productId);
-    await deleteDoc(docRef);
+    setProducts(prev => prev.filter(p => p.id !== productId));
     toast({
       title: 'Matéria-Prima Removida!',
       description: `O item foi removido do seu inventário.`,
@@ -253,7 +248,7 @@ export function InventoryClient() {
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteProduct(product.id)}>Excluir</AlertDialogAction>
+                            <AlertDialogAction onClick={() => handleDeleteProduct(product.id!)}>Excluir</AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>

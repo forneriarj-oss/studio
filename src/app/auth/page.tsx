@@ -1,129 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { useAuth, useUser, useFirestore } from '@/firebase';
-import { handleAnonymousSignIn } from '@/firebase/auth/service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
 import { Loader } from 'lucide-react';
 
-
-async function createSession(user: User) {
-  const idToken = await user.getIdToken();
-  const response = await fetch('/api/auth/session', {
-    method: 'POST',
-    body: idToken,
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to create session');
-  }
-}
-
-async function ensureUserProfile(firestore: any, user: User) {
-  if (!user) return;
-  const userDocRef = doc(firestore, `users/${user.uid}`);
-  const userDoc = await getDoc(userDocRef);
-
-  if (!userDoc.exists()) {
-    await setDoc(userDocRef, {
-      email: user.email,
-      displayName: user.displayName || 'Novo Usuário',
-      photoURL: user.photoURL || '',
-    });
-  }
-}
 
 export default function AuthPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
-  const auth = useAuth();
-  const firestore = useFirestore();
-  const { user, isUserLoading } = useUser();
-  const { toast } = useToast();
 
-  useEffect(() => {
-    if (!isUserLoading && user) {
+  const handleAuth = () => {
+    setIsSubmitting(true);
+    // Simulate API call
+    setTimeout(() => {
       router.replace('/');
-    }
-  }, [user, isUserLoading, router]);
-
-  const handleAuthSuccess = async (userCredential: any) => {
-    await Promise.all([
-      ensureUserProfile(firestore, userCredential.user),
-      createSession(userCredential.user)
-    ]);
-    router.replace('/');
-  };
-
-  const onSignIn = async () => {
-    setIsSubmitting(true);
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      await handleAuthSuccess(userCredential);
-      toast({ title: 'Login bem-sucedido!' });
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro de Login',
-        description: error.message || 'Ocorreu um erro desconhecido.',
-      });
-    } finally {
       setIsSubmitting(false);
-    }
+    }, 1000);
   };
-
-  const onSignUp = async () => {
-    setIsSubmitting(true);
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await handleAuthSuccess(userCredential);
-      toast({ title: 'Conta criada com sucesso!', description: 'Você será redirecionado em breve.' });
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao Criar Conta',
-        description: error.message || 'Ocorreu um erro desconhecido.',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-  
-  const onAnonymousSignIn = async () => {
-    setIsSubmitting(true);
-    try {
-        const userCredential = await handleAnonymousSignIn(auth);
-        await handleAuthSuccess(userCredential);
-        toast({ title: 'Login anônimo bem-sucedido!' });
-    } catch (error: any)
-    {
-        toast({
-            variant: 'destructive',
-            title: 'Erro de Login Anônimo',
-            description: error.message || 'Ocorreu um erro desconhecido.',
-        });
-    } finally {
-        setIsSubmitting(false);
-    }
-  }
-
-  if (isUserLoading || user) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader className="h-16 w-16 animate-spin" />
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
@@ -149,11 +49,11 @@ export default function AuthPage() {
               </div>
             </CardContent>
             <CardFooter className="flex-col gap-4">
-              <Button className="w-full" onClick={onSignIn} disabled={isSubmitting}>
+              <Button className="w-full" onClick={handleAuth} disabled={isSubmitting}>
                 {isSubmitting ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Entrar
               </Button>
-              <Button variant="outline" className="w-full" onClick={onAnonymousSignIn} disabled={isSubmitting}>
+              <Button variant="outline" className="w-full" onClick={handleAuth} disabled={isSubmitting}>
                   Entrar como Visitante
               </Button>
             </CardFooter>
@@ -176,7 +76,7 @@ export default function AuthPage() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button className="w-full" onClick={onSignUp} disabled={isSubmitting}>
+              <Button className="w-full" onClick={handleAuth} disabled={isSubmitting}>
                 {isSubmitting ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Criar Conta
               </Button>

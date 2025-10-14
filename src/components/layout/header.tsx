@@ -15,10 +15,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Loader, Box } from "lucide-react";
 import Image from 'next/image';
-import { useUser, useAuth } from "@/firebase";
-import { handleSignOut } from "@/firebase/auth/service";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useState, useEffect } from "react";
 
 const Logo = () => (
     <Link href="/" className="flex items-center gap-2">
@@ -29,12 +28,14 @@ const Logo = () => (
 
 export function Header() {
   const { isMobile } = useSidebar();
-  const { user, isUserLoading } = useUser();
-  const auth = useAuth();
   const router = useRouter();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const onSignOut = async () => {
-    await handleSignOut(auth);
     router.push('/auth');
   }
 
@@ -46,6 +47,12 @@ export function Header() {
     }
     return names[0][0].toUpperCase();
   }
+  
+  const mockUser = {
+      displayName: 'Usuário Demo',
+      email: 'demo@example.com',
+      photoURL: ''
+  };
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6">
@@ -53,23 +60,23 @@ export function Header() {
       {!isMobile && <Logo />}
       <div className="flex w-full items-center gap-4">
         <div className="flex-1" />
-        {isUserLoading ? (
+        {!isClient ? (
           <Loader className="h-6 w-6 animate-spin" />
-        ) : user ? (
+        ) : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-full">
                 <Avatar className="h-8 w-8">
-                  {user.photoURL ? (
-                    <AvatarImage src={user.photoURL} alt={user.displayName || 'User Avatar'} />
+                  {mockUser.photoURL ? (
+                    <AvatarImage src={mockUser.photoURL} alt={mockUser.displayName || 'User Avatar'} />
                   ) : (
-                     <AvatarFallback>{getInitials(user.displayName || user.email)}</AvatarFallback>
+                     <AvatarFallback>{getInitials(mockUser.displayName || mockUser.email)}</AvatarFallback>
                   )}
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>{user.displayName || user.email}</DropdownMenuLabel>
+              <DropdownMenuLabel>{mockUser.displayName || mockUser.email}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link href="/settings">Configurações</Link>
@@ -78,8 +85,6 @@ export function Header() {
               <DropdownMenuItem onClick={onSignOut}>Sair</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        ) : (
-           <Button onClick={() => router.push('/auth')}>Login</Button>
         )}
       </div>
     </header>
