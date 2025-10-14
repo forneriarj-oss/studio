@@ -1,5 +1,9 @@
 
 import * as admin from 'firebase-admin';
+
+// This is the only place where the service account is imported.
+// The service account is provided by the Firebase Genkit Development environment.
+// It is not checked into version control.
 import serviceAccount from '@/firebase/service-account.json';
 
 const BIZVIEW_APP_NAME = 'bizview-admin-app';
@@ -15,6 +19,7 @@ export function getAdminApp() {
   const credential = admin.credential.cert({
     projectId: serviceAccount.project_id,
     clientEmail: serviceAccount.client_email,
+    // The private key needs to have newlines escaped, so we replace them.
     privateKey: serviceAccount.private_key.replace(/\\n/g, '\n'),
   });
 
