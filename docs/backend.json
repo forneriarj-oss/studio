@@ -8,7 +8,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the User entity."
+          "description": "Unique identifier for the user entity."
         },
         "name": {
           "type": "string",
@@ -30,11 +30,11 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Expense",
       "type": "object",
-      "description": "Represents an expense recorded in the BizView application.",
+      "description": "Represents an expense incurred by the business.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Expense entity."
+          "description": "Unique identifier for the expense entity."
         },
         "userId": {
           "type": "string",
@@ -51,7 +51,7 @@
         },
         "category": {
           "type": "string",
-          "description": "The category of the expense (e.g., 'Rent', 'Supplies')."
+          "description": "The category of the expense (e.g., supplies, rent, utilities)."
         },
         "description": {
           "type": "string",
@@ -70,11 +70,11 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Revenue",
       "type": "object",
-      "description": "Represents a revenue stream recorded in the BizView application.",
+      "description": "Represents a revenue stream for the business.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Revenue entity."
+          "description": "Unique identifier for the revenue entity."
         },
         "userId": {
           "type": "string",
@@ -91,7 +91,7 @@
         },
         "category": {
           "type": "string",
-          "description": "The category of the revenue (e.g., 'Sales', 'Services')."
+          "description": "The category of the revenue (e.g., sales, services)."
         },
         "description": {
           "type": "string",
@@ -110,24 +110,24 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Appointment",
       "type": "object",
-      "description": "Represents an appointment scheduled in the BizView application.",
+      "description": "Represents a scheduled appointment.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Appointment entity."
+          "description": "Unique identifier for the appointment entity."
         },
         "userId": {
           "type": "string",
           "description": "Reference to User. (Relationship: User 1:N Appointment)"
         },
-        "startDateTime": {
+        "startTime": {
           "type": "string",
-          "description": "The date and time the appointment starts.",
+          "description": "The start time of the appointment.",
           "format": "date-time"
         },
-        "endDateTime": {
+        "endTime": {
           "type": "string",
-          "description": "The date and time the appointment ends.",
+          "description": "The end time of the appointment.",
           "format": "date-time"
         },
         "title": {
@@ -142,8 +142,8 @@
       "required": [
         "id",
         "userId",
-        "startDateTime",
-        "endDateTime",
+        "startTime",
+        "endTime",
         "title"
       ]
     }
@@ -163,7 +163,7 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores user profile information. Accessible only to the user and potentially admins (if applicable).",
+          "description": "Stores user profiles. The 'userId' parameter represents the unique identifier for each user.",
           "params": [
             {
               "name": "userId",
@@ -179,7 +179,7 @@
           "schema": {
             "$ref": "#/backend/entities/Expense"
           },
-          "description": "Stores expense records for a specific user. Accessible only to the user who owns the expenses.",
+          "description": "Stores expenses owned by a specific user. Path-based ownership enables secure list operations.",
           "params": [
             {
               "name": "userId",
@@ -193,13 +193,13 @@
         }
       },
       {
-        "path": "/users/{userId}/revenue/{revenueId}",
+        "path": "/users/{userId}/revenues/{revenueId}",
         "definition": {
           "entityName": "Revenue",
           "schema": {
             "$ref": "#/backend/entities/Revenue"
           },
-          "description": "Stores revenue records for a specific user. Accessible only to the user who owns the revenue.",
+          "description": "Stores revenues owned by a specific user. Path-based ownership enables secure list operations.",
           "params": [
             {
               "name": "userId",
@@ -219,7 +219,7 @@
           "schema": {
             "$ref": "#/backend/entities/Appointment"
           },
-          "description": "Stores appointment records for a specific user. Accessible only to the user who owns the appointments.",
+          "description": "Stores appointments owned by a specific user. Path-based ownership enables secure list operations.",
           "params": [
             {
               "name": "userId",
@@ -231,28 +231,8 @@
             }
           ]
         }
-      },
-      {
-        "path": "/users/{userId}/raw-materials/{rawMaterialId}",
-        "definition": {
-          "entityName": "RawMaterial",
-          "schema": {
-            "$ref": "#/backend/entities/RawMaterial"
-          },
-          "description": "Stores raw materials data for a specific user. Accessible only to the user who owns the raw materials.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            },
-            {
-              "name": "rawMaterialId",
-              "description": "The unique identifier of the raw material."
-            }
-          ]
-        }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to address the \"Missing or insufficient permissions\" error by enforcing clear ownership and access control. The error indicates the user is trying to `list` `raw-materials` under their user document, but lacks the necessary permissions. To fix this, we'll use path-based ownership for the `raw-materials` collection, making sure only the logged-in user can access their own raw materials.\n\nThe structure prioritizes authorization independence and supports secure list operations (QAPs). User data and their related resources (expenses, revenue, appointments, and raw materials) are stored under their respective user document, enabling straightforward security rules based on `request.auth.uid`.\n\nAuthorization Independence:\nExpenses, Revenue, Appointments, and Raw Materials collections are nested under each user's document.  The `userId` field inside each document is redundant as it can always be infered by the path, but it is kept for code readabiliy. This eliminates the need for `get()` calls in the security rules, because every document in the collection has the `userId` field denormalized, ensuring atomic operations and simplifying debugging.\n\nQAPs:\nThe structure supports secure `list` operations because collections like `expenses`, `revenue`, `appointments`, and `raw-materials` are segregated under each user. The security rules only need to verify if the `request.auth.uid` matches the `userId` (in our design it must also match the path to the document, this double check can be ommited to improve performance).\n"
+    "reasoning": "The Firestore data structure is designed to address the \"Missing or insufficient permissions\" error by ensuring authorization independence and secure data access based on user ownership. The primary strategy is to use path-based ownership for user-related data, eliminating the need for `get()` calls in security rules and simplifying list operations.\n\n**Structure:**\n\n*   `/users/{userId}`: Stores user profiles.\n*   `/users/{userId}/expenses/{expenseId}`: Stores expenses owned by a specific user.\n*   `/users/{userId}/revenues/{revenueId}`: Stores revenues owned by a specific user.\n*   `/users/{userId}/appointments/{appointmentId}`: Stores appointments owned by a specific user.\n\n**Authorization Independence and QAPs:**\n\nThe structure achieves authorization independence by directly associating each data entity (expenses, revenues, appointments) with its owner via the path (`/users/{userId}`). This allows security rules to be written based solely on the `request.auth.uid` and the path, without needing to read data from other documents. Specifically:\n\n*   **Expenses, Revenues, and Appointments:** Since these are stored as subcollections of `/users/{userId}`, listing operations can be secured by checking if `request.auth.uid` matches the `{userId}` in the path. This prevents unauthorized listing of other users' data.\n\nThis design supports secure `list` operations (QAPs) because the security rules can directly verify ownership based on the path, ensuring that a user can only list resources that belong to them. This segregation, using hierarchical paths, simplifies rules and makes them more robust and debuggable."
   }
 }
