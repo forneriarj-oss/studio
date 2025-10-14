@@ -15,7 +15,7 @@ import { getPriceSuggestion, getRecipeSuggestion } from './actions';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useUser, useCollection, useFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 
 const MOCK_SETTINGS: Settings = {
@@ -36,8 +36,7 @@ const formatCurrency = (amount: number) => {
 export default function NewFinishedProductPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user } = useUser();
-  const { firestore } = useFirebase();
+  const { user, firestore } = useFirebase();
   
   const rawMaterialsQuery = useMemo(() => {
     if (!user || !firestore) return null;
@@ -135,14 +134,34 @@ export default function NewFinishedProductPage() {
 
 
   const handleSaveProduct = async () => {
-    if (!productName || !salePrice || salePrice <= 0 || finalCost < 0 ) {
+    if (!productName || !selectedCategory || !unit || !salePrice) {
        toast({
           variant: 'destructive',
           title: 'Campos obrigatórios incompletos',
-          description: 'Preencha a descrição, custo e preço de venda.',
+          description: 'Preencha a descrição, categoria, unidade e preço de venda.',
         });
       return;
     }
+
+     if (!user || !firestore) {
+        toast({ variant: 'destructive', title: 'Erro de autenticação', description: 'Usuário não logado.' });
+        return;
+    }
+    
+    const finishedProductsRef = collection(firestore, 'users', user.uid, 'finished-products');
+    const newProductData: Omit<FinishedProduct, 'id'> = {
+        sku: `SKU-${Date.now()}`,
+        name: productName,
+        category: selectedCategory,
+        unit,
+        recipe,
+        finalCost,
+        salePrice: Number(salePrice),
+        flavors,
+        createdAt: serverTimestamp()
+    };
+
+    await addDoc(finishedProductsRef, newProductData);
     
     toast({
       title: 'Produto Salvo!',
@@ -252,7 +271,7 @@ export default function NewFinishedProductPage() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-                <Label htmlFor="category">Categoria</Label>
+                <Label htmlFor="category">Categoria *</Label>
                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                     <SelectTrigger id="category">
                         <SelectValue placeholder="Selecione uma categoria" />
@@ -344,7 +363,7 @@ export default function NewFinishedProductPage() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
              <div className="space-y-2">
-                <Label htmlFor="manual-cost">Custo Manual/Final *</Label>
+                <Label htmlFor="manual-cost">Custo Manual/Final</Label>
                 <Input id="manual-cost" type="number" placeholder="Substitui o custo calculado" value={manualCost} onChange={e => setManualCost(e.target.value === '' ? '' : Number(e.target.value))} />
                  <p className="text-xs text-muted-foreground">Custo calculado da receita: {formatCurrency(calculatedCost)}</p>
             </div>
@@ -393,8 +412,8 @@ export default function NewFinishedProductPage() {
                         setNewFlavor({ ...newFlavor, name: e.target.value })
                       }
                     />
-                    <Button variant="outline" size="icon" onClick={() => handleSuggestRecipe(newFlavor.name)} disabled={isPricePending}>
-                        <Wand2 className={`h-4 w-4 ${isPricePending ? 'animate-spin' : ''}`} />
+                    <Button variant="outline" size="icon" onClick={() => handleSuggestRecipe(newFlavor.name)} disabled={isRecipePending}>
+                        <Wand2 className={`h-4 w-4 ${isRecipePending ? 'animate-spin' : ''}`} />
                     </Button>
                 </div>
               </div>

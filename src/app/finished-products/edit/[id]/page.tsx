@@ -17,7 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useUser, useCollection, useDoc, useFirebase } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, updateDoc } from 'firebase/firestore';
 
 
 const MOCK_SETTINGS: Settings = {
@@ -41,8 +41,7 @@ export default function EditFinishedProductPage() {
   const params = useParams();
   const { id: productId } = params;
   const { toast } = useToast();
-  const { user } = useUser();
-  const { firestore } = useFirebase();
+  const { user, firestore } = useFirebase();
 
   const productRef = useMemo(() => {
     if (!user || !firestore || !productId) return null;
@@ -100,7 +99,7 @@ export default function EditFinishedProductPage() {
     }, 0);
   }, [recipe, rawMaterials]);
 
-  const finalCost = manualCost !== '' ? manualCost : calculatedCost;
+  const finalCost = manualCost !== '' ? Number(manualCost) : calculatedCost;
   
   const handleAddFlavor = () => {
     if (newFlavor.name.trim() === '') {
@@ -161,14 +160,26 @@ export default function EditFinishedProductPage() {
   }
 
   const handleSaveProduct = async () => {
-    if (!productName || !salePrice || salePrice <= 0 || finalCost < 0 ) {
+    if (!productName || !selectedCategory || !unit || !salePrice || !productRef) {
        toast({
           variant: 'destructive',
           title: 'Campos obrigatórios incompletos',
-          description: 'Preencha a descrição, custo e preço de venda.',
+          description: 'Preencha a descrição, categoria, unidade e preço de venda.',
         });
       return;
     }
+    
+    const productToUpdate = {
+        name: productName,
+        category: selectedCategory,
+        unit,
+        recipe,
+        finalCost: finalCost,
+        salePrice: Number(salePrice),
+        flavors,
+    };
+
+    await updateDoc(productRef, productToUpdate);
     
     toast({
       title: 'Produto Atualizado!',
@@ -207,7 +218,7 @@ export default function EditFinishedProductPage() {
         setSalePrice(result.suggestion.suggestedPrice);
         setPriceSuggestion({
             price: result.suggestion.suggestedPrice,
-            justification: result.suggestion,
+            justification: result.suggestion.justification,
         });
         toast({
           title: 'Preço Sugerido!',
