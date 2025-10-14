@@ -1,31 +1,5 @@
-
 {
   "entities": {
-    "UserProfile": {
-      "title": "User Profile",
-      "description": "Represents a user's public profile information.",
-      "type": "object",
-      "properties": {
-        "uid": {
-          "type": "string",
-          "description": "The user's unique ID."
-        },
-        "displayName": {
-          "type": "string",
-          "description": "The user's display name."
-        },
-        "photoURL": {
-          "type": "string",
-          "description": "URL of the user's profile picture."
-        },
-        "email": {
-          "type": "string",
-          "format": "email",
-          "description": "The user's email address."
-        }
-      },
-      "required": ["email"]
-    },
     "Expense": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Expense",
@@ -34,34 +8,36 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the expense."
-        },
-        "date": {
-          "type": "string",
-          "description": "Date of the expense.",
-          "format": "date-time"
+          "description": "Unique identifier for the expense record."
         },
         "amount": {
           "type": "number",
-          "description": "Amount of the expense."
+          "description": "The amount of the expense."
         },
         "category": {
           "type": "string",
-          "description": "Category of the expense (e.g., 'Rent', 'Supplies')."
+          "description": "The category of the expense (e.g., 'Rent', 'Utilities', 'Salaries')."
+        },
+        "date": {
+          "type": "string",
+          "description": "The date the expense was incurred.",
+          "format": "date-time"
         },
         "description": {
           "type": "string",
-          "description": "Description of the expense."
+          "description": "A description of the expense."
         },
-        "paymentMethod": {
-          "type": "string"
+        "businessId": {
+          "type": "string",
+          "description": "Reference to Business. (Relationship: Business 1:N Expense)"
         }
       },
       "required": [
-        "date",
+        "id",
         "amount",
         "category",
-        "description"
+        "date",
+        "businessId"
       ]
     },
     "Revenue": {
@@ -72,33 +48,36 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the revenue."
-        },
-        "date": {
-          "type": "string",
-          "description": "Date of the revenue.",
-          "format": "date-time"
+          "description": "Unique identifier for the revenue record."
         },
         "amount": {
           "type": "number",
-          "description": "Amount of the revenue."
+          "description": "The amount of the revenue."
         },
-        "source": {
+        "category": {
           "type": "string",
-          "description": "Source of the revenue (e.g., 'Sales', 'Services')."
+          "description": "The category of the revenue (e.g., 'Sales', 'Services')."
+        },
+        "date": {
+          "type": "string",
+          "description": "The date the revenue was received.",
+          "format": "date-time"
         },
         "description": {
           "type": "string",
-          "description": "Description of the revenue."
+          "description": "A description of the revenue."
         },
-        "paymentMethod": {
-          "type": "string"
+        "businessId": {
+          "type": "string",
+          "description": "Reference to Business. (Relationship: Business 1:N Revenue)"
         }
       },
       "required": [
-        "date",
+        "id",
         "amount",
-        "source"
+        "category",
+        "date",
+        "businessId"
       ]
     },
     "Appointment": {
@@ -111,235 +90,64 @@
           "type": "string",
           "description": "Unique identifier for the appointment."
         },
+        "title": {
+          "type": "string",
+          "description": "The title of the appointment."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the appointment."
+        },
         "startTime": {
           "type": "string",
-          "description": "Start time of the appointment.",
+          "description": "The start time of the appointment.",
           "format": "date-time"
         },
         "endTime": {
           "type": "string",
-          "description": "End time of the appointment.",
+          "description": "The end time of the appointment.",
           "format": "date-time"
         },
-        "description": {
+        "location": {
           "type": "string",
-          "description": "Description of the appointment."
+          "description": "The location of the appointment."
         },
-        "notes": {
+        "businessId": {
           "type": "string",
-          "description": "Additional notes for the appointment, potentially AI-generated."
+          "description": "Reference to Business. (Relationship: Business 1:N Appointment)"
         }
       },
       "required": [
+        "id",
+        "title",
         "startTime",
         "endTime",
-        "description"
+        "businessId"
       ]
     },
-    "RawMaterial": {
-      "title": "Raw Material",
-      "description": "Represents a single raw material or ingredient in inventory.",
+    "Business": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Business",
       "type": "object",
+      "description": "Represents a business within the ERP system.",
       "properties": {
-        "code": {
+        "id": {
           "type": "string",
-          "description": "Internal code or SKU for the material."
-        },
-        "description": {
-          "type": "string",
-          "description": "Name or description of the material."
-        },
-        "unit": {
-          "type": "string",
-          "description": "The unit of measurement (e.g., KG, L, UN)."
-        },
-        "cost": {
-          "type": "number",
-          "description": "The cost per unit of the material."
-        },
-        "supplier": {
-          "type": "string",
-          "description": "The primary supplier of the material."
-        },
-        "quantity": {
-          "type": "number",
-          "description": "The current quantity in stock."
-        },
-        "minStock": {
-          "type": "number",
-          "description": "The minimum stock level before an alert is triggered."
-        }
-      },
-      "required": [
-        "code",
-        "description",
-        "unit",
-        "cost",
-        "quantity",
-        "minStock"
-      ]
-    },
-    "FinishedProduct": {
-      "title": "Finished Product",
-      "description": "Represents a final product ready for sale.",
-      "type": "object",
-      "properties": {
-        "sku": {
-          "type": "string",
-          "description": "Stock Keeping Unit for the product."
+          "description": "Unique identifier for the business."
         },
         "name": {
           "type": "string",
-          "description": "Name of the product."
+          "description": "The name of the business."
         },
-        "category": {
+        "description": {
           "type": "string",
-          "description": "Category of the product (e.g., 'Bolo', 'Pastel')."
-        },
-        "unit": {
-          "type": "string",
-          "description": "Unit of sale (e.g., 'UN', 'KG')."
-        },
-        "recipe": {
-          "type": "array",
-          "description": "List of raw materials and quantities to produce one unit.",
-          "items": {
-            "type": "object",
-            "properties": {
-              "rawMaterialId": {
-                "type": "string"
-              },
-              "quantity": {
-                "type": "number"
-              }
-            },
-            "required": [
-              "rawMaterialId",
-              "quantity"
-            ]
-          }
-        },
-        "finalCost": {
-          "type": "number",
-          "description": "The final calculated or manually set cost of the product."
-        },
-        "salePrice": {
-          "type": "number",
-          "description": "The price at which the product is sold."
-        },
-        "flavors": {
-          "type": "array",
-          "description": "Different flavors or variations of the product.",
-          "items": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              },
-              "stock": {
-                "type": "number"
-              }
-            },
-            "required": [
-              "id",
-              "name",
-              "stock"
-            ]
-          }
+          "description": "A description of the business."
         }
       },
       "required": [
-        "sku",
-        "name",
-        "category",
-        "unit",
-        "finalCost",
-        "salePrice",
-        "flavors"
+        "id",
+        "name"
       ]
-    },
-    "Sale": {
-      "title": "Sale",
-      "description": "Represents a single sales transaction.",
-      "type": "object",
-      "properties": {
-        "productId": {
-          "type": "string"
-        },
-        "flavorId": {
-          "type": "string"
-        },
-        "quantity": {
-          "type": "number"
-        },
-        "unitPrice": {
-          "type": "number"
-        },
-        "date": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "paymentMethod": {
-          "type": "string"
-        },
-        "location": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "productId",
-        "flavorId",
-        "quantity",
-        "unitPrice",
-        "date",
-        "paymentMethod",
-        "location"
-      ]
-    },
-    "Settings": {
-      "title": "Settings",
-      "description": "Stores user-specific application settings.",
-      "type": "object",
-      "properties": {
-        "productCategories": {
-          "type": "array",
-          "description": "List of user-defined product categories.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "taxes": {
-          "type": "object",
-          "properties": {
-            "icms": {"type": "number"},
-            "iss": {"type": "number"},
-            "pis": {"type": "number"},
-            "cofins": {"type": "number"}
-          }
-        },
-        "paymentRates": {
-          "type": "object",
-          "properties": {
-            "credit": {"type": "number"},
-            "debit": {"type": "number"},
-            "pix": {"type": "number"},
-            "mercadoPago": {"type": "number"}
-          }
-        },
-        "platformFees": {
-           "type": "object",
-          "properties": {
-            "ifood": {"type": "number"},
-            "taNaMesa": {"type": "number"}
-          }
-        },
-        "profitMargin": {
-          "type": "number"
-        }
-      }
     }
   },
   "auth": {
@@ -348,87 +156,101 @@
       "anonymous"
     ]
   },
-  "storage": {
-    "bucket": "studio-4845954183-96505.appspot.com"
-  },
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}/expenses/{expenseId}",
+        "path": "/users/{userId}/businesses/{businessId}",
+        "definition": {
+          "entityName": "Business",
+          "schema": {
+            "$ref": "#/backend/entities/Business"
+          },
+          "description": "Stores businesses owned by a specific user. Path-based ownership simplifies security rules.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who owns the business."
+            },
+            {
+              "name": "businessId",
+              "description": "The ID of the business."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/businesses/{businessId}/expenses/{expenseId}",
         "definition": {
           "entityName": "Expense",
           "schema": {
-            "$ref": "#/entities/Expense"
+            "$ref": "#/backend/entities/Expense"
           },
-          "description": "Stores expense records for a specific user. Path-based ownership ensures only the user can access their expenses."
+          "description": "Stores expense records for a specific business. Path-based ownership ensures only the owner can access the expenses.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who owns the business."
+            },
+            {
+              "name": "businessId",
+              "description": "The ID of the business."
+            },
+            {
+              "name": "expenseId",
+              "description": "The ID of the expense record."
+            }
+          ]
         }
       },
       {
-        "path": "/users/{userId}/revenues/{revenueId}",
+        "path": "/users/{userId}/businesses/{businessId}/revenues/{revenueId}",
         "definition": {
           "entityName": "Revenue",
           "schema": {
-            "$ref": "#/entities/Revenue"
+            "$ref": "#/backend/entities/Revenue"
           },
-          "description": "Stores revenue records for a specific user. Path-based ownership ensures only the user can access their revenue."
+          "description": "Stores revenue records for a specific business. Path-based ownership ensures only the owner can access the revenues.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who owns the business."
+            },
+            {
+              "name": "businessId",
+              "description": "The ID of the business."
+            },
+            {
+              "name": "revenueId",
+              "description": "The ID of the revenue record."
+            }
+          ]
         }
       },
       {
-        "path": "/users/{userId}/appointments/{appointmentId}",
+        "path": "/users/{userId}/businesses/{businessId}/appointments/{appointmentId}",
         "definition": {
           "entityName": "Appointment",
           "schema": {
-            "$ref": "#/entities/Appointment"
+            "$ref": "#/backend/entities/Appointment"
           },
-          "description": "Stores appointment records for a specific user. Path-based ownership ensures only the user can access their appointments."
-        }
-      },
-      {
-        "path": "/users/{userId}/raw-materials/{materialId}",
-        "definition": {
-          "entityName": "RawMaterial",
-          "schema": {
-            "$ref": "#/entities/RawMaterial"
-          },
-          "description": "Stores raw material inventory for a specific user."
-        }
-      },
-      {
-        "path": "/users/{userId}/finished-products/{productId}",
-        "definition": {
-          "entityName": "FinishedProduct",
-          "schema": {
-            "$ref": "#/entities/FinishedProduct"
-          },
-          "description": "Stores finished product definitions for a specific user."
-        }
-      },
-      {
-        "path": "/users/{userId}/sales/{saleId}",
-        "definition": {
-          "entityName": "Sale",
-          "schema": {
-            "$ref": "#/entities/Sale"
-          },
-          "description": "Stores individual sales records for a user."
-        }
-      },
-      {
-        "path": "/users/{userId}/settings/app-settings",
-        "definition": {
-            "entityName": "Settings",
-            "schema": { "$ref": "#/entities/Settings"},
-            "description": "Stores user-specific app settings in a single document."
-        }
-      },
-       {
-        "path": "/users/{userId}",
-        "definition": {
-            "entityName": "UserProfile",
-            "schema": { "$ref": "#/entities/UserProfile"},
-            "description": "Stores user profile information in a single document."
+          "description": "Stores appointment records for a specific business. Path-based ownership ensures only the owner can access the appointments.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who owns the business."
+            },
+            {
+              "name": "businessId",
+              "description": "The ID of the business."
+            },
+            {
+              "name": "appointmentId",
+              "description": "The ID of the appointment record."
+            }
+          ]
         }
       }
-    ]
+    ],
+    "reasoning": "The Firestore structure is designed to support BizView's core features while prioritizing security, scalability, and ease of debugging.  The structure leverages path-based ownership for user-specific data related to businesses, expenses, revenues, and appointments. This approach ensures Authorization Independence and simplifies security rules. Each entity is stored in a subcollection under the corresponding business, which in turn is owned by the user.\n\nAuthorization Independence: Achieved through path-based ownership.  For example, expenses are stored under `/users/{userId}/businesses/{businessId}/expenses/{expenseId}`.  Access control can be determined solely based on the path without needing to read data from parent documents.\n\nQAPs Support: Secure list operations are enabled by structural segregation. Since all documents within a subcollection share the same security requirements, listing expenses, revenues, or appointments under a specific business is secure without complex filtering rules."
   }
 }

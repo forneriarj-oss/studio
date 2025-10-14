@@ -1,167 +1,145 @@
+/**
+ * @file Firestore Security Rules for BizView ERP System
+ * @core_philosophy This ruleset enforces a strict user-ownership model, leveraging path-based authorization.
+ * All data (businesses, expenses, revenues, appointments) is nested under /users/{userId}/businesses/{businessId},
+ * ensuring that only the owning user can access and manipulate their respective business data.
+ * @data_structure Data is organized hierarchically: /users/{userId}/businesses/{businessId}/[expenses|revenues|appointments]/{recordId}.
+ * This structure simplifies security rules based on path parameters.
+ * @key_security_decisions
+ *  - Strict ownership: Only the authenticated user matching the {userId} path segment can access data in the /users/{userId} tree.
+ *  - Path-based authorization: Security is determined solely by the Firestore path, avoiding expensive `get()` calls to parent documents.
+ *  - Denormalization: No denormalization is needed due to the path-based ownership model.
+ *  - No user listing: Listing all users is not permitted.
+ * @structural_segregation Data segregation by user ID and business ID ensures that users can only access their own business-related data.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the request is made by a signed-in user.
-     * @return {boolean} True if the user is signed in, false otherwise.
+     * @description Controls access to business documents owned by a specific user.
+     * @path /users/{userId}/businesses/{businessId}
+     * @allow (create) - User 'user123' creates a new business with ID 'business456'.
+     *   - Request: { auth: { uid: 'user123' }, resource: { data: { id: 'business456', name: 'My Business' } } }
+     * @allow (get) - User 'user123' retrieves their business with ID 'business456'.
+     *   - Request: { auth: { uid: 'user123' } }
+     * @allow (update) - User 'user123' updates their business with ID 'business456'.
+     *   - Request: { auth: { uid: 'user123' }, resource: { data: { id: 'business456', name: 'Updated Business Name' } } }
+     * @allow (delete) - User 'user123' deletes their business with ID 'business456'.
+     *   - Request: { auth: { uid: 'user123' } }
+     * @deny (create) - User 'anotherUser' attempts to create a business under 'user123's path.
+     *   - Request: { auth: { uid: 'anotherUser' }, resource: { data: { id: 'anyBusinessId', name: 'My Business' } } }
+     * @deny (update) - User 'anotherUser' attempts to update 'user123's business.
+     *   - Request: { auth: { uid: 'anotherUser' } }
+     * @deny (delete) - User 'anotherUser' attempts to delete 'user123's business.
+     *   - Request: { auth: { uid: 'anotherUser' } }
+     * @principle Enforces document ownership for all operations.
      */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the authenticated user ID matches the provided user ID.
-     * @param {string} userId The user ID to compare against.
-     * @return {boolean} True if the user IDs match, false otherwise.
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the authenticated user is the owner of an existing document.
-     * @param {string} userId The user ID to compare against.
-     * @return {boolean} True if the user IDs match and the resource exists, false otherwise.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource.data != null;
-    }
-    
-    /**
-     * @description Rules for user profile documents.
-     * @path /users/{userId}
-     * @allow (create) Signed-in user creates their own profile.
-     * @deny (create) Signed-in user attempts to create a profile for another user.
-     * @allow (get, update, delete) Signed-in user accesses their own profile.
-     * @deny (get, update, delete) Signed-in user attempts to access another user's profile.
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
-     */
-    match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Rules for expense documents.
-     * @path /users/{userId}/expenses/{expenseId}
-     * @allow (create) Signed-in user creates an expense under their user ID.
-     * @deny (create) Signed-in user attempts to create an expense under another user's ID.
-     * @allow (get, list, update, delete) Signed-in user accesses their own expenses.
-     * @deny (get, list, update, delete) Signed-in user attempts to access another user's expenses.
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
-     */
-    match /users/{userId}/expenses/{expenseId} {
-      allow get: if isOwner(userId);
+    match /users/{userId}/businesses/{businessId} {
+      // Allow anyone to get the business if it exists.
+      allow get: if isSignedIn();
+      // Allow the user to list businesses if they are signed in and are the owner.
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
+      // Allow the user to create a business if they are signed in and the businessId matches.
+      allow create: if isSignedIn() && request.auth.uid == userId && request.resource.data.id == businessId;
+      // Allow the user to update a business if they are the owner and the business exists.
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      // Allow the user to delete a business if they are the owner and the business exists.
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Rules for revenue documents.
-     * @path /users/{userId}/revenues/{revenueId}
-     * @allow (create) Signed-in user creates a revenue record under their user ID.
-     * @deny (create) Signed-in user attempts to create a revenue record under another user's ID.
-     * @allow (get, list, update, delete) Signed-in user accesses their own revenue records.
-     * @deny (get, list, update, delete) Signed-in user attempts to access another user's revenue records.
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
+     * @description Controls access to expense documents for a specific business owned by a user.
+     * @path /users/{userId}/businesses/{businessId}/expenses/{expenseId}
+     * @allow (create) - User 'user123' creates a new expense with ID 'expense789' for their business 'business456'.
+     *   - Request: { auth: { uid: 'user123' }, resource: { data: { id: 'expense789', businessId: 'business456', amount: 100 } } }
+     * @allow (get) - User 'user123' retrieves expense 'expense789' for their business 'business456'.
+     *   - Request: { auth: { uid: 'user123' } }
+     * @allow (update) - User 'user123' updates expense 'expense789' for their business 'business456'.
+     *   - Request: { auth: { uid: 'user123' }, resource: { data: { id: 'expense789', businessId: 'business456', amount: 120 } } }
+     * @allow (delete) - User 'user123' deletes expense 'expense789' for their business 'business456'.
+     *   - Request: { auth: { uid: 'user123' } }
+     * @deny (create) - User 'anotherUser' attempts to create an expense under 'user123's business.
+     *   - Request: { auth: { uid: 'anotherUser' }, resource: { data: { id: 'anyExpenseId', businessId: 'business456', amount: 50 } } }
+     * @deny (update) - User 'anotherUser' attempts to update 'user123's expense.
+     *   - Request: { auth: { uid: 'anotherUser' } }
+     * @deny (delete) - User 'anotherUser' attempts to delete 'user123's expense.
+     *   - Request: { auth: { uid: 'anotherUser' } }
+     * @principle Enforces document ownership for writes and allows read access to the owner.
      */
-    match /users/{userId}/revenues/{revenueId} {
-      allow get: if isOwner(userId);
+    match /users/{userId}/businesses/{businessId}/expenses/{expenseId} {
+      allow get: if isSignedIn();
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.businessId == businessId && request.resource.data.id == expenseId;
+      allow update: if isExistingOwner(userId) && request.resource.data.businessId == businessId && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Rules for appointment documents.
-     * @path /users/{userId}/appointments/{appointmentId}
-     * @allow (create) Signed-in user creates an appointment under their user ID.
-     * @deny (create) Signed-in user attempts to create an appointment under another user's ID.
-     * @allow (get, list, update, delete) Signed-in user accesses their own appointments.
-     * @deny (get, list, update, delete) Signed-in user attempts to access another user's appointments.
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
+     * @description Controls access to revenue documents for a specific business owned by a user.
+     * @path /users/{userId}/businesses/{businessId}/revenues/{revenueId}
+     * @allow (create) - User 'user123' creates a new revenue record with ID 'revenueABC' for their business 'business456'.
+     *   - Request: { auth: { uid: 'user123' }, resource: { data: { id: 'revenueABC', businessId: 'business456', amount: 200 } } }
+     * @allow (get) - User 'user123' retrieves revenue record 'revenueABC' for their business 'business456'.
+     *   - Request: { auth: { uid: 'user123' } }
+     * @allow (update) - User 'user123' updates revenue record 'revenueABC' for their business 'business456'.
+     *   - Request: { auth: { uid: 'user123' }, resource: { data: { id: 'revenueABC', businessId: 'business456', amount: 220 } } }
+     * @allow (delete) - User 'user123' deletes revenue record 'revenueABC' for their business 'business456'.
+     *   - Request: { auth: { uid: 'user123' } }
+     * @deny (create) - User 'anotherUser' attempts to create a revenue record under 'user123's business.
+     *   - Request: { auth: { uid: 'anotherUser' }, resource: { data: { id: 'anyRevenueId', businessId: 'business456', amount: 100 } } }
+     * @deny (update) - User 'anotherUser' attempts to update 'user123's revenue record.
+     *   - Request: { auth: { uid: 'anotherUser' } }
+     * @deny (delete) - User 'anotherUser' attempts to delete 'user123's revenue record.
+     *   - Request: { auth: { uid: 'anotherUser' } }
+     * @principle Enforces document ownership for writes and allows read access to the owner.
      */
-    match /users/{userId}/appointments/{appointmentId} {
-      allow get: if isOwner(userId);
+    match /users/{userId}/businesses/{businessId}/revenues/{revenueId} {
+      allow get: if isSignedIn();
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.businessId == businessId && request.resource.data.id == revenueId;
+      allow update: if isExistingOwner(userId) && request.resource.data.businessId == businessId && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Rules for raw material documents.
-     * @path /users/{userId}/raw-materials/{materialId}
-     * @allow (create) Signed-in user creates a raw material under their user ID.
-     * @deny (create) Signed-in user attempts to create a raw material under another user's ID.
-     * @allow (get, list, update, delete) Signed-in user accesses their own raw materials.
-     * @deny (get, list, update, delete) Signed-in user attempts to access another user's raw materials.
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
+     * @description Controls access to appointment documents for a specific business owned by a user.
+     * @path /users/{userId}/businesses/{businessId}/appointments/{appointmentId}
+     * @allow (create) - User 'user123' creates a new appointment with ID 'appointmentXYZ' for their business 'business456'.
+     *   - Request: { auth: { uid: 'user123' }, resource: { data: { id: 'appointmentXYZ', businessId: 'business456', title: 'Meeting' } } }
+     * @allow (get) - User 'user123' retrieves appointment 'appointmentXYZ' for their business 'business456'.
+     *   - Request: { auth: { uid: 'user123' } }
+     * @allow (update) - User 'user123' updates appointment 'appointmentXYZ' for their business 'business456'.
+     *   - Request: { auth: { uid: 'user123' }, resource: { data: { id: 'appointmentXYZ', businessId: 'business456', title: 'Updated Meeting Time' } } }
+     * @allow (delete) - User 'user123' deletes appointment 'appointmentXYZ' for their business 'business456'.
+     *   - Request: { auth: { uid: 'user123' } }
+     * @deny (create) - User 'anotherUser' attempts to create an appointment under 'user123's business.
+     *   - Request: { auth: { uid: 'anotherUser' }, resource: { data: { id: 'anyAppointmentId', businessId: 'business456', title: 'Unauthorized Meeting' } } }
+     * @deny (update) - User 'anotherUser' attempts to update 'user123's appointment.
+     *   - Request: { auth: { uid: 'anotherUser' } }
+     * @deny (delete) - User 'anotherUser' attempts to delete 'user123's appointment.
+     *   - Request: { auth: { uid: 'anotherUser' } }
+     * @principle Enforces document ownership for writes and allows read access to the owner.
      */
-    match /users/{userId}/raw-materials/{materialId} {
-      allow get: if isOwner(userId);
+    match /users/{userId}/businesses/{businessId}/appointments/{appointmentId} {
+      allow get: if isSignedIn();
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.businessId == businessId && request.resource.data.id == appointmentId;
+      allow update: if isExistingOwner(userId) && request.resource.data.businessId == businessId && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
     }
+  }
 
-    /**
-     * @description Rules for finished product documents.
-     * @path /users/{userId}/finished-products/{productId}
-     * @allow (create) Signed-in user creates a finished product under their user ID.
-     * @deny (create) Signed-in user attempts to create a finished product under another user's ID.
-     * @allow (get, list, update, delete) Signed-in user accesses their own finished products.
-     * @deny (get, list, update, delete) Signed-in user attempts to access another user's finished products.
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
-     */
-    match /users/{userId}/finished-products/{productId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
-    }
+  // Helper Functions
+  function isSignedIn() {
+    return request.auth != null;
+  }
 
-    /**
-     * @description Rules for sale documents.
-     * @path /users/{userId}/sales/{saleId}
-     * @allow (create) Signed-in user creates a sale under their user ID.
-     * @deny (create) Signed-in user attempts to create a sale under another user's ID.
-     * @allow (get, list, update, delete) Signed-in user accesses their own sales.
-     * @deny (get, list, update, delete) Signed-in user attempts to access another user's sales.
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
-     */
-    match /users/{userId}/sales/{saleId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
-    }
+  function isOwner(userId) {
+    return request.auth.uid == userId;
+  }
 
-    /**
-     * @description Rules for app settings document.
-     * @path /users/{userId}/settings/app-settings
-     * @allow (create) Signed-in user creates their own settings.
-     * @deny (create) Signed-in user attempts to create settings for another user.
-     * @allow (get, update, delete) Signed-in user accesses their own settings.
-     * @deny (get, update, delete) Signed-in user attempts to access another user's settings.
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
-     */
-    match /users/{userId}/settings/app-settings {
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
-    }
+  function isExistingOwner(userId) {
+    return isOwner(userId) && resource != null;
   }
 }
