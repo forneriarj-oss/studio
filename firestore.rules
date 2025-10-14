@@ -1,105 +1,122 @@
 /**
- * @fileoverview Firestore Security Rules for a basic ERP system.
+ * @fileoverview Firestore Security Rules for ERP System Prototype
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model where each user can only
- * access data stored under their own user ID.
+ * This ruleset enforces a strict user-ownership model. Each user has a dedicated data tree under `/users/{userId}` where their expenses, revenue, and appointments are stored. Only the authenticated user can access their own data.
  *
  * Data Structure:
- * All data (expenses, revenue, and appointments) is nested under
- * /users/{userId}/.... This structure simplifies access control and ensures
- * that each user has a private data space.
+ * All data is nested under /users/{userId}, creating isolated data silos for each user. This simplifies security rules and ensures that users can only access their own data.
+ *  - `/users/{userId}/expenses/{expenseId}`: Stores expense records for each user.
+ *  - `/users/{userId}/revenue/{revenueId}`: Stores revenue records for each user.
+ *  - `/users/{userId}/appointments/{appointmentId}`: Stores appointment records for each user.
  *
  * Key Security Decisions:
- * - Users can only create, read, update, and delete data within their own
- *   user ID path.
- * - Listing operations are allowed only within a user's own data.
+ *  - User Listing is disallowed.
+ *  - Data validation is limited to ownership checks to simplify the prototype.
+ *
+ * Denormalization for Authorization:
+ *  - The data model does not require denormalization as path-based ownership is used. The `userId` is implicit in the path, avoiding the need to duplicate it within the documents.
+ *
+ * Structural Segregation:
+ *  - The use of user-specific subcollections (e.g., `/users/{userId}/expenses`) inherently segregates private data, avoiding the need for public/private flags or mixed-access collections.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the request is authenticated.
+     * @description Checks if the request is made by a signed-in user.
+     * @return {bool} True if the user is signed in, false otherwise.
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * @description Checks if the requested user ID matches the authenticated user's ID.
+     * @description Checks if the requested userId matches the authenticated user's ID.
+     * @param {string} userId The userId to check against the authenticated user's ID.
+     * @return {bool} True if the userId matches the authenticated user's ID, false otherwise.
      */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
     /**
-     * @description Checks if the user is the existing owner of the document
+     * @description Checks if the requested userId matches the authenticated user's ID and the document exists.
+     * @param {string} userId The userId to check against the authenticated user's ID.
+     * @return {bool} True if the userId matches the authenticated user's ID and resource exists, false otherwise.
      */
     function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+        return isOwner(userId) && resource != null;
     }
 
+
     /**
-     * @description Defines rules for the expenses collection.
+     * @description Security rules for expenses collection.
      * @path /users/{userId}/expenses/{expenseId}
-     * @allow (create) User 'A' can create an expense under /users/A/expenses/123
-     * @deny (create) User 'B' cannot create an expense under /users/A/expenses/123
-     * @allow (get) User 'A' can read an expense under /users/A/expenses/123
-     * @deny (get) User 'B' cannot read an expense under /users/A/expenses/123
-     * @allow (update) User 'A' can update an expense under /users/A/expenses/123
-     * @deny (update) User 'B' cannot update an expense under /users/A/expenses/123
-     * @allow (delete) User 'A' can delete an expense under /users/A/expenses/123
-     * @deny (delete) User 'B' cannot delete an expense under /users/A/expenses/123
-     * @principle Enforces document ownership for writes.
+     * @allow (create) Signed-in user with matching userId creates a new expense.
+     * @deny (create) Signed-in user with mismatched userId attempts to create an expense.
+     * @allow (get) Signed-in user with matching userId retrieves an existing expense.
+     * @deny (get) Signed-in user with mismatched userId attempts to retrieve an expense.
+     * @allow (list) Signed-in user with matching userId lists their expenses.
+     * @deny (list) Signed-in user with mismatched userId attempts to list expenses.
+     * @allow (update) Signed-in user with matching userId updates their expense.
+     * @deny (update) Signed-in user with mismatched userId attempts to update an expense.
+     * @allow (delete) Signed-in user with matching userId deletes their expense.
+     * @deny (delete) Signed-in user with mismatched userId attempts to delete an expense.
+     * @principle Enforces document ownership for writes. Restricts access to a user's own data tree.
      */
     match /users/{userId}/expenses/{expenseId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == expenseId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Defines rules for the revenue collection.
+     * @description Security rules for revenue collection.
      * @path /users/{userId}/revenue/{revenueId}
-     * @allow (create) User 'A' can create a revenue under /users/A/revenue/456
-     * @deny (create) User 'B' cannot create a revenue under /users/A/revenue/456
-     * @allow (get) User 'A' can read a revenue under /users/A/revenue/456
-     * @deny (get) User 'B' cannot read a revenue under /users/A/revenue/456
-     * @allow (update) User 'A' can update a revenue under /users/A/revenue/456
-     * @deny (update) User 'B' cannot update a revenue under /users/A/revenue/456
-     * @allow (delete) User 'A' can delete a revenue under /users/A/revenue/456
-     * @deny (delete) User 'B' cannot delete a revenue under /users/A/revenue/456
-     * @principle Enforces document ownership for writes.
+     * @allow (create) Signed-in user with matching userId creates a new revenue.
+     * @deny (create) Signed-in user with mismatched userId attempts to create a revenue.
+     * @allow (get) Signed-in user with matching userId retrieves an existing revenue.
+     * @deny (get) Signed-in user with mismatched userId attempts to retrieve a revenue.
+     * @allow (list) Signed-in user with matching userId lists their revenue.
+     * @deny (list) Signed-in user with mismatched userId attempts to list revenue.
+     * @allow (update) Signed-in user with matching userId updates their revenue.
+     * @deny (update) Signed-in user with mismatched userId attempts to update an revenue.
+     * @allow (delete) Signed-in user with matching userId deletes their revenue.
+     * @deny (delete) Signed-in user with mismatched userId attempts to delete an revenue.
+     * @principle Enforces document ownership for writes. Restricts access to a user's own data tree.
      */
     match /users/{userId}/revenue/{revenueId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == revenueId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Defines rules for the appointments collection.
+     * @description Security rules for appointments collection.
      * @path /users/{userId}/appointments/{appointmentId}
-     * @allow (create) User 'A' can create an appointment under /users/A/appointments/789
-     * @deny (create) User 'B' cannot create an appointment under /users/A/appointments/789
-     * @allow (get) User 'A' can read an appointment under /users/A/appointments/789
-     * @deny (get) User 'B' cannot read an appointment under /users/A/appointments/789
-     * @allow (update) User 'A' can update an appointment under /users/A/appointments/789
-     * @deny (update) User 'B' cannot update an appointment under /users/A/appointments/789
-     * @allow (delete) User 'A' can delete an appointment under /users/A/appointments/789
-     * @deny (delete) User 'B' cannot delete an appointment under /users/A/appointments/789
-     * @principle Enforces document ownership for writes.
+     * @allow (create) Signed-in user with matching userId creates a new appointment.
+     * @deny (create) Signed-in user with mismatched userId attempts to create an appointment.
+     * @allow (get) Signed-in user with matching userId retrieves an existing appointment.
+     * @deny (get) Signed-in user with mismatched userId attempts to retrieve an appointment.
+     * @allow (list) Signed-in user with matching userId lists their appointments.
+     * @deny (list) Signed-in user with mismatched userId attempts to list appointments.
+     * @allow (update) Signed-in user with matching userId updates their appointment.
+     * @deny (update) Signed-in user with mismatched userId attempts to update an appointment.
+     * @allow (delete) Signed-in user with matching userId deletes their appointment.
+     * @deny (delete) Signed-in user with mismatched userId attempts to delete an appointment.
+     * @principle Enforces document ownership for writes. Restricts access to a user's own data tree.
      */
     match /users/{userId}/appointments/{appointmentId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == appointmentId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
   }
