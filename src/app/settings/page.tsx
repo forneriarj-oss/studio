@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { AlertCircle, Loader, Trash2, Upload } from 'lucide-react';
 import { useAuth, useFirestore, useUser, useDoc, useMemoFirebase, useStorage } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, writeBatch, collection } from 'firebase/firestore';
 import type { Settings } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { updateProfile } from 'firebase/auth';
@@ -26,7 +26,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { deleteAllFinancialData } from './actions';
 
 
 const DEFAULT_SETTINGS: Settings = {
@@ -36,6 +35,17 @@ const DEFAULT_SETTINGS: Settings = {
     platformFees: { ifood: 0, taNaMesa: 0 },
     profitMargin: 30
 };
+
+async function deleteCollection(db: any, userId: string, collectionName: string) {
+    const collectionRef = collection(db, `users/${userId}/${collectionName}`);
+    const batch = writeBatch(db);
+    const snapshot = await db.collection(collectionRef).get();
+    snapshot.docs.forEach((doc: any) => {
+        batch.delete(doc.ref);
+    });
+    await batch.commit();
+}
+
 
 export default function SettingsPage() {
     const { toast } = useToast();
@@ -200,21 +210,39 @@ export default function SettingsPage() {
     };
     
     const handleDeleteData = async () => {
+        if (!user) {
+            toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
+            return;
+        }
         setIsSubmitting(true);
-        const result = await deleteAllFinancialData();
-        if (result.success) {
+        try {
+            const collectionsToDelete = ['sales', 'revenues', 'expenses'];
+            const batch = writeBatch(firestore);
+
+            for (const collectionName of collectionsToDelete) {
+                const collectionRef = collection(firestore, `users/${user.uid}/${collectionName}`);
+                const snapshot = await getDocs(collectionRef);
+                snapshot.docs.forEach((doc) => {
+                    batch.delete(doc.ref);
+                });
+            }
+
+            await batch.commit();
+
             toast({
                 title: 'Dados Zerados!',
-                description: result.message,
+                description: 'Todos os dados de vendas, receitas e despesas foram zerados com sucesso!',
             });
-        } else {
-             toast({
+        } catch (error: any) {
+            console.error("Erro ao zerar dados financeiros:", error);
+            toast({
                 variant: 'destructive',
                 title: 'Erro ao Zerar Dados',
-                description: result.message,
+                description: error.message || "Ocorreu um erro desconhecido.",
             });
+        } finally {
+            setIsSubmitting(false);
         }
-        setIsSubmitting(false);
     }
     
     if (isLoading || isUserLoading) {
