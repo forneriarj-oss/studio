@@ -1,49 +1,14 @@
 {
   "entities": {
-    "User": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "User",
-      "type": "object",
-      "description": "Represents a user of the BizView application.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the user entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The user's full name."
-        },
-        "email": {
-          "type": "string",
-          "description": "The user's email address.",
-          "format": "email"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "email"
-      ]
-    },
     "Expense": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Expense",
       "type": "object",
-      "description": "Represents an expense incurred by the business.",
+      "description": "Represents an expense record.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the expense entity."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Expense)"
-        },
-        "date": {
-          "type": "string",
-          "description": "The date the expense was incurred.",
-          "format": "date-time"
+          "description": "Unique identifier for the expense."
         },
         "amount": {
           "type": "number",
@@ -51,7 +16,12 @@
         },
         "category": {
           "type": "string",
-          "description": "The category of the expense (e.g., supplies, rent, utilities)."
+          "description": "The category of the expense (e.g., 'Rent', 'Supplies')."
+        },
+        "date": {
+          "type": "string",
+          "description": "The date the expense was incurred.",
+          "format": "date-time"
         },
         "description": {
           "type": "string",
@@ -60,38 +30,34 @@
       },
       "required": [
         "id",
-        "userId",
-        "date",
         "amount",
-        "category"
+        "category",
+        "date",
+        "description"
       ]
     },
     "Revenue": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Revenue",
       "type": "object",
-      "description": "Represents a revenue stream for the business.",
+      "description": "Represents a revenue record.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the revenue entity."
+          "description": "Unique identifier for the revenue."
         },
-        "userId": {
+        "amount": {
+          "type": "number",
+          "description": "The amount of revenue received."
+        },
+        "category": {
           "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Revenue)"
+          "description": "The category of the revenue (e.g., 'Sales', 'Services')."
         },
         "date": {
           "type": "string",
           "description": "The date the revenue was received.",
           "format": "date-time"
-        },
-        "amount": {
-          "type": "number",
-          "description": "The amount of the revenue."
-        },
-        "category": {
-          "type": "string",
-          "description": "The category of the revenue (e.g., sales, services)."
         },
         "description": {
           "type": "string",
@@ -100,10 +66,10 @@
       },
       "required": [
         "id",
-        "userId",
-        "date",
         "amount",
-        "category"
+        "category",
+        "date",
+        "description"
       ]
     },
     "Appointment": {
@@ -114,11 +80,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the appointment entity."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Appointment)"
+          "description": "Unique identifier for the appointment."
         },
         "startTime": {
           "type": "string",
@@ -130,9 +92,9 @@
           "description": "The end time of the appointment.",
           "format": "date-time"
         },
-        "title": {
+        "subject": {
           "type": "string",
-          "description": "The title of the appointment."
+          "description": "The subject or title of the appointment."
         },
         "description": {
           "type": "string",
@@ -141,10 +103,10 @@
       },
       "required": [
         "id",
-        "userId",
         "startTime",
         "endTime",
-        "title"
+        "subject",
+        "description"
       ]
     }
   },
@@ -157,29 +119,13 @@
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user profiles. The 'userId' parameter represents the unique identifier for each user.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            }
-          ]
-        }
-      },
-      {
         "path": "/users/{userId}/expenses/{expenseId}",
         "definition": {
           "entityName": "Expense",
           "schema": {
             "$ref": "#/backend/entities/Expense"
           },
-          "description": "Stores expenses owned by a specific user. Path-based ownership enables secure list operations.",
+          "description": "Stores expense records for each user. Path-based ownership ensures only the authenticated user can access their expenses.",
           "params": [
             {
               "name": "userId",
@@ -187,19 +133,19 @@
             },
             {
               "name": "expenseId",
-              "description": "The unique identifier of the expense."
+              "description": "The unique identifier of the expense record."
             }
           ]
         }
       },
       {
-        "path": "/users/{userId}/revenues/{revenueId}",
+        "path": "/users/{userId}/revenue/{revenueId}",
         "definition": {
           "entityName": "Revenue",
           "schema": {
             "$ref": "#/backend/entities/Revenue"
           },
-          "description": "Stores revenues owned by a specific user. Path-based ownership enables secure list operations.",
+          "description": "Stores revenue records for each user. Path-based ownership ensures only the authenticated user can access their revenue.",
           "params": [
             {
               "name": "userId",
@@ -207,7 +153,7 @@
             },
             {
               "name": "revenueId",
-              "description": "The unique identifier of the revenue."
+              "description": "The unique identifier of the revenue record."
             }
           ]
         }
@@ -219,7 +165,7 @@
           "schema": {
             "$ref": "#/backend/entities/Appointment"
           },
-          "description": "Stores appointments owned by a specific user. Path-based ownership enables secure list operations.",
+          "description": "Stores appointment records for each user. Path-based ownership ensures only the authenticated user can access their appointments.",
           "params": [
             {
               "name": "userId",
@@ -227,12 +173,12 @@
             },
             {
               "name": "appointmentId",
-              "description": "The unique identifier of the appointment."
+              "description": "The unique identifier of the appointment record."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to address the \"Missing or insufficient permissions\" error by ensuring authorization independence and secure data access based on user ownership. The primary strategy is to use path-based ownership for user-related data, eliminating the need for `get()` calls in security rules and simplifying list operations.\n\n**Structure:**\n\n*   `/users/{userId}`: Stores user profiles.\n*   `/users/{userId}/expenses/{expenseId}`: Stores expenses owned by a specific user.\n*   `/users/{userId}/revenues/{revenueId}`: Stores revenues owned by a specific user.\n*   `/users/{userId}/appointments/{appointmentId}`: Stores appointments owned by a specific user.\n\n**Authorization Independence and QAPs:**\n\nThe structure achieves authorization independence by directly associating each data entity (expenses, revenues, appointments) with its owner via the path (`/users/{userId}`). This allows security rules to be written based solely on the `request.auth.uid` and the path, without needing to read data from other documents. Specifically:\n\n*   **Expenses, Revenues, and Appointments:** Since these are stored as subcollections of `/users/{userId}`, listing operations can be secured by checking if `request.auth.uid` matches the `{userId}` in the path. This prevents unauthorized listing of other users' data.\n\nThis design supports secure `list` operations (QAPs) because the security rules can directly verify ownership based on the path, ensuring that a user can only list resources that belong to them. This segregation, using hierarchical paths, simplifies rules and makes them more robust and debuggable."
+    "reasoning": "The Firestore structure is designed to support a basic ERP system for small businesses, focusing on revenue, expenses, appointments, and profit calculation. It leverages path-based ownership for user-specific data to ensure security and simplicity. The structure avoids hierarchical authorization dependencies by not using `get()` calls in security rules, thus enabling atomic operations.  \n\nExpenses, revenue, and appointments are stored under each user's document. This structural segregation ensures that only the authenticated user can access their own data. This design inherently supports secure `list` operations as rules only need to check the `request.auth.uid` against the path.\n\nThis approach enforces data isolation and simplifies security rules, aligning with the DBAC principle (Database-based Access Control)."
   }
 }
