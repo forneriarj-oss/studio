@@ -1,21 +1,124 @@
 /**
- * @description This ruleset enforces a strict user-ownership model, where each user can only access their own data.
- * All data is nested under /users/{userId}, ensuring clear ownership and preventing unauthorized access.
- *
- * Data Structure:
- * - /users/{userId}: Stores user profile information. Only the authenticated user can read and write their own profile.
- * - /users/{userId}/settings/app-settings: Stores app settings for a specific user. Only the authenticated user can access their own settings.
- * - /users/{userId}/expenses/{expenseId}: Stores expense records for a specific user. Only the authenticated user can access their own expense records.
- * - /users/{userId}/revenues/{revenueId}: Stores revenue records for a specific user. Only the authenticated user can access their own revenue records.
- * - /users/{userId}/appointments/{appointmentId}: Stores appointment records for a specific user. Only the authenticated user can access their own appointment records.
- *
- * Key Security Decisions:
- * - User listing is disabled to protect user privacy.
- * - All write operations are strictly controlled by user ownership.
+ * @description This ruleset enforces a strict user-ownership model for all data. Each user can only access their own data, and no cross-user access is allowed.
+ * @dataStructure Data is nested under /users/{userId}, with subcollections for settings, expenses, revenues, and appointments.
+ * @keySecurityDecisions
+ *   - User listing is disallowed.
+ *   - All write operations are restricted to the owner of the data.
+ *   - The app settings document is secured using the same ownership principle.
+ * @denormalizationForAuthorization N/A - path-based authorization is sufficient.
+ * @structuralSegregation User-specific data is segregated into separate subcollections under each user's document.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    /**
+     * @description Secures the /users/{userId} document, allowing only the owner to read and write their own profile.
+     * @path /users/{userId}
+     * @allow (create) User with UID 'user123' can create their own user document.
+     * @allow (get) User with UID 'user123' can read their own user document.
+     * @allow (update) User with UID 'user123' can update their own user document.
+     * @allow (delete) User with UID 'user123' can delete their own user document.
+     * @deny (create) User with UID 'user123' cannot create a user document for 'user456'.
+     * @deny (get) User with UID 'user123' cannot read the user document for 'user456'.
+     * @deny (update) User with UID 'user123' cannot update the user document for 'user456'.
+     * @deny (delete) User with UID 'user123' cannot delete the user document for 'user456'.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Secures the /users/{userId}/settings/app-settings document, allowing only the owner to read and write their own settings.
+     * @path /users/{userId}/settings/app-settings
+     * @allow (create) User with UID 'user123' can create their own settings document.
+     * @allow (get) User with UID 'user123' can read their own settings document.
+     * @allow (update) User with UID 'user123' can update their own settings document.
+     * @allow (delete) User with UID 'user123' can delete their own settings document.
+     * @deny (create) User with UID 'user123' cannot create a settings document for 'user456'.
+     * @deny (get) User with UID 'user123' cannot read the settings document for 'user456'.
+     * @deny (update) User with UID 'user123' cannot update the settings document for 'user456'.
+     * @deny (delete) User with UID 'user123' cannot delete the settings document for 'user456'.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /users/{userId}/settings/app-settings {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Secures the /users/{userId}/expenses/{expenseId} collection, allowing only the owner to manage their own expenses.
+     * @path /users/{userId}/expenses/{expenseId}
+     * @allow (create) User with UID 'user123' can create an expense record under their user ID.
+     * @allow (get) User with UID 'user123' can read their own expense record.
+     * @allow (list) User with UID 'user123' can list their own expense records.
+     * @allow (update) User with UID 'user123' can update their own expense record.
+     * @allow (delete) User with UID 'user123' can delete their own expense record.
+     * @deny (create) User with UID 'user123' cannot create an expense record under 'user456'.
+     * @deny (get) User with UID 'user123' cannot read an expense record owned by 'user456'.
+     * @deny (update) User with UID 'user123' cannot update an expense record owned by 'user456'.
+     * @deny (delete) User with UID 'user123' cannot delete an expense record owned by 'user456'.
+     * @principle Enforces document ownership for writes and restricts reads to the owner.
+     */
+    match /users/{userId}/expenses/{expenseId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Secures the /users/{userId}/revenues/{revenueId} collection, allowing only the owner to manage their own revenues.
+     * @path /users/{userId}/revenues/{revenueId}
+     * @allow (create) User with UID 'user123' can create a revenue record under their user ID.
+     * @allow (get) User with UID 'user123' can read their own revenue record.
+     * @allow (list) User with UID 'user123' can list their own revenue records.
+     * @allow (update) User with UID 'user123' can update their own revenue record.
+     * @allow (delete) User with UID 'user123' can delete their own revenue record.
+     * @deny (create) User with UID 'user123' cannot create a revenue record under 'user456'.
+     * @deny (get) User with UID 'user123' cannot read a revenue record owned by 'user456'.
+     * @deny (update) User with UID 'user123' cannot update a revenue record owned by 'user456'.
+     * @deny (delete) User with UID 'user123' cannot delete a revenue record owned by 'user456'.
+     * @principle Enforces document ownership for writes and restricts reads to the owner.
+     */
+    match /users/{userId}/revenues/{revenueId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Secures the /users/{userId}/appointments/{appointmentId} collection, allowing only the owner to manage their own appointments.
+     * @path /users/{userId}/appointments/{appointmentId}
+     * @allow (create) User with UID 'user123' can create an appointment record under their user ID.
+     * @allow (get) User with UID 'user123' can read their own appointment record.
+     * @allow (list) User with UID 'user123' can list their own appointment records.
+     * @allow (update) User with UID 'user123' can update their own appointment record.
+     * @allow (delete) User with UID 'user123' can delete their own appointment record.
+     * @deny (create) User with UID 'user123' cannot create an appointment record under 'user456'.
+     * @deny (get) User with UID 'user123' cannot read an appointment record owned by 'user456'.
+     * @deny (update) User with UID 'user123' cannot update an appointment record owned by 'user456'.
+     * @deny (delete) User with UID 'user123' cannot delete an appointment record owned by 'user456'.
+     * @principle Enforces document ownership for writes and restricts reads to the owner.
+     */
+    match /users/{userId}/appointments/{appointmentId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
 
     // Helper functions
     function isSignedIn() {
@@ -23,116 +126,11 @@ service cloud.firestore {
     }
 
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
     function isExistingOwner(userId) {
       return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * @description Enforces user-ownership for the user profile document.
-     * @path /users/{userId}
-     * @allow (create) User with ID 'user123' creates their own profile.
-     * @allow (get) User with ID 'user123' reads their own profile.
-     * @allow (update) User with ID 'user123' updates their own profile.
-     * @allow (delete) User with ID 'user123' deletes their own profile.
-     * @deny (create) User with ID 'user123' attempts to create a profile for another user ('user456').
-     * @deny (get) User with ID 'user123' attempts to read the profile of another user ('user456').
-     * @deny (update) User with ID 'user123' attempts to update the profile of another user ('user456').
-     * @deny (delete) User with ID 'user123' attempts to delete the profile of another user ('user456').
-     * @principle Enforces document ownership for all operations on user profiles.
-     */
-    match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Enforces user-ownership for app settings.
-     * @path /users/{userId}/settings/app-settings
-     * @allow (create) User with ID 'user123' creates their own app settings.
-     * @allow (get) User with ID 'user123' reads their own app settings.
-     * @allow (update) User with ID 'user123' updates their own app settings.
-     * @allow (delete) User with ID 'user123' deletes their own app settings.
-     * @deny (create) User with ID 'user123' attempts to create app settings for another user ('user456').
-     * @deny (get) User with ID 'user123' attempts to read the app settings of another user ('user456').
-     * @deny (update) User with ID 'user123' attempts to update the app settings of another user ('user456').
-     * @deny (delete) User with ID 'user123' attempts to delete the app settings of another user ('user456').
-     * @principle Enforces document ownership for all operations on app settings.
-     */
-    match /users/{userId}/settings/app-settings {
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Enforces user-ownership for expense records.
-     * @path /users/{userId}/expenses/{expenseId}
-     * @allow (create) User with ID 'user123' creates their own expense record.
-     * @allow (get) User with ID 'user123' reads their own expense record.
-     * @allow (update) User with ID 'user123' updates their own expense record.
-     * @allow (delete) User with ID 'user123' deletes their own expense record.
-     * @deny (create) User with ID 'user123' attempts to create an expense record for another user ('user456').
-     * @deny (get) User with ID 'user123' attempts to read the expense record of another user ('user456').
-     * @deny (update) User with ID 'user123' attempts to update the expense record of another user ('user456').
-     * @deny (delete) User with ID 'user123' attempts to delete the expense record of another user ('user456').
-     * @principle Enforces document ownership for all operations on expense records.
-     */
-    match /users/{userId}/expenses/{expenseId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Enforces user-ownership for revenue records.
-     * @path /users/{userId}/revenues/{revenueId}
-     * @allow (create) User with ID 'user123' creates their own revenue record.
-     * @allow (get) User with ID 'user123' reads their own revenue record.
-     * @allow (update) User with ID 'user123' updates their own revenue record.
-     * @allow (delete) User with ID 'user123' deletes their own revenue record.
-     * @deny (create) User with ID 'user123' attempts to create a revenue record for another user ('user456').
-     * @deny (get) User with ID 'user123' attempts to read the revenue record of another user ('user456').
-     * @deny (update) User with ID 'user123' attempts to update the revenue record of another user ('user456').
-     * @deny (delete) User with ID 'user123' attempts to delete the revenue record of another user ('user456').
-     * @principle Enforces document ownership for all operations on revenue records.
-     */
-    match /users/{userId}/revenues/{revenueId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Enforces user-ownership for appointment records.
-     * @path /users/{userId}/appointments/{appointmentId}
-     * @allow (create) User with ID 'user123' creates their own appointment record.
-     * @allow (get) User with ID 'user123' reads their own appointment record.
-     * @allow (update) User with ID 'user123' updates their own appointment record.
-     * @allow (delete) User with ID 'user123' deletes their own appointment record.
-     * @deny (create) User with ID 'user123' attempts to create an appointment record for another user ('user456').
-     * @deny (get) User with ID 'user123' attempts to read the appointment record of another user ('user456').
-     * @deny (update) User with ID 'user123' attempts to update the appointment record of another user ('user456').
-     * @deny (delete) User with ID 'user123' attempts to delete the appointment record of another user ('user456').
-     * @principle Enforces document ownership for all operations on appointment records.
-     */
-    match /users/{userId}/appointments/{appointmentId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(userId);
     }
   }
 }
