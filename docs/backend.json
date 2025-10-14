@@ -8,7 +8,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the expense record."
+          "description": "Unique identifier for the expense entity."
         },
         "amount": {
           "type": "number",
@@ -16,7 +16,7 @@
         },
         "category": {
           "type": "string",
-          "description": "The category of the expense (e.g., 'Rent', 'Utilities', 'Salaries')."
+          "description": "The category of the expense (e.g., 'Rent', 'Utilities', 'Supplies')."
         },
         "date": {
           "type": "string",
@@ -48,7 +48,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the revenue record."
+          "description": "Unique identifier for the revenue entity."
         },
         "amount": {
           "type": "number",
@@ -88,15 +88,11 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the appointment."
+          "description": "Unique identifier for the appointment entity."
         },
         "title": {
           "type": "string",
           "description": "The title of the appointment."
-        },
-        "description": {
-          "type": "string",
-          "description": "A description of the appointment."
         },
         "startTime": {
           "type": "string",
@@ -108,9 +104,9 @@
           "description": "The end time of the appointment.",
           "format": "date-time"
         },
-        "location": {
+        "description": {
           "type": "string",
-          "description": "The location of the appointment."
+          "description": "A description of the appointment."
         },
         "businessId": {
           "type": "string",
@@ -129,11 +125,11 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Business",
       "type": "object",
-      "description": "Represents a business within the ERP system.",
+      "description": "Represents a business.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the business."
+          "description": "Unique identifier for the business entity."
         },
         "name": {
           "type": "string",
@@ -142,10 +138,41 @@
         "description": {
           "type": "string",
           "description": "A description of the business."
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N Business)"
         }
       },
       "required": [
         "id",
+        "name",
+        "ownerId"
+      ]
+    },
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Represents a user profile.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user profile entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the user.",
+          "format": "email"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the user."
+        }
+      },
+      "required": [
+        "id",
+        "email",
         "name"
       ]
     }
@@ -159,98 +186,98 @@
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}/businesses/{businessId}",
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores user profile data. Accessible only by the user themselves.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/businesses/{businessId}",
         "definition": {
           "entityName": "Business",
           "schema": {
             "$ref": "#/backend/entities/Business"
           },
-          "description": "Stores businesses owned by a specific user. Path-based ownership simplifies security rules.",
+          "description": "Stores business data. The `ownerId` field determines ownership.",
           "params": [
             {
-              "name": "userId",
-              "description": "The ID of the user who owns the business."
-            },
-            {
               "name": "businessId",
-              "description": "The ID of the business."
+              "description": "The unique identifier of the business."
             }
           ]
         }
       },
       {
-        "path": "/users/{userId}/businesses/{businessId}/expenses/{expenseId}",
+        "path": "/businesses/{businessId}/expenses/{expenseId}",
         "definition": {
           "entityName": "Expense",
           "schema": {
             "$ref": "#/backend/entities/Expense"
           },
-          "description": "Stores expense records for a specific business. Path-based ownership ensures only the owner can access the expenses.",
+          "description": "Stores expense records associated with a business.  Authorization relies on the `businessId` in the path.",
           "params": [
             {
-              "name": "userId",
-              "description": "The ID of the user who owns the business."
-            },
-            {
               "name": "businessId",
-              "description": "The ID of the business."
+              "description": "The unique identifier of the business."
             },
             {
               "name": "expenseId",
-              "description": "The ID of the expense record."
+              "description": "The unique identifier of the expense."
             }
           ]
         }
       },
       {
-        "path": "/users/{userId}/businesses/{businessId}/revenues/{revenueId}",
+        "path": "/businesses/{businessId}/revenues/{revenueId}",
         "definition": {
           "entityName": "Revenue",
           "schema": {
             "$ref": "#/backend/entities/Revenue"
           },
-          "description": "Stores revenue records for a specific business. Path-based ownership ensures only the owner can access the revenues.",
+          "description": "Stores revenue records associated with a business. Authorization relies on the `businessId` in the path.",
           "params": [
             {
-              "name": "userId",
-              "description": "The ID of the user who owns the business."
-            },
-            {
               "name": "businessId",
-              "description": "The ID of the business."
+              "description": "The unique identifier of the business."
             },
             {
               "name": "revenueId",
-              "description": "The ID of the revenue record."
+              "description": "The unique identifier of the revenue."
             }
           ]
         }
       },
       {
-        "path": "/users/{userId}/businesses/{businessId}/appointments/{appointmentId}",
+        "path": "/businesses/{businessId}/appointments/{appointmentId}",
         "definition": {
           "entityName": "Appointment",
           "schema": {
             "$ref": "#/backend/entities/Appointment"
           },
-          "description": "Stores appointment records for a specific business. Path-based ownership ensures only the owner can access the appointments.",
+          "description": "Stores appointment records associated with a business. Authorization relies on the `businessId` in the path.",
           "params": [
             {
-              "name": "userId",
-              "description": "The ID of the user who owns the business."
-            },
-            {
               "name": "businessId",
-              "description": "The ID of the business."
+              "description": "The unique identifier of the business."
             },
             {
               "name": "appointmentId",
-              "description": "The ID of the appointment record."
+              "description": "The unique identifier of the appointment."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to support BizView's core features while prioritizing security, scalability, and ease of debugging.  The structure leverages path-based ownership for user-specific data related to businesses, expenses, revenues, and appointments. This approach ensures Authorization Independence and simplifies security rules. Each entity is stored in a subcollection under the corresponding business, which in turn is owned by the user.\n\nAuthorization Independence: Achieved through path-based ownership.  For example, expenses are stored under `/users/{userId}/businesses/{businessId}/expenses/{expenseId}`.  Access control can be determined solely based on the path without needing to read data from parent documents.\n\nQAPs Support: Secure list operations are enabled by structural segregation. Since all documents within a subcollection share the same security requirements, listing expenses, revenues, or appointments under a specific business is secure without complex filtering rules."
+    "reasoning": "The Firestore structure is designed to support the BizView application, focusing on simplicity, security, and scalability. The core principle is Authorization Independence via denormalization, ensuring that security rules do not rely on hierarchical `get()` calls, which can break atomic operations and increase complexity.\n\nThe structure segregates user profiles and business data to ensure a consistent security posture for each collection.  Businesses are owned by users, and expenses, revenue, and appointments are associated with specific businesses.  This 1:N relationship is implemented using path-based ownership, simplifying security rules and improving query performance.\n\n**Authorization Independence (Denormalization):**\nEach `Expense`, `Revenue`, and `Appointment` document includes the `businessId`. The `Business` document contains the `ownerId`. No `get()` calls are needed to validate access because all relevant authorization information is available within the document itself or the authenticated user.\n\n**QAPs Support:**\n*   `list` operations are secure because they do not require filtering based on data in other documents (no `get()` calls to other documents). Access is controlled by the path and the `request.auth.uid`.\n\n**Global Roles:**\nGlobal roles are not required, as the application focuses on businesses managed by individual users.\n\n**Invariants:**\nThe structure supports the integrity of ownership by explicitly storing the `ownerId` in the `Business` document and `businessId` in related documents, which can be validated in security rules."
   }
 }
