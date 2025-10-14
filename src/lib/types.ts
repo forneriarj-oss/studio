@@ -54,7 +54,7 @@ export type Sale = {
 
 export type Purchase = {
   id?: string;
-  productId: string; // Should be RawMaterial ID
+  rawMaterialId: string;
   quantity: number;
   unitCost: number;
   date: string; // ISO String
@@ -65,7 +65,7 @@ export type StockMovement = {
   productId: string;
   type: 'in' | 'out';
   quantity: number;
-  date: string;
+  date: 'string';
   source: 'purchase' | 'sale' | 'initial' | 'production';
 };
 

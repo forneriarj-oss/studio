@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useCollection, useFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, runTransaction, doc, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -51,14 +51,14 @@ export default function PurchasesPage() {
 
     const [isNewPurchaseOpen, setIsNewPurchaseOpen] = useState(false);
     const [newPurchase, setNewPurchase] = useState({
-        productId: '',
+        rawMaterialId: '',
         quantity: 1,
         unitCost: 0,
         date: new Date().toISOString().split('T')[0]
     });
 
     const handleAddPurchase = async () => {
-        if (!newPurchase.productId || newPurchase.quantity <= 0 || newPurchase.unitCost < 0) {
+        if (!newPurchase.rawMaterialId || newPurchase.quantity <= 0 || newPurchase.unitCost < 0) {
             toast({
                 variant: 'destructive',
                 title: 'Erro',
@@ -67,30 +67,63 @@ export default function PurchasesPage() {
             return;
         }
 
-        const purchaseToAdd: Purchase = {
-            id: `pur-${Date.now()}`,
-            ...newPurchase
-        };
+        if (!user || !firestore) {
+            toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
+            return;
+        }
         
-        // setPurchases(prev => [purchaseToAdd, ...prev]);
+        try {
+            const rawMaterialRef = doc(firestore, 'users', user.uid, 'raw-materials', newPurchase.rawMaterialId);
+            const purchasesRef = collection(firestore, 'users', user.uid, 'purchases');
 
-        toast({
-            title: 'Compra registrada!',
-            description: `Estoque da matéria-prima atualizado.`,
-        });
-        
-        // Reset form and close dialog
-        setNewPurchase({
-            productId: '',
-            quantity: 1,
-            unitCost: 0,
-            date: new Date().toISOString().split('T')[0]
-        });
-        setIsNewPurchaseOpen(false);
+            await runTransaction(firestore, async (transaction) => {
+                const materialDoc = await transaction.get(rawMaterialRef);
+                if (!materialDoc.exists()) {
+                    throw new Error("Matéria-prima não encontrada!");
+                }
+
+                const currentQuantity = materialDoc.data().quantity || 0;
+                const newQuantity = currentQuantity + newPurchase.quantity;
+                
+                // Update raw material stock
+                transaction.update(rawMaterialRef, { 
+                    quantity: newQuantity,
+                    cost: newPurchase.unitCost // Also update the cost to the latest purchase cost
+                });
+
+                // Create new purchase record
+                const purchaseToAdd = {
+                    ...newPurchase,
+                    date: new Date(newPurchase.date).toISOString(),
+                    createdAt: serverTimestamp()
+                };
+                transaction.set(doc(purchasesRef), purchaseToAdd);
+            });
+
+            toast({
+                title: 'Compra registrada!',
+                description: `Estoque da matéria-prima atualizado com sucesso.`,
+            });
+            
+            // Reset form and close dialog
+            setNewPurchase({
+                rawMaterialId: '',
+                quantity: 1,
+                unitCost: 0,
+                date: new Date().toISOString().split('T')[0]
+            });
+            setIsNewPurchaseOpen(false);
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Falha na transação',
+                description: error.message || "Não foi possível registrar a compra.",
+            });
+        }
     }
 
-    const getProductDescription = (productId: string) => {
-        return rawMaterials?.find(p => p.id === productId)?.description || 'N/A';
+    const getProductDescription = (rawMaterialId: string) => {
+        return rawMaterials?.find(p => p.id === rawMaterialId)?.description || 'N/A';
     }
 
   return (
@@ -113,7 +146,7 @@ export default function PurchasesPage() {
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="product" className="text-right">Matéria-Prima</Label>
                     <div className="col-span-3 flex gap-2">
-                        <Select onValueChange={(value) => setNewPurchase({...newPurchase, productId: value})}>
+                        <Select onValueChange={(value) => setNewPurchase({...newPurchase, rawMaterialId: value})}>
                             <SelectTrigger id="product">
                                 <SelectValue placeholder="Selecione" />
                             </SelectTrigger>
@@ -166,9 +199,9 @@ export default function PurchasesPage() {
             </TableHeader>
             <TableBody>
               {isLoadingPurchases && <TableRow><TableCell colSpan={5} className="h-24 text-center">Carregando compras...</TableCell></TableRow>}
-              {!isLoadingPurchases && purchases?.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(purchase => (
+              {!isLoadingPurchases && purchases && purchases.length > 0 ? purchases.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(purchase => (
                 <TableRow key={purchase.id}>
-                  <TableCell className="font-medium">{getProductDescription(purchase.productId)}</TableCell>
+                  <TableCell className="font-medium">{getProductDescription(purchase.rawMaterialId)}</TableCell>
                   <TableCell>{new Date(purchase.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</TableCell>
                   <TableCell className="text-right">{purchase.quantity}</TableCell>
                   <TableCell className="text-right">{formatCurrency(purchase.unitCost)}</TableCell>
@@ -176,7 +209,9 @@ export default function PurchasesPage() {
                     - {formatCurrency(purchase.quantity * purchase.unitCost)}
                   </TableCell>
                 </TableRow>
-              ))}
+              )) : (
+                !isLoadingPurchases && <TableRow><TableCell colSpan={5} className="h-24 text-center">Nenhuma compra registrada.</TableCell></TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

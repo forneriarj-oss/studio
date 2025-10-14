@@ -21,13 +21,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useUser, useCollection, useFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, doc, deleteDoc } from 'firebase/firestore';
 
-const MOCK_PRODUCTS: FinishedProduct[] = [
-  { id: 'prod1', sku: 'SKU001', name: 'Bolo de Chocolate', category: 'Bolos', unit: 'UN', recipe: [], finalCost: 15, salePrice: 25, flavors: [{id: 'flav1', name: 'Comum', stock: 8}] },
-  { id: 'prod2', sku: 'SKU002', name: 'Torta de Maçã', category: 'Tortas', unit: 'UN', recipe: [], finalCost: 20, salePrice: 35, flavors: [{id: 'flav2', name: 'Comum', stock: 3}] },
-  { id: 'prod3', sku: 'SKU003', name: 'Café Expresso', category: 'Bebidas', unit: 'UN', recipe: [], finalCost: 2, salePrice: 5, flavors: [{id: 'flav3', name: 'Comum', stock: 50}] },
-];
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -65,7 +60,18 @@ export default function ProductsPage() {
   }, [products, filterCategory]);
 
   const handleDeleteProduct = async (productId: string) => {
-    // Implementação da exclusão com Firebase
+    if (!user || !firestore) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Usuário não autenticado.',
+      });
+      return;
+    }
+
+    const docRef = doc(firestore, 'users', user.uid, 'finished-products', productId);
+    await deleteDoc(docRef);
+
     toast({
       title: 'Produto Excluído',
       description: 'O produto foi removido da sua lista.',
@@ -95,7 +101,7 @@ export default function ProductsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Lista de Produtos</CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pt-2">
             <span className="text-sm font-medium text-muted-foreground">Filtrar por Categoria:</span>
             <Select value={filterCategory} onValueChange={setFilterCategory}>
               <SelectTrigger className="w-[180px]">

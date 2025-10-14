@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { PaymentMethod, Revenue } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useUser, useFirebase, useCollection } from '@/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+
 
 const paymentMethods: PaymentMethod[] = ['PIX', 'Cartão', 'Dinheiro'];
 
@@ -19,23 +22,25 @@ const formatCurrency = (amount: number) => {
     }).format(amount);
   };
 
-const MOCK_REVENUES: Revenue[] = [
-    { id: 'rev1', amount: 250, source: 'Venda de Bolo de Chocolate', date: new Date().toISOString(), paymentMethod: 'PIX' },
-    { id: 'rev2', amount: 120, source: 'Venda de Tortas', date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), paymentMethod: 'Cartão' },
-    { id: 'rev3', amount: 80, source: 'Venda de Café', date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), paymentMethod: 'Dinheiro' },
-];
 
 export default function RevenuePage() {
-  const [revenues, setRevenues] = useState<Revenue[]>(MOCK_REVENUES);
-  const isLoading = false;
+  const { user, firestore } = useFirebase();
+  const { toast } = useToast();
 
+  const revenuesQuery = useMemo(() => {
+    if (!user || !firestore) return null;
+    return collection(firestore, 'users', user.uid, 'revenues');
+  }, [user, firestore]);
+
+  const { data: revenues, isLoading } = useCollection<Revenue>(revenuesQuery);
+  
   const [newRevenue, setNewRevenue] = useState({
     source: '',
     amount: '',
     paymentMethod: 'PIX' as PaymentMethod,
     date: new Date().toISOString().split('T')[0],
   });
-  const { toast } = useToast();
+  
 
   const handleAddRevenue = async () => {
     if (!newRevenue.source || !newRevenue.amount) {
@@ -47,19 +52,27 @@ export default function RevenuePage() {
       return;
     }
 
-    const revenueToAdd: Revenue = {
-      id: `rev-${Date.now()}`,
+    if (!user || !firestore) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro de Autenticação',
+        description: 'Você precisa estar logado para adicionar uma receita.',
+      });
+      return;
+    }
+
+    const revenuesRef = collection(firestore, 'users', user.uid, 'revenues');
+    await addDoc(revenuesRef, {
       source: newRevenue.source,
       amount: parseFloat(newRevenue.amount),
       date: new Date(newRevenue.date).toISOString(),
       paymentMethod: newRevenue.paymentMethod,
-    };
-    
-    setRevenues(prev => [revenueToAdd, ...prev]);
+      createdAt: serverTimestamp(),
+    });
 
     toast({
       title: 'Receita Adicionada!',
-      description: `${revenueToAdd.source} foi registrada com sucesso.`,
+      description: `${newRevenue.source} foi registrada com sucesso.`,
     });
 
     // Reset form
@@ -136,15 +149,13 @@ export default function RevenuePage() {
                     <TableRow key={revenue.id}>
                       <TableCell className="font-medium">{revenue.source}</TableCell>
                       <TableCell><Badge variant="outline">{revenue.paymentMethod || 'N/A'}</Badge></TableCell>
-                      <TableCell>{new Date(revenue.date).toLocaleDateString('pt-BR')}</TableCell>
+                      <TableCell>{new Date(revenue.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</TableCell>
                       <TableCell className="text-right font-semibold text-green-600">
                         {formatCurrency(revenue.amount)}
                       </TableCell>
                     </TableRow>
                   )) : (
-                    <TableRow>
-                      <TableCell colSpan={4} className="h-24 text-center">Nenhuma receita registrada ainda.</TableCell>
-                    </TableRow>
+                    !isLoading && <TableRow><TableCell colSpan={4} className="h-24 text-center">Nenhuma receita registrada ainda.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

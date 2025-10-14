@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import type { Expense, ExpenseCategory, PaymentMethod } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { useUser, useFirebase, useCollection } from '@/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -17,34 +19,31 @@ const formatCurrency = (amount: number) => {
     }).format(amount);
 };
 
-const MOCK_EXPENSES: Expense[] = [
-    { id: 'exp1', amount: 50.20, category: 'Marketing', description: 'Impulsionamento Instagram', date: new Date().toISOString(), paymentMethod: 'Cartão' },
-    { id: 'exp2', amount: 120.00, category: 'Software', description: 'Assinatura Adobe', date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), paymentMethod: 'Cartão' },
-    { id: 'exp3', amount: 800.00, category: 'Outros', description: 'Aluguel do Espaço', date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), paymentMethod: 'PIX' },
-];
-
-
-const categories: ExpenseCategory[] = ['Marketing', 'Vendas', 'Software', 'Equipe', 'Outros'];
 const paymentMethods: PaymentMethod[] = ['PIX', 'Cartão', 'Dinheiro'];
 const categoryTranslations: Record<ExpenseCategory, string> = {
   Marketing: 'Marketing',
   Vendas: 'Vendas',
   Software: 'Software',
   Equipe: 'Equipe',
-  Outros: 'Outros'
+  Outros: 'Outros',
 };
 
 const expenseCategoriesForSelect: ExpenseCategory[] = ['Marketing', 'Vendas', 'Software', 'Equipe', 'Outros'];
 
 
 export default function ExpensesPage() {
-  const [expenseList, setExpenseList] = useState<Expense[]>(MOCK_EXPENSES);
-  const isLoading = false;
-
+  const { user, firestore } = useFirebase();
   const { toast } = useToast();
 
+  const expensesQuery = useMemo(() => {
+    if (!user || !firestore) return null;
+    return collection(firestore, 'users', user.uid, 'expenses');
+  }, [user, firestore]);
+
+  const { data: expenseList, isLoading } = useCollection<Expense>(expensesQuery);
+  
   const [description, setDescription] = useState('');
-  const [amount, setAmount] useState('');
+  const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<ExpenseCategory | ''>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -59,17 +58,25 @@ export default function ExpensesPage() {
       });
       return;
     }
+    
+    if (!user || !firestore) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro de Autenticação',
+        description: 'Você precisa estar logado para adicionar uma despesa.',
+      });
+      return;
+    }
 
-    const newExpense: Expense = {
-      id: `exp-${Date.now()}`,
+    const expensesRef = collection(firestore, 'users', user.uid, 'expenses');
+    await addDoc(expensesRef, {
       description,
       amount: parseFloat(amount),
       category: category as ExpenseCategory,
       paymentMethod: paymentMethod as PaymentMethod,
       date: new Date(date).toISOString(),
-    };
-    
-    setExpenseList(prev => [newExpense, ...prev]);
+      createdAt: serverTimestamp(),
+    });
 
     toast({
       title: 'Despesa Adicionada!',
@@ -157,7 +164,7 @@ export default function ExpensesPage() {
                 </TableHeader>
                 <TableBody>
                   {isLoading && <TableRow><TableCell colSpan={5} className="text-center h-24">Carregando despesas...</TableCell></TableRow>}
-                  {!isLoading && expenseList?.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(expense => (
+                  {!isLoading && expenseList && expenseList.length > 0 ? expenseList.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(expense => (
                     <TableRow key={expense.id}>
                       <TableCell className="font-medium">{expense.description}</TableCell>
                       <TableCell><Badge variant="outline">{categoryTranslations[expense.category as ExpenseCategory] || expense.category}</Badge></TableCell>
@@ -167,7 +174,9 @@ export default function ExpensesPage() {
                         - {formatCurrency(expense.amount)}
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )) : (
+                    !isLoading && <TableRow><TableCell colSpan={5} className="h-24 text-center">Nenhuma despesa registrada.</TableCell></TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
