@@ -10,7 +10,7 @@ export async function getAdminApp() {
   }
   
   // Garante a substituição de '\\n' (string) pelo caractere de quebra de linha real
-  const privateKey = serviceAccount.private_key.replace(/\\n/g, '\n');
+  const privateKey = (serviceAccount.private_key || '').replace(/\\n/g, '\n');
 
   const credential = admin.credential.cert({
     projectId: serviceAccount.project_id,
