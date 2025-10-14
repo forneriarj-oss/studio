@@ -1,39 +1,45 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Regra explícita para cada coleção usada na aplicação.
-    // Isso garante que um usuário só possa acessar os documentos que possuem seu userId.
-
-    match /appointments/{appointmentId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
-    }
-
+    // Regra para despesas: permite acesso se o userId do documento for o do usuário logado.
     match /expenses/{expenseId} {
       allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
     }
 
-    match /finished-products/{productId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
-    }
-
-    match /purchases/{purchaseId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
-    }
-
-    match /raw-materials/{materialId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
-    }
-
+    // Regra para receitas: permite acesso se o userId do documento for o do usuário logado.
     match /revenues/{revenueId} {
       allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
     }
 
-    match /sales/{saleId} {
+    // Regra para compromissos: permite acesso se o userId do documento for o do usuário logado.
+    match /appointments/{appointmentId} {
       allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
     }
 
-    match /settings/{settingId} {
+    // Regra para produtos acabados: permite acesso se o userId do documento for o do usuário logado.
+    match /finished-products/{productId} {
       allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    // Regra para matérias-primas: permite acesso se o userId do documento for o do usuário logado.
+    match /raw-materials/{materialId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    // Regra para compras: permite acesso se o userId do documento for o do usuário logado.
+    match /purchases/{purchaseId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Regra para vendas: permite acesso se o userId do documento for o do usuário logado.
+    match /sales/{saleId} {
+        allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    // Regra para configurações: permite acesso se o userId do documento for o do usuário logado.
+    match /settings/{settingId} {
+        allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
     }
   }
 }
