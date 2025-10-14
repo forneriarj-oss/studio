@@ -21,10 +21,6 @@ const Logo = () => (
 export function AppSidebar() {
   const router = useRouter();
 
-  const onSignOut = async () => {
-    router.push('/auth');
-  }
-
   return (
     <>
       <SidebarHeader>
@@ -34,10 +30,7 @@ export function AppSidebar() {
         <Nav />
       </SidebarContent>
       <SidebarFooter>
-          <Button variant="ghost" className="w-full justify-start gap-2" onClick={onSignOut}>
-            <LogOut size={16} />
-            <span className="group-data-[collapsible=icon]:hidden">Sair</span>
-          </Button>
+          {/* Footer content can go here */}
       </SidebarFooter>
     </>
   );

@@ -142,15 +142,12 @@
         }
       },
       "required": [
-        "id",
-        "name",
-        "email"
+        "id"
       ]
     }
   },
   "auth": {
     "providers": [
-      "password",
       "anonymous"
     ]
   },

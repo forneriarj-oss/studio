@@ -30,12 +30,6 @@ export default function Home() {
   useEffect(() => {
     setIsClient(true);
   }, []);
-  
-  useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push('/auth');
-    }
-  }, [user, isUserLoading, router]);
 
   const { startDate, endDate } = useMemo(() => {
     const now = new Date();

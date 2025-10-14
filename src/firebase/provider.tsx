@@ -1,9 +1,9 @@
 'use client';
 
-import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
+import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged } from 'firebase/auth';
+import { Auth, User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 interface FirebaseProviderProps {
@@ -80,12 +80,21 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       setIsUserLoading(false);
       return;
     }
-    
+
     const unsubscribe = onAuthStateChanged(
       auth,
       (user) => {
-        setUser(user);
-        setIsUserLoading(false);
+        if (user) {
+            setUser(user);
+            setIsUserLoading(false);
+        } else {
+            // If no user, sign in anonymously
+            signInAnonymously(auth).catch((error) => {
+                console.error("Anonymous sign-in failed:", error);
+                setUserError(error);
+                setIsUserLoading(false);
+            });
+        }
       },
       (error) => {
         setUserError(error);

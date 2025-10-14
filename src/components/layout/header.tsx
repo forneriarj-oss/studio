@@ -33,13 +33,6 @@ export function Header() {
   const { user, isUserLoading } = useUser();
   const { auth } = useFirebase();
 
-  const onSignOut = async () => {
-    if (auth) {
-      await handleSignOut(auth);
-      router.push('/auth');
-    }
-  }
-
   const getInitials = (name: string | null | undefined) => {
     if (!name) return 'U';
     const names = name.split(' ');
@@ -55,34 +48,7 @@ export function Header() {
       {!isMobile && <Logo />}
       <div className="flex w-full items-center gap-4">
         <div className="flex-1" />
-        {isUserLoading ? (
-          <Loader className="h-6 w-6 animate-spin" />
-        ) : user ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <Avatar className="h-8 w-8">
-                  {user.photoURL ? (
-                    <AvatarImage src={user.photoURL} alt={user.displayName || 'User Avatar'} />
-                  ) : (
-                     <AvatarFallback>{getInitials(user.displayName || user.email)}</AvatarFallback>
-                  )}
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>{user.displayName || user.email}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/settings">Configurações</Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onSignOut}>Sair</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          <Button variant="ghost" onClick={() => router.push('/auth')}>Login</Button>
-        )}
+        {isUserLoading && <Loader className="h-6 w-6 animate-spin" />}
       </div>
     </header>
   );
