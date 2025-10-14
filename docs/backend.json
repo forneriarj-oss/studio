@@ -1,5 +1,36 @@
 {
   "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the BizView application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The user's full name."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        },
+        "companyName": {
+          "type": "string",
+          "description": "The name of the company the user is associated with."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "companyName"
+      ]
+    },
     "Expense": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Expense",
@@ -10,6 +41,15 @@
           "type": "string",
           "description": "Unique identifier for the expense entity."
         },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Expense)"
+        },
+        "date": {
+          "type": "string",
+          "description": "The date the expense was incurred.",
+          "format": "date-time"
+        },
         "amount": {
           "type": "number",
           "description": "The amount of the expense."
@@ -18,26 +58,18 @@
           "type": "string",
           "description": "The category of the expense (e.g., 'Rent', 'Utilities', 'Supplies')."
         },
-        "date": {
-          "type": "string",
-          "description": "The date the expense was incurred.",
-          "format": "date-time"
-        },
         "description": {
           "type": "string",
           "description": "A description of the expense."
-        },
-        "businessId": {
-          "type": "string",
-          "description": "Reference to Business. (Relationship: Business 1:N Expense)"
         }
       },
       "required": [
         "id",
+        "userId",
+        "date",
         "amount",
         "category",
-        "date",
-        "businessId"
+        "description"
       ]
     },
     "Revenue": {
@@ -50,6 +82,15 @@
           "type": "string",
           "description": "Unique identifier for the revenue entity."
         },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Revenue)"
+        },
+        "date": {
+          "type": "string",
+          "description": "The date the revenue was received.",
+          "format": "date-time"
+        },
         "amount": {
           "type": "number",
           "description": "The amount of the revenue."
@@ -58,26 +99,18 @@
           "type": "string",
           "description": "The category of the revenue (e.g., 'Sales', 'Services')."
         },
-        "date": {
-          "type": "string",
-          "description": "The date the revenue was received.",
-          "format": "date-time"
-        },
         "description": {
           "type": "string",
           "description": "A description of the revenue."
-        },
-        "businessId": {
-          "type": "string",
-          "description": "Reference to Business. (Relationship: Business 1:N Revenue)"
         }
       },
       "required": [
         "id",
+        "userId",
+        "date",
         "amount",
         "category",
-        "date",
-        "businessId"
+        "description"
       ]
     },
     "Appointment": {
@@ -90,9 +123,9 @@
           "type": "string",
           "description": "Unique identifier for the appointment entity."
         },
-        "title": {
+        "userId": {
           "type": "string",
-          "description": "The title of the appointment."
+          "description": "Reference to User. (Relationship: User 1:N Appointment)"
         },
         "startTime": {
           "type": "string",
@@ -104,76 +137,33 @@
           "description": "The end time of the appointment.",
           "format": "date-time"
         },
+        "title": {
+          "type": "string",
+          "description": "The title of the appointment."
+        },
         "description": {
           "type": "string",
           "description": "A description of the appointment."
         },
-        "businessId": {
+        "location": {
           "type": "string",
-          "description": "Reference to Business. (Relationship: Business 1:N Appointment)"
+          "description": "The location of the appointment."
+        },
+        "attendees": {
+          "type": "array",
+          "description": "A list of attendees' email addresses.",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
         "id",
-        "title",
+        "userId",
         "startTime",
         "endTime",
-        "businessId"
-      ]
-    },
-    "Business": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Business",
-      "type": "object",
-      "description": "Represents a business.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the business entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the business."
-        },
-        "description": {
-          "type": "string",
-          "description": "A description of the business."
-        },
-        "ownerId": {
-          "type": "string",
-          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N Business)"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "ownerId"
-      ]
-    },
-    "UserProfile": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "UserProfile",
-      "type": "object",
-      "description": "Represents a user profile.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the user profile entity."
-        },
-        "email": {
-          "type": "string",
-          "description": "The email address of the user.",
-          "format": "email"
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the user."
-        }
-      },
-      "required": [
-        "id",
-        "email",
-        "name"
+        "title",
+        "description"
       ]
     }
   },
@@ -188,96 +178,96 @@
       {
         "path": "/users/{userId}",
         "definition": {
-          "entityName": "UserProfile",
+          "entityName": "User",
           "schema": {
-            "$ref": "#/backend/entities/UserProfile"
+            "$ref": "#/backend/entities/User"
           },
-          "description": "Stores user profile data. Accessible only by the user themselves.",
+          "description": "Stores user profile information.  The userId parameter is the Firebase Authentication UID.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier of the user."
+              "description": "The Firebase Authentication UID of the user."
             }
           ]
         }
       },
       {
-        "path": "/businesses/{businessId}",
+        "path": "/users/{userId}/settings/app-settings",
         "definition": {
-          "entityName": "Business",
+          "entityName": "User",
           "schema": {
-            "$ref": "#/backend/entities/Business"
+            "$ref": "#/backend/entities/User"
           },
-          "description": "Stores business data. The `ownerId` field determines ownership.",
+          "description": "Stores settings for a specific user. The userId parameter is the Firebase Authentication UID.",
           "params": [
             {
-              "name": "businessId",
-              "description": "The unique identifier of the business."
+              "name": "userId",
+              "description": "The Firebase Authentication UID of the user."
             }
           ]
         }
       },
       {
-        "path": "/businesses/{businessId}/expenses/{expenseId}",
+        "path": "/users/{userId}/expenses/{expenseId}",
         "definition": {
           "entityName": "Expense",
           "schema": {
             "$ref": "#/backend/entities/Expense"
           },
-          "description": "Stores expense records associated with a business.  Authorization relies on the `businessId` in the path.",
+          "description": "Stores expense records for a specific user. The userId parameter is the Firebase Authentication UID.",
           "params": [
             {
-              "name": "businessId",
-              "description": "The unique identifier of the business."
+              "name": "userId",
+              "description": "The Firebase Authentication UID of the user."
             },
             {
               "name": "expenseId",
-              "description": "The unique identifier of the expense."
+              "description": "The unique ID of the expense."
             }
           ]
         }
       },
       {
-        "path": "/businesses/{businessId}/revenues/{revenueId}",
+        "path": "/users/{userId}/revenues/{revenueId}",
         "definition": {
           "entityName": "Revenue",
           "schema": {
             "$ref": "#/backend/entities/Revenue"
           },
-          "description": "Stores revenue records associated with a business. Authorization relies on the `businessId` in the path.",
+          "description": "Stores revenue records for a specific user. The userId parameter is the Firebase Authentication UID.",
           "params": [
             {
-              "name": "businessId",
-              "description": "The unique identifier of the business."
+              "name": "userId",
+              "description": "The Firebase Authentication UID of the user."
             },
             {
               "name": "revenueId",
-              "description": "The unique identifier of the revenue."
+              "description": "The unique ID of the revenue."
             }
           ]
         }
       },
       {
-        "path": "/businesses/{businessId}/appointments/{appointmentId}",
+        "path": "/users/{userId}/appointments/{appointmentId}",
         "definition": {
           "entityName": "Appointment",
           "schema": {
             "$ref": "#/backend/entities/Appointment"
           },
-          "description": "Stores appointment records associated with a business. Authorization relies on the `businessId` in the path.",
+          "description": "Stores appointment records for a specific user. The userId parameter is the Firebase Authentication UID.",
           "params": [
             {
-              "name": "businessId",
-              "description": "The unique identifier of the business."
+              "name": "userId",
+              "description": "The Firebase Authentication UID of the user."
             },
             {
               "name": "appointmentId",
-              "description": "The unique identifier of the appointment."
+              "description": "The unique ID of the appointment."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to support the BizView application, focusing on simplicity, security, and scalability. The core principle is Authorization Independence via denormalization, ensuring that security rules do not rely on hierarchical `get()` calls, which can break atomic operations and increase complexity.\n\nThe structure segregates user profiles and business data to ensure a consistent security posture for each collection.  Businesses are owned by users, and expenses, revenue, and appointments are associated with specific businesses.  This 1:N relationship is implemented using path-based ownership, simplifying security rules and improving query performance.\n\n**Authorization Independence (Denormalization):**\nEach `Expense`, `Revenue`, and `Appointment` document includes the `businessId`. The `Business` document contains the `ownerId`. No `get()` calls are needed to validate access because all relevant authorization information is available within the document itself or the authenticated user.\n\n**QAPs Support:**\n*   `list` operations are secure because they do not require filtering based on data in other documents (no `get()` calls to other documents). Access is controlled by the path and the `request.auth.uid`.\n\n**Global Roles:**\nGlobal roles are not required, as the application focuses on businesses managed by individual users.\n\n**Invariants:**\nThe structure supports the integrity of ownership by explicitly storing the `ownerId` in the `Business` document and `businessId` in related documents, which can be validated in security rules."
+    "reasoning": "The Firestore data structure is designed to address the reported permission error and follow the core design principles of Authorization Independence, Clarity of Intent, DBAC (Database-Based Access Control), and QAPs (Rules are not Filters). The structure uses path-based ownership for user-specific data and denormalization where needed to avoid `get()` calls in security rules.\n\n**Authorization Independence:** The structure avoids hierarchical authorization dependencies by storing all data related to a user's account in a path that includes the user ID. Specifically, settings are stored under `/users/{userId}/settings/app-settings`, expenses are stored under `/users/{userId}/expenses/{expenseId}`, revenues are stored under `/users/{userId}/revenues/{revenueId}`, and appointments are stored under `/users/{userId}/appointments/{appointmentId}`. This eliminates the need to use `get()` calls to verify ownership of the documents, making the security rules more robust and efficient.\n\n**Clarity of Intent:** The paths clearly indicate the ownership and purpose of the data. For example, the path `/users/{userId}/expenses/{expenseId}` clearly indicates that the expense document is owned by the user identified by `{userId}`. The data structure also makes it clear where each type of data is stored, improving maintainability and debuggability.\n\n**DBAC (No Custom Claims):** The security rules rely solely on `request.auth.uid` to determine the user's identity. No custom claims are used. This approach simplifies the security rules and reduces the risk of errors.\n\n**QAPs (Rules are not Filters):** The structure supports secure `list` operations by ensuring that all documents in a collection share the same security requirements. For example, a user can only list their own expenses, not the expenses of other users. This is achieved by storing each user's expenses in a separate collection under their user ID.\n\n**Error Resolution:** The reported permission error indicates that the user '5FJJv6raB0hDsi1cirAUcpNT3L92' did not have permission to `get` the document at `/databases/(default)/documents/users/5FJJv6raB0hDsi1cirAUcpNT3L92/settings/app-settings`. The proposed Firestore structure, combined with corresponding security rules, will ensure that users can only access their own settings and data, and not those of other users. The path `/users/{userId}/settings/app-settings` will allow the user, whose ID is {userId}, to get, update, and create their settings."
   }
 }

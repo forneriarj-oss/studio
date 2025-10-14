@@ -4,7 +4,6 @@ import React, { DependencyList, createContext, useContext, ReactNode, useMemo, u
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
-import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
 
 interface FirebaseProviderProps {
@@ -147,12 +146,6 @@ export const useAuth = (): Auth => {
 export const useFirestore = (): Firestore => {
   const { firestore } = useFirebase();
   return firestore;
-};
-
-/** Hook to access Firebase Storage instance. */
-export const useStorage = (): FirebaseStorage => {
-    const { firebaseApp } = useFirebase();
-    return getStorage(firebaseApp);
 };
 
 /** Hook to access Firebase App instance. */
