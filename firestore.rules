@@ -1,10 +1,6 @@
 /**
- * @fileoverview Firestore Security Rules for the Expense Tracker application.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model. Each user has a dedicated
- * data tree under `/users/{userId}`, and only the authenticated user can
- * access their own data.
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for all data. Each user has a dedicated data tree under `/users/{userId}`, and only the authenticated user can access their own data.
  *
  * Data Structure:
  * - /users/{userId}: Stores user profile information.
@@ -13,132 +9,85 @@
  * - /users/{userId}/appointments/{appointmentId}: Stores appointment records for a specific user.
  *
  * Key Security Decisions:
- * - Users can only access their own data, enforced through `isOwner(userId)`.
- * - User listing is not allowed.
- *
+ * - User data is strictly segregated. Users can only access their own data; cross-user access is denied.
+ * - List operations are restricted to the owning user for all user-scoped subcollections.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper function to determine if the request is from the resource owner
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Helper function to determine if the request is from an existing resource owner
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    // Match root-level users collection
     /**
-     * @description Enforces that only authenticated users can access their own user document.
+     * @description Allows a user to create their own user document and manage their profile.
      * @path /users/{userId}
-     * @allow (create) - Authenticated user creates their own profile.
-     * @allow (get) - Authenticated user retrieves their own profile.
-     * @allow (update) - Authenticated user updates their own profile.
-     * @allow (delete) - Authenticated user deletes their own profile.
-     * @deny (create) - If the user attempts to create a profile with an ID that doesn't match their auth UID.
-     * @deny (get) - If a user attempts to read a profile other than their own.
-     * @deny (update) - If a user attempts to modify a profile other than their own.
-     * @deny (delete) - If a user attempts to delete a profile other than their own.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - User with ID 'user123' creates a new user document with id 'user123'.
+     * @deny (create) - User with ID 'user123' attempts to create a document with id 'user456'.
+     * @principle Enforces document ownership and prevents unauthorized user creation.
      */
     match /users/{userId} {
-      // Helper function to check if the request is made by the owner of the document.
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-
-      // Allow a user to create their own profile if the userId matches their auth.uid
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
       allow get: if isOwner(userId);
-      allow update: if isOwner(userId) && resource.data.id == userId;
-      allow delete: if isOwner(userId) && resource.data.id == userId;
       allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
     }
 
+    // Match expenses subcollection
     /**
-     * @description Enforces that only authenticated users can manage their own expenses.
+     * @description Allows a user to manage their expense records.
      * @path /users/{userId}/expenses/{expenseId}
-     * @allow (create) - Authenticated user creates a new expense record.
-     * @allow (get) - Authenticated user retrieves their own expense record.
-     * @allow (update) - Authenticated user updates their own expense record.
-     * @allow (delete) - Authenticated user deletes their own expense record.
-     * @deny (create) - If a user attempts to create an expense record under another user's ID.
-     * @deny (get) - If a user attempts to read an expense record belonging to another user.
-     * @deny (update) - If a user attempts to modify an expense record belonging to another user.
-     * @deny (delete) - If a user attempts to delete an expense record belonging to another user.
-     * @principle Enforces document ownership for writes, and restricts access to a user's own data tree.
+     * @allow (create) - User with ID 'user123' creates a new expense record under /users/user123/expenses.
+     * @deny (update) - User with ID 'user123' attempts to update an expense record under /users/user456/expenses.
+     * @principle Enforces document ownership and prevents cross-user data modification.
      */
     match /users/{userId}/expenses/{expenseId} {
-      // Helper function to check if the request is made by the owner of the document.
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
       allow get: if isOwner(userId);
-      allow update: if isOwner(userId) && isExistingOwner(userId) && resource.data.userId == userId;
-      allow delete: if isExistingOwner(userId) && resource.data.userId == userId;
       allow list: if isOwner(userId);
-
-       // Helper function to check if the request is made by the owner of the document and it exists.
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && resource.data.userId == userId;
+      allow delete: if isExistingOwner(userId);
     }
 
+    // Match revenues subcollection
     /**
-     * @description Enforces that only authenticated users can manage their own revenues.
+     * @description Allows a user to manage their revenue records.
      * @path /users/{userId}/revenues/{revenueId}
-     * @allow (create) - Authenticated user creates a new revenue record.
-     * @allow (get) - Authenticated user retrieves their own revenue record.
-     * @allow (update) - Authenticated user updates their own revenue record.
-     * @allow (delete) - Authenticated user deletes their own revenue record.
-     * @deny (create) - If a user attempts to create a revenue record under another user's ID.
-     * @deny (get) - If a user attempts to read a revenue record belonging to another user.
-     * @deny (update) - If a user attempts to modify a revenue record belonging to another user.
-     * @deny (delete) - If a user attempts to delete a revenue record belonging to another user.
-     * @principle Enforces document ownership for writes, and restricts access to a user's own data tree.
+     * @allow (create) - User with ID 'user123' creates a new revenue record under /users/user123/revenues.
+     * @deny (update) - User with ID 'user123' attempts to update a revenue record under /users/user456/revenues.
+     * @principle Enforces document ownership and prevents cross-user data modification.
      */
     match /users/{userId}/revenues/{revenueId} {
-      // Helper function to check if the request is made by the owner of the document.
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
       allow get: if isOwner(userId);
-      allow update: if isOwner(userId) && isExistingOwner(userId) && resource.data.userId == userId;
-      allow delete: if isExistingOwner(userId) && resource.data.userId == userId;
       allow list: if isOwner(userId);
-
-       // Helper function to check if the request is made by the owner of the document and it exists.
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && resource.data.userId == userId;
+      allow delete: if isExistingOwner(userId);
     }
 
+    // Match appointments subcollection
     /**
-     * @description Enforces that only authenticated users can manage their own appointments.
+     * @description Allows a user to manage their appointment records.
      * @path /users/{userId}/appointments/{appointmentId}
-     * @allow (create) - Authenticated user creates a new appointment record.
-     * @allow (get) - Authenticated user retrieves their own appointment record.
-     * @allow (update) - Authenticated user updates their own appointment record.
-     * @allow (delete) - Authenticated user deletes their own appointment record.
-     * @deny (create) - If a user attempts to create an appointment record under another user's ID.
-     * @deny (get) - If a user attempts to read an appointment record belonging to another user.
-     * @deny (update) - If a user attempts to modify an appointment record belonging to another user.
-     * @deny (delete) - If a user attempts to delete an appointment record belonging to another user.
-     * @principle Enforces document ownership for writes, and restricts access to a user's own data tree.
+     * @allow (create) - User with ID 'user123' creates a new appointment record under /users/user123/appointments.
+     * @deny (update) - User with ID 'user123' attempts to update an appointment record under /users/user456/appointments.
+     * @principle Enforces document ownership and prevents cross-user data modification.
      */
     match /users/{userId}/appointments/{appointmentId} {
-      // Helper function to check if the request is made by the owner of the document.
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
       allow get: if isOwner(userId);
-      allow update: if isOwner(userId) && isExistingOwner(userId) && resource.data.userId == userId;
-      allow delete: if isExistingOwner(userId) && resource.data.userId == userId;
       allow list: if isOwner(userId);
-
-       // Helper function to check if the request is made by the owner of the document and it exists.
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && resource.data.userId == userId;
+      allow delete: if isExistingOwner(userId);
     }
   }
 }
