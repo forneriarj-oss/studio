@@ -1,152 +1,102 @@
 /**
- * @fileoverview Firestore Security Rules for a user-centric ERP system.
+ * @description This ruleset enforces a strict user-ownership model for the BizView application.
+ * All data is nested under /users/{userId}, ensuring that only the authenticated user can access their own data.
  *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model. Each user has complete control over their expenses, revenue, and appointments.
+ * @dataStructure
+ * - /users/{userId}: Root document for user-specific data.
+ * - /users/{userId}/expenses/{expenseId}: Expenses collection owned by the user.
+ * - /users/{userId}/revenue/{revenueId}: Revenue collection owned by the user.
+ * - /users/{userId}/appointments/{appointmentId}: Appointments collection owned by the user.
  *
- * Data Structure:
- * All data (expenses, revenue, and appointments) is nested under /users/{userId}, creating a private data tree for each user.
+ * @keySecurityDecisions
+ * - Users can only access their own data.
+ * - Listing of user documents is disallowed for privacy.
  *
- * Key Security Decisions:
- * - User data is completely isolated. Users can only access data under their own UID.
- * - Listing other users' data is forbidden.
+ * @denormalizationForAuthorization Not applicable in this ruleset since all authorization relies on path-based ownership.
  *
- * Denormalization for Authorization:
- *  -  This design avoids `get()` calls. Authorization checks use path-based rules, which are faster and more scalable.
+ * @structuralSegregation All user data is stored under the /users/{userId} path, ensuring clear separation and simplified access control.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Secures all documents and subcollections under a user's path.
-     * @path /users/{userId}/{document=**}
-     * @allow (read, write) Authenticated user accessing their own data.
-     *     Example: A user with UID "user123" reading their expenses at /users/user123/expenses/expense456.
-     * @deny (read, write) Authenticated user attempting to access another user's data.
-     *     Example: A user with UID "user123" attempting to read data at /users/user456/expenses/expense789.
-     * @principle Enforces document ownership for all reads and writes.
-     */
-    match /users/{userId}/{document=**} {
-      allow read, write: if isSignedIn() && isOwner(userId);
-    }
-
-    /**
-     * @description Prevents direct access to the /users collection itself. Only access to documents within a user's path is allowed.
+     * @description Prevents direct access to the list of users.
      * @path /users/{userId}
-     * @allow (get) Not applicable, as direct access to /users/{userId} is handled by the recursive rule above.
-     * @deny (get) Not applicable, as direct access to /users/{userId} is handled by the recursive rule above.
-     * @allow (list) Not applicable, listing the /users collection is disallowed.
-     * @deny (list) Listing the /users collection.
-     *     Example: An attempt to list all user documents in the /users collection.
-     * @allow (create) Not applicable, creation of user documents is handled implicitly via auth.
-     * @deny (create) Creating documents directly in /users. User documents are created implicitly via authentication.
-     * @allow (update) Not applicable, updating the user document is handled by the recursive rule above.
-     * @deny (update) Not applicable, updating the user document is handled by the recursive rule above.
-     * @allow (delete) Not applicable, deleting the user document is handled by the recursive rule above.
-     * @deny (delete) Not applicable, deleting the user document is handled by the recursive rule above.
-     * @principle Restricts direct access to the /users collection, enforcing access only through user-owned paths.
+     * @allow None. Listing user documents is disallowed.
+     * @deny get, list, create, update, delete: All operations are denied on the root user documents except for self-creation.
+     * @principle Restricts access to a user's own data tree.
      */
     match /users/{userId} {
-        allow get, list: if false;
-        allow create, update, delete: if false;
+      allow get: if false;
+      allow list: if false;
+      allow create: if request.auth.uid == userId;
+      allow update: if request.auth.uid == userId && resource != null;
+      allow delete: if request.auth.uid == userId && resource != null;
     }
 
     /**
-     * @description Secures expense documents under a user's path.
+     * @description Manages expenses for a specific user. Only the owner can create, read, update, or delete expenses.
      * @path /users/{userId}/expenses/{expenseId}
-     * @allow (get) Authenticated owner can retrieve their own expense.
-     *     Example: User "user123" retrieves expense "expense456" at /users/user123/expenses/expense456.
-     * @deny (get) Authenticated user attempts to retrieve another user's expense.
-     *     Example: User "user123" attempts to retrieve expense "expense456" at /users/user456/expenses/expense456.
-     * @allow (list) Authenticated owner can list their own expenses.
-     *     Example: User "user123" lists expenses at /users/user123/expenses.
-     * @deny (list) Authenticated user attempts to list another user's expenses.
-     *     Example: User "user123" attempts to list expenses at /users/user456/expenses.
-     * @allow (create) Authenticated owner can create a new expense.
-     *     Example: User "user123" creates a new expense at /users/user123/expenses/newExpense.
-     * @deny (create) Authenticated user attempts to create an expense under another user's ID.
-     *     Example: User "user123" attempts to create an expense at /users/user456/expenses/newExpense.
-     * @allow (update) Authenticated owner can update their own existing expense.
-     *     Example: User "user123" updates expense "expense456" at /users/user123/expenses/expense456.
-     * @deny (update) Authenticated user attempts to update another user's expense.
-     *     Example: User "user123" attempts to update expense "expense456" at /users/user456/expenses/expense456.
-     * @allow (delete) Authenticated owner can delete their own existing expense.
-     *     Example: User "user123" deletes expense "expense456" at /users/user123/expenses/expense456.
-     * @deny (delete) Authenticated user attempts to delete another user's expense.
-     *     Example: User "user123" attempts to delete expense "expense456" at /users/user456/expenses/expense456.
-     * @principle Enforces document ownership for all expense operations.
+     * @allow (create) - An authenticated user can create a new expense record under their own user ID.
+     * @allow (get, update, delete) - An authenticated user can get, update, and delete their own existing expense records.
+     * @deny (create) - An authenticated user cannot create an expense record under another user's ID.
+     * @deny (get, update, delete) - An authenticated user cannot get, update, and delete expense records belonging to another user.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/expenses/{expenseId} {
-      allow get, list, create, update, delete: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Secures revenue documents under a user's path.
+     * @description Manages revenue records for a specific user. Only the owner can create, read, update, or delete revenue.
      * @path /users/{userId}/revenue/{revenueId}
-     * @allow (get) Authenticated owner can retrieve their own revenue.
-     *     Example: User "user123" retrieves revenue "revenue456" at /users/user123/revenue/revenue456.
-     * @deny (get) Authenticated user attempts to retrieve another user's revenue.
-     *     Example: User "user123" attempts to retrieve revenue "revenue456" at /users/user456/revenue/revenue456.
-     * @allow (list) Authenticated owner can list their own revenue.
-     *     Example: User "user123" lists revenue at /users/user123/revenue.
-     * @deny (list) Authenticated user attempts to list another user's revenue.
-     *     Example: User "user123" attempts to list revenue at /users/user456/revenue.
-     * @allow (create) Authenticated owner can create a new revenue.
-     *     Example: User "user123" creates a new revenue at /users/user123/revenue/newRevenue.
-     * @deny (create) Authenticated user attempts to create revenue under another user's ID.
-     *     Example: User "user123" attempts to create revenue at /users/user456/revenue/newRevenue.
-     * @allow (update) Authenticated owner can update their own existing revenue.
-     *     Example: User "user123" updates revenue "revenue456" at /users/user123/revenue/revenue456.
-     * @deny (update) Authenticated user attempts to update another user's revenue.
-     *     Example: User "user123" attempts to update revenue "revenue456" at /users/user456/revenue/revenue456.
-     * @allow (delete) Authenticated owner can delete their own existing revenue.
-     *     Example: User "user123" deletes revenue "revenue456" at /users/user123/revenue/revenue456.
-     * @deny (delete) Authenticated user attempts to delete another user's revenue.
-     *     Example: User "user123" attempts to delete revenue "revenue456" at /users/user456/revenue/revenue456.
-     * @principle Enforces document ownership for all revenue operations.
+     * @allow (create) - An authenticated user can create a new revenue record under their own user ID.
+     * @allow (get, update, delete) - An authenticated user can get, update, and delete their own existing revenue records.
+     * @deny (create) - An authenticated user cannot create a revenue record under another user's ID.
+     * @deny (get, update, delete) - An authenticated user cannot get, update, and delete revenue records belonging to another user.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/revenue/{revenueId} {
-      allow get, list, create, update, delete: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Secures appointment documents under a user's path.
+     * @description Manages appointments for a specific user. Only the owner can create, read, update, or delete appointments.
      * @path /users/{userId}/appointments/{appointmentId}
-     * @allow (get) Authenticated owner can retrieve their own appointment.
-     *     Example: User "user123" retrieves appointment "appointment456" at /users/user123/appointments/appointment456.
-     * @deny (get) Authenticated user attempts to retrieve another user's appointment.
-     *     Example: User "user123" attempts to retrieve appointment "appointment456" at /users/user456/appointments/appointment456.
-     * @allow (list) Authenticated owner can list their own appointments.
-     *     Example: User "user123" lists appointments at /users/user123/appointments.
-     * @deny (list) Authenticated user attempts to list another user's appointments.
-     *     Example: User "user123" attempts to list appointments at /users/user456/appointments.
-     * @allow (create) Authenticated owner can create a new appointment.
-     *     Example: User "user123" creates a new appointment at /users/user123/appointments/newAppointment.
-     * @deny (create) Authenticated user attempts to create an appointment under another user's ID.
-     *     Example: User "user123" attempts to create an appointment at /users/user456/appointments/newAppointment.
-     * @allow (update) Authenticated owner can update their own existing appointment.
-     *     Example: User "user123" updates appointment "appointment456" at /users/user123/appointments/appointment456.
-     * @deny (update) Authenticated user attempts to update another user's appointment.
-     *     Example: User "user123" attempts to update appointment "appointment456" at /users/user456/appointments/appointment456.
-     * @allow (delete) Authenticated owner can delete their own existing appointment.
-     *     Example: User "user123" deletes appointment "appointment456" at /users/user123/appointments/appointment456.
-     * @deny (delete) Authenticated user attempts to delete another user's appointment.
-     *     Example: User "user123" attempts to delete appointment "appointment456" at /users/user456/appointments/appointment456.
-     * @principle Enforces document ownership for all appointment operations.
+     * @allow (create) - An authenticated user can create a new appointment record under their own user ID.
+     * @allow (get, update, delete) - An authenticated user can get, update, and delete their own existing appointment records.
+     * @deny (create) - An authenticated user cannot create an appointment record under another user's ID.
+     * @deny (get, update, delete) - An authenticated user cannot get, update, and delete appointment records belonging to another user.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/appointments/{appointmentId} {
-      allow get, list, create, update, delete: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
-  }
 
-  // Helper function to determine if the user is signed in
-  function isSignedIn() {
-    return request.auth != null;
-  }
+    // --- Helper Functions ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
 
-  // Helper function to determine if the user is the owner of the document
-  function isOwner(userId) {
-    return request.auth.uid == userId;
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+    }
   }
 }

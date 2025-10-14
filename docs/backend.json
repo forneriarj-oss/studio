@@ -8,7 +8,12 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the expense."
+          "description": "Unique identifier for the expense record."
+        },
+        "date": {
+          "type": "string",
+          "description": "The date the expense was incurred.",
+          "format": "date-time"
         },
         "amount": {
           "type": "number",
@@ -18,11 +23,6 @@
           "type": "string",
           "description": "The category of the expense (e.g., 'Rent', 'Supplies')."
         },
-        "date": {
-          "type": "string",
-          "description": "The date the expense was incurred.",
-          "format": "date-time"
-        },
         "description": {
           "type": "string",
           "description": "A description of the expense."
@@ -30,9 +30,9 @@
       },
       "required": [
         "id",
+        "date",
         "amount",
         "category",
-        "date",
         "description"
       ]
     },
@@ -44,20 +44,20 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the revenue."
-        },
-        "amount": {
-          "type": "number",
-          "description": "The amount of revenue received."
-        },
-        "category": {
-          "type": "string",
-          "description": "The category of the revenue (e.g., 'Sales', 'Services')."
+          "description": "Unique identifier for the revenue record."
         },
         "date": {
           "type": "string",
           "description": "The date the revenue was received.",
           "format": "date-time"
+        },
+        "amount": {
+          "type": "number",
+          "description": "The amount of the revenue."
+        },
+        "source": {
+          "type": "string",
+          "description": "The source of the revenue (e.g., 'Sales', 'Services')."
         },
         "description": {
           "type": "string",
@@ -66,9 +66,9 @@
       },
       "required": [
         "id",
-        "amount",
-        "category",
         "date",
+        "amount",
+        "source",
         "description"
       ]
     },
@@ -92,9 +92,9 @@
           "description": "The end time of the appointment.",
           "format": "date-time"
         },
-        "subject": {
+        "title": {
           "type": "string",
-          "description": "The subject or title of the appointment."
+          "description": "The title of the appointment."
         },
         "description": {
           "type": "string",
@@ -105,7 +105,7 @@
         "id",
         "startTime",
         "endTime",
-        "subject",
+        "title",
         "description"
       ]
     }
@@ -119,21 +119,37 @@
   "firestore": {
     "structure": [
       {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "user",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Root collection for user data. All user-specific data is stored under this document.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
         "path": "/users/{userId}/expenses/{expenseId}",
         "definition": {
           "entityName": "Expense",
           "schema": {
             "$ref": "#/backend/entities/Expense"
           },
-          "description": "Stores expense records for each user. Path-based ownership ensures only the authenticated user can access their expenses.",
+          "description": "Stores expense records for a specific user.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier of the user."
+              "description": "The unique identifier for the user."
             },
             {
               "name": "expenseId",
-              "description": "The unique identifier of the expense record."
+              "description": "The unique identifier for the expense record."
             }
           ]
         }
@@ -145,15 +161,15 @@
           "schema": {
             "$ref": "#/backend/entities/Revenue"
           },
-          "description": "Stores revenue records for each user. Path-based ownership ensures only the authenticated user can access their revenue.",
+          "description": "Stores revenue records for a specific user.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier of the user."
+              "description": "The unique identifier for the user."
             },
             {
               "name": "revenueId",
-              "description": "The unique identifier of the revenue record."
+              "description": "The unique identifier for the revenue record."
             }
           ]
         }
@@ -165,20 +181,20 @@
           "schema": {
             "$ref": "#/backend/entities/Appointment"
           },
-          "description": "Stores appointment records for each user. Path-based ownership ensures only the authenticated user can access their appointments.",
+          "description": "Stores appointment records for a specific user.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier of the user."
+              "description": "The unique identifier for the user."
             },
             {
               "name": "appointmentId",
-              "description": "The unique identifier of the appointment record."
+              "description": "The unique identifier for the appointment record."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to support a basic ERP system for small businesses, focusing on revenue, expenses, appointments, and profit calculation. It leverages path-based ownership for user-specific data to ensure security and simplicity. The structure avoids hierarchical authorization dependencies by not using `get()` calls in security rules, thus enabling atomic operations.  \n\nExpenses, revenue, and appointments are stored under each user's document. This structural segregation ensures that only the authenticated user can access their own data. This design inherently supports secure `list` operations as rules only need to check the `request.auth.uid` against the path.\n\nThis approach enforces data isolation and simplifies security rules, aligning with the DBAC principle (Database-based Access Control)."
+    "reasoning": "The Firestore structure is designed to provide a secure and scalable foundation for the BizView application, adhering to the principles of Authorization Independence, Structural Segregation, and Access Modeling. Each user owns their data, which is stored under their user ID, promoting clear ownership and simplified security rules.\n\n**Authorization Independence:**\n\n*   All access control is path-based, eliminating the need for `get()` calls in security rules. Each entity is stored under the user's document.\n\n**Structural Segregation:**\n\n*   The structure isolates user-specific data, ensuring consistent security posture.\n\n**Access Modeling:**\n\n*   Path-Based Ownership: Uses `/users/{userId}` as the root for user-specific data. All other entities (Expenses, Revenue, Appointments) are stored as subcollections. This ensures that only the user can access their data.\n\n**QAPs Support:**\n\n*   The path-based ownership model facilitates secure `list` operations. Rules can easily check if `request.auth.uid` matches the `{userId}` parameter to allow listing of resources.\n\nThe design prioritizes clarity, predictability, and maintainability, making it easy to reason about security and data access."
   }
 }
