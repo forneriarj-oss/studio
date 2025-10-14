@@ -1,153 +1,109 @@
-/**
- * @file Firestore Security Rules for BizView Application
- * @corePhilosophy This ruleset enforces a strict ownership model. Users can only access their own user profile data.
- * Businesses are owned by users, and users can only access the data associated with businesses they own.
- * @dataStructure User profiles are stored under `/users/{userId}`. Businesses are stored under `/businesses/{businessId}`, with `ownerId` indicating the owning user.
- * Expenses, revenues, and appointments are stored under `/businesses/{businessId}/expenses/{expenseId}`, `/businesses/{businessId}/revenues/{revenueId}`, and `/businesses/{businessId}/appointments/{appointmentId}` respectively.
- * @keySecurityDecisions User listing is disallowed.  All write operations are restricted to owners.
- * @denormalization Authorization is based on denormalized data: Business documents contain the `ownerId`, and Expense/Revenue/Appointment documents contain the `businessId`.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile data.
+     * @description Secures user profiles, allowing only the owner to read and write their own profile.
      * @path /users/{userId}
-     * @allow (get, list, update, delete) if the user is the owner of the profile.
-     * @allow (create) if the authenticated user's ID matches the `userId` in the path.
-     * @deny (get, list, update, delete) if the user is not the owner of the profile.
+     * @allow (get, update, delete) User with ID 'user123' can read/write their own profile at /users/user123.
+     * @allow (create) User with ID 'user123' can create their own profile at /users/user123 if they just signed up.
+     * @deny (get, update, delete) User with ID 'user456' cannot read/write the profile of user 'user123' at /users/user123.
      * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       function isOwner(userId) {
         return request.auth.uid == userId;
       }
 
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false; // Listing users is not permitted.
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
-    }
-
-    /**
-     * @description Controls access to business data.
-     * @path /businesses/{businessId}
-     * @allow (get, list) if true (data assumed to be publicly readable).
-     * @allow (create) if the authenticated user is the owner of the business (validated via `request.resource.data.ownerId`).
-     * @allow (update, delete) if the authenticated user is the owner of the business (validated via `resource.data.ownerId`).
-     * @deny (create, update, delete) if the authenticated user is not the owner of the business.
-     * @principle Enforces document ownership for writes, allows public reads.
-     */
-    match /businesses/{businessId} {
       function isSignedIn() {
         return request.auth != null;
       }
 
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+
+    /**
+     * @description Secures business data, allowing only the owner to read and write.
+     * @path /businesses/{businessId}
+     * @allow (get, update, delete) User with ID 'user123' can read/write their business at /businesses/business123 if resource.data.ownerId == 'user123'.
+     * @allow (create) User with ID 'user123' can create a business at /businesses/business123 if request.resource.data.ownerId == 'user123'.
+     * @deny (get, update, delete) User with ID 'user456' cannot read/write the business of user 'user123' at /businesses/business123.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /businesses/{businessId} {
       function isOwner(ownerId) {
         return request.auth.uid == ownerId;
       }
 
-      function isExistingOwner(ownerId) {
-          return isOwner(ownerId) && resource.data.ownerId == request.auth.uid;
-      }
+      allow get: if isOwner(resource.data.ownerId);
+      allow list: if false;
+      allow create: if request.resource.data.ownerId == request.auth.uid;
+      allow update: if isOwner(resource.data.ownerId);
+      allow delete: if isOwner(resource.data.ownerId);
 
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isSignedIn() && isExistingOwner(resource.data.ownerId);
-      allow delete: if isSignedIn() && isExistingOwner(resource.data.ownerId);
-    }
-
-    /**
-     * @description Controls access to expense data associated with a business.
-     * @path /businesses/{businessId}/expenses/{expenseId}
-     * @allow (get, list) if the user is the owner of the business.
-     * @allow (create) if the user is the owner of the business.
-     * @allow (update, delete) if the user is the owner of the business.
-     * @deny (get, list, create, update, delete) if the user is not the owner of the business.
-     * @principle Enforces document ownership for all operations.
-     */
-    match /businesses/{businessId}/expenses/{expenseId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isBusinessOwner(businessId) {
-        return get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid;
-      }
-
-        function isExistingBusinessOwner(businessId) {
-          return isBusinessOwner(businessId);
+       /**
+         * @description Secures expense records, allowing only the business owner to read and write.
+         * @path /businesses/{businessId}/expenses/{expenseId}
+         * @allow (get, update, delete) User with ID 'user123' can read/write an expense at /businesses/business123/expenses/expense456 if they own the business.
+         * @allow (create) User with ID 'user123' can create an expense at /businesses/business123/expenses/expense456 if they own the business.
+         * @deny (get, update, delete) User with ID 'user456' cannot read/write expenses for business 'business123'.
+         * @principle Enforces document ownership via the business ID in the path.
+         */
+      match /expenses/{expenseId} {
+        function isBusinessOwner(businessId) {
+          return get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid;
         }
 
-      allow get: if isSignedIn() && isBusinessOwner(businessId);
-      allow list: if isSignedIn() && isBusinessOwner(businessId);
-      allow create: if isSignedIn() && isBusinessOwner(businessId);
-      allow update: if isSignedIn() && isExistingBusinessOwner(businessId);
-      allow delete: if isSignedIn() && isExistingBusinessOwner(businessId);
-    }
-
-    /**
-     * @description Controls access to revenue data associated with a business.
-     * @path /businesses/{businessId}/revenues/{revenueId}
-     * @allow (get, list) if the user is the owner of the business.
-     * @allow (create) if the user is the owner of the business.
-     * @allow (update, delete) if the user is the owner of the business.
-     * @deny (get, list, create, update, delete) if the user is not the owner of the business.
-     * @principle Enforces document ownership for all operations.
-     */
-    match /businesses/{businessId}/revenues/{revenueId} {
-      function isSignedIn() {
-        return request.auth != null;
+        allow get: if isBusinessOwner(businessId);
+        allow list: if false;
+        allow create: if isBusinessOwner(businessId);
+        allow update: if isBusinessOwner(businessId);
+        allow delete: if isBusinessOwner(businessId);
       }
 
-      function isBusinessOwner(businessId) {
-        return get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid;
-      }
-
-      function isExistingBusinessOwner(businessId) {
-        return isBusinessOwner(businessId);
-      }
-
-      allow get: if isSignedIn() && isBusinessOwner(businessId);
-      allow list: if isSignedIn() && isBusinessOwner(businessId);
-      allow create: if isSignedIn() && isBusinessOwner(businessId);
-      allow update: if isSignedIn() && isExistingBusinessOwner(businessId);
-      allow delete: if isSignedIn() && isExistingBusinessOwner(businessId);
-    }
-
-    /**
-     * @description Controls access to appointment data associated with a business.
-     * @path /businesses/{businessId}/appointments/{appointmentId}
-     * @allow (get, list) if the user is the owner of the business.
-     * @allow (create) if the user is the owner of the business.
-     * @allow (update, delete) if the user is the owner of the business.
-     * @deny (get, list, create, update, delete) if the user is not the owner of the business.
-     * @principle Enforces document ownership for all operations.
-     */
-    match /businesses/{businessId}/appointments/{appointmentId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isBusinessOwner(businessId) {
-        return get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid;
-      }
-
-        function isExistingBusinessOwner(businessId) {
-          return isBusinessOwner(businessId);
+      /**
+       * @description Secures revenue records, allowing only the business owner to read and write.
+       * @path /businesses/{businessId}/revenues/{revenueId}
+       * @allow (get, update, delete) User with ID 'user123' can read/write revenue at /businesses/business123/revenues/revenue456 if they own the business.
+       * @allow (create) User with ID 'user123' can create revenue at /businesses/business123/revenues/revenue456 if they own the business.
+       * @deny (get, update, delete) User with ID 'user456' cannot read/write revenue for business 'business123'.
+       * @principle Enforces document ownership via the business ID in the path.
+       */
+      match /revenues/{revenueId} {
+        function isBusinessOwner(businessId) {
+          return get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid;
         }
 
-      allow get: if isSignedIn() && isBusinessOwner(businessId);
-      allow list: if isSignedIn() && isBusinessOwner(businessId);
-      allow create: if isSignedIn() && isBusinessOwner(businessId);
-      allow update: if isSignedIn() && isExistingBusinessOwner(businessId);
-      allow delete: if isSignedIn() && isExistingBusinessOwner(businessId);
+        allow get: if isBusinessOwner(businessId);
+        allow list: if false;
+        allow create: if isBusinessOwner(businessId);
+        allow update: if isBusinessOwner(businessId);
+        allow delete: if isBusinessOwner(businessId);
+      }
+
+      /**
+       * @description Secures appointment records, allowing only the business owner to read and write.
+       * @path /businesses/{businessId}/appointments/{appointmentId}
+       * @allow (get, update, delete) User with ID 'user123' can read/write an appointment at /businesses/business123/appointments/appointment456 if they own the business.
+       * @allow (create) User with ID 'user123' can create an appointment at /businesses/business123/appointments/appointment456 if they own the business.
+       * @deny (get, update, delete) User with ID 'user456' cannot read/write appointments for business 'business123'.
+       * @principle Enforces document ownership via the business ID in the path.
+       */
+      match /appointments/{appointmentId} {
+        function isBusinessOwner(businessId) {
+          return get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid;
+        }
+
+        allow get: if isBusinessOwner(businessId);
+        allow list: if false;
+        allow create: if isBusinessOwner(businessId);
+        allow update: if isBusinessOwner(businessId);
+        allow delete: if isBusinessOwner(businessId);
+      }
     }
   }
 }
