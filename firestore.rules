@@ -1,128 +1,144 @@
+/**
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for all data.
+ *
+ * Data Structure:
+ * All data is nested under /users/{userId}, ensuring that only the authenticated user can access their own data.
+ *  - /users/{userId}: Stores user profile information.
+ *  - /users/{userId}/settings/app-settings: Stores user-specific app settings.
+ *  - /users/{userId}/expenses/{expenseId}: Stores user's expense records.
+ *  - /users/{userId}/revenues/{revenueId}: Stores user's revenue records.
+ *  - /users/{userId}/appointments/{appointmentId}: Stores user's appointment records.
+ *
+ * Key Security Decisions:
+ *  - User data is strictly segregated by UID. No cross-user access is permitted.
+ *  - All write operations require an authenticated user.
+ *  - Listing operations are restricted to the owner of the user-scoped subcollections.
+ *  - No public read access is granted.
+ *
+ * Reasoning Summary:
+ * The Firestore data structure is designed to address the reported permission error and follow the core design principles of Authorization Independence, Clarity of Intent, DBAC (Database-Based Access Control), and QAPs (Rules are not Filters). The structure uses path-based ownership for user-specific data and denormalization where needed to avoid `get()` calls in security rules.
+ *
+ * Authorization Independence: The structure avoids hierarchical authorization dependencies by storing all data related to a user's account in a path that includes the user ID. Specifically, settings are stored under `/users/{userId}/settings/app-settings`, expenses are stored under `/users/{userId}/expenses/{expenseId}`, revenues are stored under `/users/{userId}/revenues/{revenueId}`, and appointments are stored under `/users/{userId}/appointments/{appointmentId}`. This eliminates the need to use `get()` calls to verify ownership of the documents, making the security rules more robust and efficient.
+ *
+ * Clarity of Intent: The paths clearly indicate the ownership and purpose of the data. For example, the path `/users/{userId}/expenses/{expenseId}` clearly indicates that the expense document is owned by the user identified by `{userId}`. The data structure also makes it clear where each type of data is stored, improving maintainability and debuggability.
+ *
+ * DBAC (No Custom Claims): The security rules rely solely on `request.auth.uid` to determine the user's identity. No custom claims are used. This approach simplifies the security rules and reduces the risk of errors.
+ *
+ * QAPs (Rules are not Filters): The structure supports secure `list` operations by ensuring that all documents in a collection share the same security requirements. For example, a user can only list their own expenses, not the expenses of other users. This is achieved by storing each user's expenses in a separate collection under their user ID.
+ *
+ * Error Resolution: The reported permission error indicates that the user '5FJJv6raB0hDsi1cirAUcpNT3L92' did not have permission to `get` the document at `/databases/(default)/documents/users/5FJJv6raB0hDsi1cirAUcpNT3L92/settings/app-settings`. The proposed Firestore structure, combined with corresponding security rules, will ensure that users can only access their own settings and data, and not those of other users. The path `/users/{userId}/settings/app-settings` will allow the user, whose ID is {userId}, to get, update, and create their settings.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Secure access to user profiles. Only the user can read and modify their own profile.
+     * @description Rule for the /users/{userId} document.  Allows only the authenticated user with matching UID to read and write their own profile.
      * @path /users/{userId}
-     * @allow (get, update, delete) if the user's UID matches the userId in the path.
-     * @allow (create) if the user's UID matches the userId in the path.
-     * @deny (get, list) if the user is not authenticated.
-     * @deny (create, update, delete) if the user is not authenticated.
-     * @deny (create, update) if the user attempts to change the userId.
+     * @allow (read, write) if request.auth.uid == userId
+     *   -  User 'user123' can read their own profile data.
+     *   -  User 'user123' can update their profile data.
+     * @deny (read, write) if request.auth.uid != userId
+     *   - User 'user456' cannot read user 'user123's profile data.
+     *   - User 'user456' cannot update user 'user123's profile data.
      * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      allow get: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Secure access to user app settings. Only the user can read and modify their own settings.
+     * @description Rule for the /users/{userId}/settings/app-settings document. Allows only the authenticated user with matching UID to manage their own settings.
      * @path /users/{userId}/settings/app-settings
-     * @allow (get, update, create) if the user's UID matches the userId in the path.
-     * @deny (get, list) if the user is not authenticated.
-     * @deny (create, update, delete) if the user is not authenticated.
-     * @deny (create, update) if the user attempts to change the userId.
-     * @principle Enforces document ownership for all operations.
+     * @allow (read, write) if request.auth.uid == userId
+     *   - User 'user123' can read their own app settings.
+     *   - User 'user123' can update their own app settings.
+     * @deny (read, write) if request.auth.uid != userId
+     *   - User 'user456' cannot read user 'user123's app settings.
+     *   - User 'user456' cannot update user 'user123's app settings.
+     * @principle Restricts access to a user's own data tree.
      */
     match /users/{userId}/settings/app-settings {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      allow get: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if false;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Secure access to user expenses. Only the user can create, read, update, and delete their own expenses.
+     * @description Rule for the /users/{userId}/expenses/{expenseId} collection.  Allows only the authenticated user with matching UID to manage their own expenses.
      * @path /users/{userId}/expenses/{expenseId}
-     * @allow (get, list, create, update, delete) if the user's UID matches the userId in the path.
-     * @deny (get, list, create, update, delete) if the user is not authenticated.
-     * @deny (create, update) if the user attempts to change the userId.
-     * @principle Enforces document ownership for all operations.
+     * @allow (read, write) if request.auth.uid == userId
+     *   - User 'user123' can read their own expenses.
+     *   - User 'user123' can create, update, and delete their own expenses.
+     * @deny (read, write) if request.auth.uid != userId
+     *   - User 'user456' cannot read user 'user123's expenses.
+     *   - User 'user456' cannot create, update, or delete user 'user123's expenses.
+     * @principle Enforces document ownership and prevents cross-user data access.
      */
     match /users/{userId}/expenses/{expenseId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && resource.data.userId == userId;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Secure access to user revenues. Only the user can create, read, update, and delete their own revenues.
+     * @description Rule for the /users/{userId}/revenues/{revenueId} collection. Allows only the authenticated user with matching UID to manage their own revenues.
      * @path /users/{userId}/revenues/{revenueId}
-     * @allow (get, list, create, update, delete) if the user's UID matches the userId in the path.
-     * @deny (get, list, create, update, delete) if the user is not authenticated.
-     * @deny (create, update) if the user attempts to change the userId.
-     * @principle Enforces document ownership for all operations.
+     * @allow (read, write) if request.auth.uid == userId
+     *   - User 'user123' can read their own revenues.
+     *   - User 'user123' can create, update, and delete their own revenues.
+     * @deny (read, write) if request.auth.uid != userId
+     *   - User 'user456' cannot read user 'user123's revenues.
+     *   - User 'user456' cannot create, update, or delete user 'user123's revenues.
+     * @principle Enforces document ownership and prevents cross-user data access.
      */
     match /users/{userId}/revenues/{revenueId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && resource.data.userId == userId;
+      allow delete: if isExistingOwner(userId);
     }
 
-   /**
-     * @description Secure access to user appointments. Only the user can create, read, update, and delete their own appointments.
+    /**
+     * @description Rule for the /users/{userId}/appointments/{appointmentId} collection. Allows only the authenticated user with matching UID to manage their own appointments.
      * @path /users/{userId}/appointments/{appointmentId}
-     * @allow (get, list, create, update, delete) if the user's UID matches the userId in the path.
-     * @deny (get, list, create, update, delete) if the user is not authenticated.
-     * @deny (create, update) if the user attempts to change the userId.
-     * @principle Enforces document ownership for all operations.
+     * @allow (read, write) if request.auth.uid == userId
+     *   - User 'user123' can read their own appointments.
+     *   - User 'user123' can create, update, and delete their own appointments.
+     * @deny (read, write) if request.auth.uid != userId
+     *   - User 'user456' cannot read user 'user123's appointments.
+     *   - User 'user456' cannot create, update, or delete user 'user123's appointments.
+     * @principle Enforces document ownership and prevents cross-user data access.
      */
     match /users/{userId}/appointments/{appointmentId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && resource.data.userId == userId;
+      allow delete: if isExistingOwner(userId);
     }
+  }
+
+  // Helper functions
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  function isOwner(userId) {
+    return isSignedIn() && request.auth.uid == userId;
+  }
+
+  function isExistingOwner(userId) {
+    return isOwner(userId) && resource != null;
   }
 }
