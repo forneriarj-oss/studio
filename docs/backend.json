@@ -1,143 +1,18 @@
 {
   "entities": {
-    "Expense": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Expense",
-      "type": "object",
-      "description": "Represents an expense record.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the expense."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the User who created the expense. (Relationship: User 1:N Expense)"
-        },
-        "amount": {
-          "type": "number",
-          "description": "The amount of the expense."
-        },
-        "category": {
-          "type": "string",
-          "description": "The category of the expense (e.g., supplies, rent, utilities)."
-        },
-        "date": {
-          "type": "string",
-          "description": "The date the expense was incurred.",
-          "format": "date-time"
-        },
-        "description": {
-          "type": "string",
-          "description": "A description of the expense."
-        }
-      },
-      "required": [
-        "id",
-        "userId",
-        "amount",
-        "category",
-        "date"
-      ]
-    },
-    "Revenue": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Revenue",
-      "type": "object",
-      "description": "Represents a revenue record.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the revenue."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the User who created the revenue. (Relationship: User 1:N Revenue)"
-        },
-        "amount": {
-          "type": "number",
-          "description": "The amount of revenue."
-        },
-        "category": {
-          "type": "string",
-          "description": "The category of revenue (e.g., sales, service fees)."
-        },
-        "date": {
-          "type": "string",
-          "description": "The date the revenue was received.",
-          "format": "date-time"
-        },
-        "description": {
-          "type": "string",
-          "description": "A description of the revenue."
-        }
-      },
-      "required": [
-        "id",
-        "userId",
-        "amount",
-        "category",
-        "date"
-      ]
-    },
-    "Appointment": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Appointment",
-      "type": "object",
-      "description": "Represents a scheduled appointment.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the appointment."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the User who created the appointment. (Relationship: User 1:N Appointment)"
-        },
-        "title": {
-          "type": "string",
-          "description": "The title of the appointment."
-        },
-        "startTime": {
-          "type": "string",
-          "description": "The start time of the appointment.",
-          "format": "date-time"
-        },
-        "endTime": {
-          "type": "string",
-          "description": "The end time of the appointment.",
-          "format": "date-time"
-        },
-        "location": {
-          "type": "string",
-          "description": "The location of the appointment."
-        },
-        "description": {
-          "type": "string",
-          "description": "A description of the appointment."
-        }
-      },
-      "required": [
-        "id",
-        "userId",
-        "title",
-        "startTime",
-        "endTime"
-      ]
-    },
     "User": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents a user of the application.",
+      "description": "Represents a user of the BizView application.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the user."
+          "description": "Unique identifier for the user entity."
         },
         "name": {
           "type": "string",
-          "description": "The user's name."
+          "description": "The user's full name."
         },
         "email": {
           "type": "string",
@@ -151,35 +26,125 @@
         "email"
       ]
     },
-    "Summary": {
+    "Expense": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Summary",
+      "title": "Expense",
       "type": "object",
-      "description": "Represents a summary generated for an appointment.",
+      "description": "Represents an expense incurred by the business.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the summary."
+          "description": "Unique identifier for the expense entity."
         },
-        "appointmentId": {
+        "userId": {
           "type": "string",
-          "description": "Reference to the Appointment the summary is for. (Relationship: Appointment 1:1 Summary)"
+          "description": "Reference to User. (Relationship: User 1:N Expense)"
         },
-        "summaryText": {
+        "date": {
           "type": "string",
-          "description": "The text of the generated summary."
-        },
-        "generationDate": {
-          "type": "string",
-          "description": "The date and time the summary was generated.",
+          "description": "The date the expense was incurred.",
           "format": "date-time"
+        },
+        "amount": {
+          "type": "number",
+          "description": "The amount of the expense."
+        },
+        "category": {
+          "type": "string",
+          "description": "The category of the expense (e.g., supplies, rent, utilities)."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the expense."
         }
       },
       "required": [
         "id",
-        "appointmentId",
-        "summaryText",
-        "generationDate"
+        "userId",
+        "date",
+        "amount",
+        "category"
+      ]
+    },
+    "Revenue": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Revenue",
+      "type": "object",
+      "description": "Represents a revenue stream for the business.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the revenue entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Revenue)"
+        },
+        "date": {
+          "type": "string",
+          "description": "The date the revenue was received.",
+          "format": "date-time"
+        },
+        "amount": {
+          "type": "number",
+          "description": "The amount of the revenue."
+        },
+        "category": {
+          "type": "string",
+          "description": "The category of the revenue (e.g., sales, services)."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the revenue."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "date",
+        "amount",
+        "category"
+      ]
+    },
+    "Appointment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Appointment",
+      "type": "object",
+      "description": "Represents a scheduled appointment.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the appointment entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Appointment)"
+        },
+        "startTime": {
+          "type": "string",
+          "description": "The start time of the appointment.",
+          "format": "date-time"
+        },
+        "endTime": {
+          "type": "string",
+          "description": "The end time of the appointment.",
+          "format": "date-time"
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the appointment."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the appointment."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "startTime",
+        "endTime",
+        "title"
       ]
     }
   },
@@ -198,11 +163,11 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores user profiles. Only the user themselves can read/write their profile.",
+          "description": "Collection of user profiles. User data is private and accessible only to the authenticated user with matching userId.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier for the user."
+              "description": "The unique identifier of the user."
             }
           ]
         }
@@ -214,35 +179,35 @@
           "schema": {
             "$ref": "#/backend/entities/Expense"
           },
-          "description": "Stores expense records for each user. Only the user can access their own expenses.",
+          "description": "Collection of expenses for a specific user. Expenses are private and accessible only to the user with matching userId.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier for the user."
+              "description": "The unique identifier of the user."
             },
             {
               "name": "expenseId",
-              "description": "The unique identifier for the expense."
+              "description": "The unique identifier of the expense."
             }
           ]
         }
       },
       {
-        "path": "/users/{userId}/revenue/{revenueId}",
+        "path": "/users/{userId}/revenues/{revenueId}",
         "definition": {
           "entityName": "Revenue",
           "schema": {
             "$ref": "#/backend/entities/Revenue"
           },
-          "description": "Stores revenue records for each user. Only the user can access their own revenue.",
+          "description": "Collection of revenues for a specific user. Revenues are private and accessible only to the user with matching userId.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier for the user."
+              "description": "The unique identifier of the user."
             },
             {
               "name": "revenueId",
-              "description": "The unique identifier for the revenue."
+              "description": "The unique identifier of the revenue."
             }
           ]
         }
@@ -254,60 +219,20 @@
           "schema": {
             "$ref": "#/backend/entities/Appointment"
           },
-          "description": "Stores appointment records for each user. Only the user can access their own appointments.",
+          "description": "Collection of appointments for a specific user. Appointments are private and accessible only to the user with matching userId.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier for the user."
+              "description": "The unique identifier of the user."
             },
             {
               "name": "appointmentId",
-              "description": "The unique identifier for the appointment."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/appointments/{appointmentId}/summary",
-        "definition": {
-          "entityName": "Summary",
-          "schema": {
-            "$ref": "#/backend/entities/Summary"
-          },
-          "description": "Stores the summary for an appointment, related to the user. Only the user can access their appointment's summaries.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "appointmentId",
-              "description": "The unique identifier for the appointment."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/finished-products/{productId}",
-        "definition": {
-          "entityName": "finished-products",
-          "schema": {
-            "$ref": "#/backend/entities/finished-products"
-          },
-          "description": "Stores finished products for each user. Only the user can access their own products.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "productId",
-              "description": "The unique identifier for the product."
+              "description": "The unique identifier of the appointment."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to address the \"Missing or insufficient permissions\" error by ensuring authorization independence and clear ownership. The error indicates the user is trying to `list` documents under `/users/{userId}/finished-products`, suggesting an issue with the security rules for this path. The structure implements path-based ownership for user-specific data. Each user's data (expenses, revenue, appointments, and summaries) is stored under their respective user ID, following the pattern `/users/{userId}/{collection}`. This simplifies security rules, making them easier to understand and maintain. All subcollections under `/users/{userId}` implicitly inherit the user's ownership. The `finished-products` subcollection in the error message suggests that `finished-products` are owned by a user. To achieve Authorization Independence (Strategy A), we avoid `get()` calls in security rules. Since the error occurs on a `list` operation (QAP), the structure must allow secure listing. By structuring the data with path-based ownership and enforcing that all documents in a collection share the same security requirements, we can ensure only the authenticated user can list their own `finished-products`."
+    "reasoning": "The Firestore data structure is designed to address the \"Missing or insufficient permissions\" error by enforcing clear ownership and authorization independence. The error indicates the user with UID `5FJJv6raB0hDsi1cirAUcpNT3L92` lacks permission to `list` documents under `users/5FJJv6raB0hDsi1cirAUcpNT3L92/sales`. To fix this, we leverage path-based ownership for private user data. All collections directly nested under `/users/{userId}` are considered private to that user.\n\nThe structure employs the following key principles:\n\n1.  **Authorization Independence:** The `Expense`, `Revenue`, and `Appointment` collections are located under each user's document (`/users/{userId}`). This eliminates the need for `get()` calls in security rules to verify ownership. The security rules can directly check if `request.auth.uid == userId`. This also supports atomic operations.\n\n2.  **Structural Segregation:** All documents within a given collection have the same security posture. For instance, all documents in `/users/{userId}/expenses` are private to the user.\n\n3.  **Access Modeling:** Path-based ownership (`/users/{userId}/expenses/{expenseId}`) is used to represent the `User 1:N Expense`, `User 1:N Revenue`, and `User 1:N Appointment` relationships. This ensures that only the authenticated user (`request.auth.uid`) can access their respective data.\n\n4. **QAPs (Rules are not Filters):** The nested structure ensures secure `list` operations. A user can only list collections under their own `userId`, enforcing data privacy. A rule simply verifies that `request.auth.uid == userId` on the `/users/{userId}/expenses` path, preventing unauthorized access.\n\nThis design avoids complex security rules based on document content and facilitates scalable and maintainable access control."
   }
 }

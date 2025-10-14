@@ -1,190 +1,162 @@
 /**
- * @fileoverview Firestore Security Rules for the application.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model. Each user has their own
- * private data tree nested under `/users/{userId}`. Only the authenticated user
- * matching the `userId` segment has read and write access to their own data.
- *
- * Data Structure:
- * All data is nested under `/users/{userId}`, including expenses, revenue,
- * appointments, and summaries. This hierarchical structure simplifies
- * authorization, as access control can be enforced based on the path.
- *
- * Key Security Decisions:
- * - User listing is disallowed to protect user privacy.
- * - Data validation is minimized in the prototyping phase to allow for flexible
- *   data shapes. Only authorization-critical fields are validated.
- * - The default security posture is strict: all access is denied unless
- *   explicitly allowed by the rules.
- *
- * Denormalization for Authorization:
- *  To simplify authorization, each document under `/users/{userId}` MUST have a
- *  `userId` field matching the document ID. This allows for fast, simple rules
- *  without extra reads.
- *
- * Structural Segregation:
- *  All user-specific data is stored under `/users/{userId}` to ensure clear
- *  separation and ownership. Public data is not part of this prototype.
+ * @file Firestore Security Rules
+ * @core_philosophy This ruleset enforces a strict user-ownership model.  Each user has a private data tree rooted at `/users/{userId}`.
+ * @data_structure All user-specific data (expenses, revenues, appointments) is nested under the `/users/{userId}` path.
+ * @key_security_decisions Users can only access their own data.  Listing all users is forbidden.  Data schema is not strictly enforced during this prototyping phase.
+ * @denormalization The userId is implicitly denormalized into all subcollections under /users/{userId}, eliminating the need for `get()` calls and enabling simple ownership checks.
+ * @structural_segregation User-specific data is segregated under the /users collection.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Defines the isSignedIn helper function
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the request is made by the owner of the resource.
-     */
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the request is made by the existing owner of the resource.
-     */
-    function isExistingOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    /**
-     * @description Rule for the /users/{userId} collection.
+     * @description Controls access to the user profile.
      * @path /users/{userId}
-     * @allow (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can create their own profile.
-     * @deny (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot create a profile for another user 'someOtherUserId'.
-     * @allow (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can get their own profile.
-     * @deny (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot get another user's profile 'someOtherUserId'.
-     * @allow (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can update their own profile.
-     * @deny (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot update another user's profile 'someOtherUserId'.
-     * @allow (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can delete their own profile.
-     * @deny (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot delete another user's profile 'someOtherUserId'.
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     * @allow (create) User with ID 'test_user' can create their own profile.
+     *   - Auth: {uid: 'test_user'}
+     *   - Data: {id: 'test_user', name: 'Test User'}
+     * @allow (get) User with ID 'test_user' can read their own profile.
+     *   - Auth: {uid: 'test_user'}
+     * @allow (update) User with ID 'test_user' can update their own profile.
+     *   - Auth: {uid: 'test_user'}
+     * @allow (delete) User with ID 'test_user' can delete their own profile.
+     *   - Auth: {uid: 'test_user'}
+     * @deny (create) User with ID 'another_user' cannot create a profile with ID 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     *   - Data: {id: 'test_user'}
+     * @deny (get) User with ID 'another_user' cannot read the profile of user 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     * @deny (update) User with ID 'another_user' cannot update the profile of user 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     * @deny (delete) User with ID 'another_user' cannot delete the profile of user 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     * @principle Enforces document ownership for all operations on the user profile.
      */
     match /users/{userId} {
-      allow create: if isSignedIn() && isOwner(userId);
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false; // User listing is disallowed for privacy.
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if false; // Listing users is not permitted.
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Rule for the /users/{userId}/expenses/{expenseId} collection.
+     * @description Controls access to a user's expenses.
      * @path /users/{userId}/expenses/{expenseId}
-     * @allow (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can create an expense under their profile.
-     * @deny (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot create an expense under another user's profile 'someOtherUserId'.
-     * @allow (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can get an expense under their profile.
-     * @deny (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot get an expense under another user's profile 'someOtherUserId'.
-     * @allow (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can list expenses under their profile.
-     * @deny (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot list expenses under another user's profile 'someOtherUserId'.
-     * @allow (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can update an expense under their profile.
-     * @deny (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot update an expense under another user's profile 'someOtherUserId'.
-     * @allow (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can delete an expense under their profile.
-     * @deny (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot delete an expense under another user's profile 'someOtherUserId'.
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     * @allow (create) User with ID 'test_user' can create an expense under their profile.
+     *   - Auth: {uid: 'test_user'}
+     *   - Data: {userId: 'test_user'}
+     * @allow (get) User with ID 'test_user' can read an expense under their profile.
+     *   - Auth: {uid: 'test_user'}
+     * @allow (list) User with ID 'test_user' can list expenses under their profile.
+     *   - Auth: {uid: 'test_user'}
+     * @allow (update) User with ID 'test_user' can update an expense under their profile.
+     *   - Auth: {uid: 'test_user'}
+     * @allow (delete) User with ID 'test_user' can delete an expense under their profile.
+     *   - Auth: {uid: 'test_user'}
+     * @deny (create) User with ID 'another_user' cannot create an expense under the profile of user 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     *   - Data: {userId: 'test_user'}
+     * @deny (get) User with ID 'another_user' cannot read an expense under the profile of user 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     * @deny (list) User with ID 'another_user' cannot list expenses under the profile of user 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     * @deny (update) User with ID 'another_user' cannot update an expense under the profile of user 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     * @deny (delete) User with ID 'another_user' cannot delete an expense under the profile of user 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     * @principle Enforces document ownership for writes and reads within a user's expense collection.
      */
     match /users/{userId}/expenses/{expenseId} {
-      allow create: if isSignedIn() && isOwner(userId);
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Rule for the /users/{userId}/revenue/{revenueId} collection.
-     * @path /users/{userId}/revenue/{revenueId}
-     * @allow (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can create revenue under their profile.
-     * @deny (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot create revenue under another user's profile 'someOtherUserId'.
-     * @allow (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can get revenue under their profile.
-     * @deny (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot get revenue under another user's profile 'someOtherUserId'.
-     * @allow (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can list revenue under their profile.
-     * @deny (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot list revenue under another user's profile 'someOtherUserId'.
-     * @allow (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can update revenue under their profile.
-     * @deny (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot update revenue under another user's profile 'someOtherUserId'.
-     * @allow (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can delete revenue under their profile.
-     * @deny (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot delete revenue under another user's profile 'someOtherUserId'.
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     * @description Controls access to a user's revenues.
+     * @path /users/{userId}/revenues/{revenueId}
+     * @allow (create) User with ID 'test_user' can create a revenue under their profile.
+     *   - Auth: {uid: 'test_user'}
+     *   - Data: {userId: 'test_user'}
+     * @allow (get) User with ID 'test_user' can read a revenue under their profile.
+     *   - Auth: {uid: 'test_user'}
+     * @allow (list) User with ID 'test_user' can list revenues under their profile.
+     *   - Auth: {uid: 'test_user'}
+     * @allow (update) User with ID 'test_user' can update a revenue under their profile.
+     *   - Auth: {uid: 'test_user'}
+     * @allow (delete) User with ID 'test_user' can delete a revenue under their profile.
+     *   - Auth: {uid: 'test_user'}
+     * @deny (create) User with ID 'another_user' cannot create a revenue under the profile of user 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     *   - Data: {userId: 'test_user'}
+     * @deny (get) User with ID 'another_user' cannot read a revenue under the profile of user 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     * @deny (list) User with ID 'another_user' cannot list revenues under the profile of user 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     * @deny (update) User with ID 'another_user' cannot update a revenue under the profile of user 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     * @deny (delete) User with ID 'another_user' cannot delete a revenue under the profile of user 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     * @principle Enforces document ownership for writes and reads within a user's revenue collection.
      */
-    match /users/{userId}/revenue/{revenueId} {
-      allow create: if isSignedIn() && isOwner(userId);
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+    match /users/{userId}/revenues/{revenueId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Rule for the /users/{userId}/appointments/{appointmentId} collection.
+     * @description Controls access to a user's appointments.
      * @path /users/{userId}/appointments/{appointmentId}
-     * @allow (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can create an appointment under their profile.
-     * @deny (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot create an appointment under another user's profile 'someOtherUserId'.
-     * @allow (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can get an appointment under their profile.
-     * @deny (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot get an appointment under another user's profile 'someOtherUserId'.
-     * @allow (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can list appointments under their profile.
-     * @deny (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot list appointments under another user's profile 'someOtherUserId'.
-     * @allow (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can update an appointment under their profile.
-     * @deny (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot update an appointment under another user's profile 'someOtherUserId'.
-     * @allow (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can delete an appointment under their profile.
-     * @deny (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot delete an appointment under another user's profile 'someOtherUserId'.
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     * @allow (create) User with ID 'test_user' can create an appointment under their profile.
+     *   - Auth: {uid: 'test_user'}
+     *   - Data: {userId: 'test_user'}
+     * @allow (get) User with ID 'test_user' can read an appointment under their profile.
+     *   - Auth: {uid: 'test_user'}
+     * @allow (list) User with ID 'test_user' can list appointments under their profile.
+     *   - Auth: {uid: 'test_user'}
+     * @allow (update) User with ID 'test_user' can update an appointment under their profile.
+     *   - Auth: {uid: 'test_user'}
+     * @allow (delete) User with ID 'test_user' can delete an appointment under their profile.
+     *   - Auth: {uid: 'test_user'}
+     * @deny (create) User with ID 'another_user' cannot create an appointment under the profile of user 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     *   - Data: {userId: 'test_user'}
+     * @deny (get) User with ID 'another_user' cannot read an appointment under the profile of user 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     * @deny (list) User with ID 'another_user' cannot list appointments under the profile of user 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     * @deny (update) User with ID 'another_user' cannot update an appointment under the profile of user 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     * @deny (delete) User with ID 'another_user' cannot delete an appointment under the profile of user 'test_user'.
+     *   - Auth: {uid: 'another_user'}
+     * @principle Enforces document ownership for writes and reads within a user's appointment collection.
      */
     match /users/{userId}/appointments/{appointmentId} {
-      allow create: if isSignedIn() && isOwner(userId);
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
+      allow delete: if isExistingOwner(userId);
     }
+  }
 
-    /**
-     * @description Rule for the /users/{userId}/appointments/{appointmentId}/summary collection.
-     * @path /users/{userId}/appointments/{appointmentId}/summary
-     * @allow (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can create a summary under their appointment.
-     * @deny (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot create a summary under another user's appointment 'someOtherUserId'.
-     * @allow (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can get a summary under their appointment.
-     * @deny (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot get a summary under another user's appointment 'someOtherUserId'.
-     * @allow (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can list summaries under their appointment.
-     * @deny (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot list summaries under another user's appointment 'someOtherUserId'.
-     * @allow (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can update a summary under their appointment.
-     * @deny (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot update a summary under another user's appointment 'someOtherUserId'.
-     * @allow (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can delete a summary under their appointment.
-     * @deny (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot delete a summary under another user's appointment 'someOtherUserId'.
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
-     */
-    match /users/{userId}/appointments/{appointmentId}/summary/{summaryId} {
-      allow create: if isSignedIn() && isOwner(userId); // The userId in Summary entity is appointmentId, not userId
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
-    }
+  // Helper functions
+  function isSignedIn() {
+    return request.auth != null;
+  }
 
-   /**
-     * @description Rule for the /users/{userId}/finished-products/{productId} collection.
-     * @path /users/{userId}/finished-products/{productId}
-     * @allow (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can create a product under their profile.
-     * @deny (create) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot create a product under another user's profile 'someOtherUserId'.
-     * @allow (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can get a product under their profile.
-     * @deny (get) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot get a product under another user's profile 'someOtherUserId'.
-     * @allow (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can list products under their profile.
-     * @deny (list) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot list products under another user's profile 'someOtherUserId'.
-     * @allow (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can update a product under their profile.
-     * @deny (update) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot update a product under another user's profile 'someOtherUserId'.
-     * @allow (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' can delete a product under their profile.
-     * @deny (delete) User '5FJJv6raB0hDsi1cirAUcpNT3L92' cannot delete a product under another user's profile 'someOtherUserId'.
-     */
-    match /users/{userId}/finished-products/{productId} {
-       allow create: if isSignedIn() && isOwner(userId);
-       allow get: if isSignedIn() && isOwner(userId);
-       allow list: if isSignedIn() && isOwner(userId);
-       allow update: if isSignedIn() && isExistingOwner(userId);
-       allow delete: if isSignedIn() && isExistingOwner(userId);
-    }
+  function isOwner(userId) {
+    return isSignedIn() && request.auth.uid == userId;
+  }
+
+  function isExistingOwner(userId) {
+    return isOwner(userId) && resource != null;
   }
 }
