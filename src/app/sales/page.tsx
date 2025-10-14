@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import type { Sale, FinishedProduct, PaymentMethod, Flavor, Revenue } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -19,16 +19,9 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-
-const MOCK_PRODUCTS: FinishedProduct[] = [
-  { id: 'prod1', sku: 'SKU001', name: 'Bolo de Chocolate', category: 'Bolos', unit: 'UN', recipe: [], finalCost: 15, salePrice: 25, flavors: [{id: 'flav1', name: 'Comum', stock: 8}] },
-  { id: 'prod2', sku: 'SKU002', name: 'Torta de Maçã', category: 'Tortas', unit: 'UN', recipe: [], finalCost: 20, salePrice: 35, flavors: [{id: 'flav2', name: 'Comum', stock: 3}] },
-  { id: 'prod3', sku: 'SKU003', name: 'Café Expresso', category: 'Bebidas', unit: 'UN', recipe: [], finalCost: 2, salePrice: 5, flavors: [{id: 'flav3', name: 'Comum', stock: 0}] },
-];
-const MOCK_SALES: Sale[] = [
-    { id: 'sale1', productId: 'prod1', flavorId: 'flav1', quantity: 2, unitPrice: 25, date: new Date().toISOString(), location: 'Balcão' },
-    { id: 'sale2', productId: 'prod2', flavorId: 'flav2', quantity: 1, unitPrice: 35, date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), location: 'iFood' },
-];
+import { useUser, useFirebase, useCollection } from '@/firebase';
+import { collection, doc, runTransaction, addDoc } from 'firebase/firestore';
+import { Loader } from 'lucide-react';
 
 const paymentMethods: PaymentMethod[] = ['PIX', 'Cartão', 'Dinheiro'];
 const saleLocations = ['Balcão', 'iFood', 'Delivery'];
@@ -43,17 +36,27 @@ const formatCurrency = (amount: number) => {
     }).format(amount);
 };
 
-
 export default function SalesPage() {
     const { toast } = useToast();
+    const { user, isUserLoading } = useUser();
+    const { firestore } = useFirebase();
 
-    const [products, setProducts] = useState<FinishedProduct[]>(MOCK_PRODUCTS);
-    const isLoadingProducts = false;
-    const [sales, setSales] = useState<Sale[]>(MOCK_SALES);
-    const isLoadingSales = false;
+    const productsQuery = useMemo(() => {
+        if (!user || !firestore) return null;
+        return collection(firestore, 'users', user.uid, 'finished-products');
+    }, [user, firestore]);
+    
+    const salesQuery = useMemo(() => {
+        if (!user || !firestore) return null;
+        return collection(firestore, 'users', user.uid, 'sales');
+    }, [user, firestore]);
+
+    const { data: products, isLoading: isLoadingProducts, error: productsError } = useCollection<FinishedProduct>(productsQuery);
+    const { data: sales, isLoading: isLoadingSales, error: salesError } = useCollection<Sale>(salesQuery);
     
     const [isClient, setIsClient] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isSubmitting, startTransition] = useTransition();
 
     const [newSale, setNewSale] = useState({
         productId: '',
@@ -115,51 +118,80 @@ export default function SalesPage() {
     }
 
     const handleAddSale = async () => {
+        if (!firestore || !user) {
+            toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
+            return;
+        }
+
         const product = getProduct(newSale.productId);
         const flavor = getFlavor(product, newSale.flavorId);
 
         if (!newSale.productId || !newSale.flavorId || newSale.quantity <= 0 ) {
-            toast({
-                variant: 'destructive',
-                title: 'Erro',
-                description: 'Por favor, preencha todos os campos corretamente.',
-            });
+            toast({ variant: 'destructive', title: 'Erro', description: 'Por favor, preencha todos os campos corretamente.' });
             return;
         }
 
         if (!product || !flavor || flavor.stock < newSale.quantity) {
-             toast({
-                variant: 'destructive',
-                title: 'Erro de Estoque',
-                description: 'Quantidade em estoque insuficiente para este sabor.',
-            });
+             toast({ variant: 'destructive', title: 'Erro de Estoque', description: 'Quantidade em estoque insuficiente para este sabor.' });
             return;
         }
-
-        // Add to sales
-        const saleToAdd: Sale = {
-            id: `sale-${Date.now()}`,
-            ...newSale,
-            date: new Date().toISOString(),
-        };
-        setSales(prev => [saleToAdd, ...prev]);
-
-        // Update product stock
-        setProducts(prevProducts => prevProducts.map(p => {
-            if (p.id === newSale.productId) {
-                const newFlavors = p.flavors.map(f => 
-                    f.id === newSale.flavorId ? { ...f, stock: f.stock - newSale.quantity } : f
-                );
-                return { ...p, flavors: newFlavors };
-            }
-            return p;
-        }));
         
-        toast({
-            title: 'Venda registrada!',
-            description: `Estoque do produto atualizado e receita registrada.`,
+        startTransition(async () => {
+            try {
+                const productRef = doc(firestore, 'users', user.uid, 'finished-products', newSale.productId);
+                
+                // Firestore Transaction
+                await runTransaction(firestore, async (transaction) => {
+                    const productDoc = await transaction.get(productRef);
+                    if (!productDoc.exists()) {
+                        throw new Error("Produto não encontrado!");
+                    }
+                    
+                    const currentProductData = productDoc.data() as FinishedProduct;
+                    const newFlavors = currentProductData.flavors.map(f => {
+                        if (f.id === newSale.flavorId) {
+                            if (f.stock < newSale.quantity) {
+                                throw new Error(`Estoque insuficiente para o sabor ${f.name}.`);
+                            }
+                            return { ...f, stock: f.stock - newSale.quantity };
+                        }
+                        return f;
+                    });
+                    
+                    transaction.update(productRef, { flavors: newFlavors });
+
+                    // Add to sales subcollection
+                    const salesCollectionRef = collection(firestore, 'users', user.uid, 'sales');
+                    const saleToAdd: Omit<Sale, 'id'> = {
+                        ...newSale,
+                        date: new Date().toISOString(),
+                    };
+                    transaction.set(doc(salesCollectionRef), saleToAdd);
+
+                    // Add to revenues subcollection
+                    const revenueCollectionRef = collection(firestore, 'users', user.uid, 'revenues');
+                     const revenueToAdd: Omit<Revenue, 'id'> = {
+                        amount: finalSalePrice,
+                        source: `Venda: ${product.name} (${flavor.name})`,
+                        date: new Date().toISOString(),
+                        paymentMethod: newSale.paymentMethod
+                    };
+                    transaction.set(doc(revenueCollectionRef), revenueToAdd);
+                });
+
+                toast({
+                    title: 'Venda registrada!',
+                    description: `Estoque do produto atualizado e receita registrada.`,
+                });
+                setIsDialogOpen(false);
+            } catch (error: any) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Falha na Transação',
+                    description: error.message || 'Não foi possível registrar a venda. Tente novamente.',
+                });
+            }
         });
-        setIsDialogOpen(false);
     }
 
     const openSaleDialog = (product: FinishedProduct) => {
@@ -182,8 +214,8 @@ export default function SalesPage() {
       return product.flavors.reduce((total, flavor) => total + flavor.stock, 0);
     }
     
-    if (!isClient) {
-        return null;
+    if (!isClient || isUserLoading) {
+        return <div className="flex h-screen w-full items-center justify-center"><Loader className="h-8 w-8 animate-spin" /></div>;
     }
 
   return (
@@ -205,7 +237,7 @@ export default function SalesPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {isLoadingProducts && <TableRow><TableCell colSpan={4} className="text-center">Carregando produtos...</TableCell></TableRow>}
+                            {isLoadingProducts && <TableRow><TableCell colSpan={4} className="text-center h-24">Carregando produtos...</TableCell></TableRow>}
                             {!isLoadingProducts && products?.map(product => {
                                 const totalStock = totalStockByProduct(product);
                                 return (
@@ -226,6 +258,11 @@ export default function SalesPage() {
                                 </TableRow>
                                 )
                             })}
+                             {!isLoadingProducts && products?.length === 0 && (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="h-24 text-center">Nenhum produto cadastrado.</TableCell>
+                                </TableRow>
+                            )}
                         </TableBody>
                     </Table>
                 </CardContent>
@@ -367,7 +404,10 @@ export default function SalesPage() {
                 <DialogClose asChild>
                     <Button variant="outline">Cancelar</Button>
                 </DialogClose>
-                <Button type="submit" onClick={handleAddSale} className="bg-green-600 hover:bg-green-700">Confirmar Venda</Button>
+                <Button type="submit" onClick={handleAddSale} disabled={isSubmitting} className="bg-green-600 hover:bg-green-700">
+                    {isSubmitting && <Loader className="mr-2 h-4 w-4 animate-spin" />}
+                    Confirmar Venda
+                </Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>

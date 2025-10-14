@@ -1,17 +1,26 @@
 'use client';
 
-import React, { type ReactNode } from 'react';
+import React, { type ReactNode, useMemo } from 'react';
 import { FirebaseProvider } from '@/firebase/provider';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { firebaseConfig } from './config';
 
 interface FirebaseClientProviderProps {
   children: ReactNode;
 }
 
 export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
-  // Since we are using mock data, we don't need to initialize Firebase.
-  // We'll just render the FirebaseProvider which now handles the "offline" state.
+  const { app, auth, firestore } = useMemo(() => {
+    const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    const auth = getAuth(app);
+    const firestore = getFirestore(app);
+    return { app, auth, firestore };
+  }, []);
+
   return (
-    <FirebaseProvider>
+    <FirebaseProvider firebaseApp={app} auth={auth} firestore={firestore}>
       {children}
     </FirebaseProvider>
   );
