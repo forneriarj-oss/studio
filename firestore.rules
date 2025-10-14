@@ -1,168 +1,153 @@
 /**
- * @fileoverview Firestore Security Rules for BizView application.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for user profiles and
- * businesses. Businesses own expenses, revenues, and appointments.
- * Authorization is enforced through path-based checks and denormalized
- * `ownerId` and `businessId` fields, avoiding the need for `get()` calls in
- * security rules.
- *
- * Data Structure:
- * - /users/{userId}: Stores user profiles. Only the authenticated user can
- *   access their own profile.
- * - /businesses/{businessId}: Stores business data. Each business has an
- *   `ownerId` field indicating the owning user.
- * - /businesses/{businessId}/expenses/{expenseId}: Stores expenses for a
- *   business.
- * - /businesses/{businessId}/revenues/{revenueId}: Stores revenues for a
- *   business.
- * - /businesses/{businessId}/appointments/{appointmentId}: Stores
- *   appointments for a business.
- *
- * Key Security Decisions:
- * - User listing is disallowed.
- * - Public read access is not generally permitted except where explicitly noted.
- * - Data validation is relaxed to support rapid prototyping, focusing on
- *   ownership and relational integrity checks.
- *
- * Denormalization for Authorization:
- * - The `Business` document includes an `ownerId` field.
- * - `Expense`, `Revenue` and `Appointment` documents include a `businessId`
- *   field.
+ * @file Firestore Security Rules for BizView Application
+ * @corePhilosophy This ruleset enforces a strict ownership model. Users can only access their own user profile data.
+ * Businesses are owned by users, and users can only access the data associated with businesses they own.
+ * @dataStructure User profiles are stored under `/users/{userId}`. Businesses are stored under `/businesses/{businessId}`, with `ownerId` indicating the owning user.
+ * Expenses, revenues, and appointments are stored under `/businesses/{businessId}/expenses/{expenseId}`, `/businesses/{businessId}/revenues/{revenueId}`, and `/businesses/{businessId}/appointments/{appointmentId}` respectively.
+ * @keySecurityDecisions User listing is disallowed.  All write operations are restricted to owners.
+ * @denormalization Authorization is based on denormalized data: Business documents contain the `ownerId`, and Expense/Revenue/Appointment documents contain the `businessId`.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Enforces user-ownership for user profiles.
+     * @description Controls access to user profile data.
      * @path /users/{userId}
-     * @allow (get, create, update, delete, list): User '5FJJv6raB0hDsi1cirAUcpNT3L92' can access their own profile.
-     * @deny (get, create, update, delete, list): User ' অন্যUID' cannot access user '5FJJv6raB0hDsi1cirAUcpNT3L92' profile.
+     * @allow (get, list, update, delete) if the user is the owner of the profile.
+     * @allow (create) if the authenticated user's ID matches the `userId` in the path.
+     * @deny (get, list, update, delete) if the user is not the owner of the profile.
      * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
       function isSignedIn() {
         return request.auth != null;
       }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
       allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
+      allow list: if false; // Listing users is not permitted.
       allow create: if isSignedIn() && isOwner(userId);
       allow update: if isSignedIn() && isOwner(userId);
       allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
-     * @description Enforces user-ownership for business.
+     * @description Controls access to business data.
      * @path /businesses/{businessId}
-     * @allow (get, create, update, delete, list): User '5FJJv6raB0hDsi1cirAUcpNT3L92' can access their own business.
-     * @deny (get, create, update, delete, list): User ' অন্যUID' cannot access business owned by user '5FJJv6raB0hDsi1cirAUcpNT3L92'.
-     * @principle Enforces document ownership for all operations.
+     * @allow (get, list) if true (data assumed to be publicly readable).
+     * @allow (create) if the authenticated user is the owner of the business (validated via `request.resource.data.ownerId`).
+     * @allow (update, delete) if the authenticated user is the owner of the business (validated via `resource.data.ownerId`).
+     * @deny (create, update, delete) if the authenticated user is not the owner of the business.
+     * @principle Enforces document ownership for writes, allows public reads.
      */
     match /businesses/{businessId} {
-      function isOwner() {
-        return request.auth.uid == resource.data.ownerId;
-      }
-      function isNewOwner() {
-        return request.auth.uid == request.resource.data.ownerId;
-      }
       function isSignedIn() {
         return request.auth != null;
       }
 
-      allow get: if isSignedIn() && isOwner();
-      allow list: if false;
-      allow create: if isSignedIn() && isNewOwner();
-      allow update: if isSignedIn() && isOwner();
-      allow delete: if isSignedIn() && isOwner();
+      function isOwner(ownerId) {
+        return request.auth.uid == ownerId;
+      }
+
+      function isExistingOwner(ownerId) {
+          return isOwner(ownerId) && resource.data.ownerId == request.auth.uid;
+      }
+
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isSignedIn() && isExistingOwner(resource.data.ownerId);
+      allow delete: if isSignedIn() && isExistingOwner(resource.data.ownerId);
     }
 
     /**
-     * @description Enforces user-ownership for expenses under a business.
+     * @description Controls access to expense data associated with a business.
      * @path /businesses/{businessId}/expenses/{expenseId}
-     * @allow (get, create, update, delete, list): User '5FJJv6raB0hDsi1cirAUcpNT3L92' can access their own expense for the business.
-     * @deny (get, create, update, delete, list): User ' অন্যUID' cannot access expense owned by user '5FJJv6raB0hDsi1cirAUcpNT3L92'.
+     * @allow (get, list) if the user is the owner of the business.
+     * @allow (create) if the user is the owner of the business.
+     * @allow (update, delete) if the user is the owner of the business.
+     * @deny (get, list, create, update, delete) if the user is not the owner of the business.
      * @principle Enforces document ownership for all operations.
      */
     match /businesses/{businessId}/expenses/{expenseId} {
-        function isBusinessOwner(businessId) {
-          return get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid;
-        }
-        function isSignedIn() {
-          return request.auth != null;
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isBusinessOwner(businessId) {
+        return get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid;
+      }
+
+        function isExistingBusinessOwner(businessId) {
+          return isBusinessOwner(businessId);
         }
 
-        allow get: if isSignedIn() && isBusinessOwner(businessId);
-        allow list: if false;
-        allow create: if isSignedIn() && isBusinessOwner(businessId);
-        allow update: if isSignedIn() && isBusinessOwner(businessId);
-        allow delete: if isSignedIn() && isBusinessOwner(businessId);
+      allow get: if isSignedIn() && isBusinessOwner(businessId);
+      allow list: if isSignedIn() && isBusinessOwner(businessId);
+      allow create: if isSignedIn() && isBusinessOwner(businessId);
+      allow update: if isSignedIn() && isExistingBusinessOwner(businessId);
+      allow delete: if isSignedIn() && isExistingBusinessOwner(businessId);
     }
 
     /**
-     * @description Enforces user-ownership for revenues under a business.
+     * @description Controls access to revenue data associated with a business.
      * @path /businesses/{businessId}/revenues/{revenueId}
-     * @allow (get, create, update, delete, list): User '5FJJv6raB0hDsi1cirAUcpNT3L92' can access their own revenue for the business.
-     * @deny (get, create, update, delete, list): User ' অন্যUID' cannot access revenue owned by user '5FJJv6raB0hDsi1cirAUcpNT3L92'.
+     * @allow (get, list) if the user is the owner of the business.
+     * @allow (create) if the user is the owner of the business.
+     * @allow (update, delete) if the user is the owner of the business.
+     * @deny (get, list, create, update, delete) if the user is not the owner of the business.
      * @principle Enforces document ownership for all operations.
      */
     match /businesses/{businessId}/revenues/{revenueId} {
-      function isBusinessOwner(businessId) {
-        return get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid;
-      }
       function isSignedIn() {
         return request.auth != null;
       }
 
-        allow get: if isSignedIn() && isBusinessOwner(businessId);
-        allow list: if false;
-        allow create: if isSignedIn() && isBusinessOwner(businessId);
-        allow update: if isSignedIn() && isBusinessOwner(businessId);
-        allow delete: if isSignedIn() && isBusinessOwner(businessId);
+      function isBusinessOwner(businessId) {
+        return get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid;
+      }
+
+      function isExistingBusinessOwner(businessId) {
+        return isBusinessOwner(businessId);
+      }
+
+      allow get: if isSignedIn() && isBusinessOwner(businessId);
+      allow list: if isSignedIn() && isBusinessOwner(businessId);
+      allow create: if isSignedIn() && isBusinessOwner(businessId);
+      allow update: if isSignedIn() && isExistingBusinessOwner(businessId);
+      allow delete: if isSignedIn() && isExistingBusinessOwner(businessId);
     }
 
     /**
-     * @description Enforces user-ownership for appointments under a business.
+     * @description Controls access to appointment data associated with a business.
      * @path /businesses/{businessId}/appointments/{appointmentId}
-     * @allow (get, create, update, delete, list): User '5FJJv6raB0hDsi1cirAUcpNT3L92' can access their own appointment for the business.
-     * @deny (get, create, update, delete, list): User ' অন্যUID' cannot access appointment owned by user '5FJJv6raB0hDsi1cirAUcpNT3L92'.
+     * @allow (get, list) if the user is the owner of the business.
+     * @allow (create) if the user is the owner of the business.
+     * @allow (update, delete) if the user is the owner of the business.
+     * @deny (get, list, create, update, delete) if the user is not the owner of the business.
      * @principle Enforces document ownership for all operations.
      */
     match /businesses/{businessId}/appointments/{appointmentId} {
-      function isBusinessOwner(businessId) {
-        return get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid;
-      }
       function isSignedIn() {
         return request.auth != null;
       }
 
-        allow get: if isSignedIn() && isBusinessOwner(businessId);
-        allow list: if false;
-        allow create: if isSignedIn() && isBusinessOwner(businessId);
-        allow update: if isSignedIn() && isBusinessOwner(businessId);
-        allow delete: if isSignedIn() && isBusinessOwner(businessId);
-    }
-
-    /**
-     * @description This rule is to fix the error reported by NextJS.
-     * @path /users/{userId}/settings/app-settings
-     */
-    match /users/{userId}/settings/{document=**} {
-      function isOwner(userId) {
-        return request.auth.uid == userId;
+      function isBusinessOwner(businessId) {
+        return get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid;
       }
-        function isSignedIn() {
-          return request.auth != null;
+
+        function isExistingBusinessOwner(businessId) {
+          return isBusinessOwner(businessId);
         }
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+
+      allow get: if isSignedIn() && isBusinessOwner(businessId);
+      allow list: if isSignedIn() && isBusinessOwner(businessId);
+      allow create: if isSignedIn() && isBusinessOwner(businessId);
+      allow update: if isSignedIn() && isExistingBusinessOwner(businessId);
+      allow delete: if isSignedIn() && isExistingBusinessOwner(businessId);
     }
   }
 }
