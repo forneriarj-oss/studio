@@ -1,8 +1,8 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { addDoc, collection, doc, writeBatch } from 'firebase/firestore';
+import { addDoc, collection, doc, writeBatch, query, orderBy, limit } from 'firebase/firestore';
 
 import type { Sale, FinishedProduct, PaymentMethod, Flavor, Revenue } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -20,7 +20,21 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
 import { Separator } from '@/components/ui/separator';
+import { cancelSale } from './actions';
+import { Badge } from '@/components/ui/badge';
 
 const paymentMethods: PaymentMethod[] = ['PIX', 'Cartão', 'Dinheiro'];
 const saleLocations = ['Balcão', 'iFood', 'Delivery'];
@@ -40,12 +54,19 @@ export default function SalesPage() {
     const { user } = useUser();
     const firestore = useFirestore();
     const { toast } = useToast();
+    const [isPending, startTransition] = useTransition();
 
     const productsRef = useMemoFirebase(
       () => (user ? collection(firestore, `users/${user.uid}/finished-products`) : null),
       [firestore, user]
     );
     const { data: products, isLoading: isLoadingProducts } = useCollection<FinishedProduct>(productsRef);
+
+    const salesRef = useMemoFirebase(
+      () => (user ? query(collection(firestore, `users/${user.uid}/sales`), orderBy('date', 'desc'), limit(50)) : null),
+      [firestore, user]
+    );
+    const { data: sales, isLoading: isLoadingSales } = useCollection<Sale>(salesRef);
     
     const [isClient, setIsClient] = useState(false);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -157,11 +178,14 @@ export default function SalesPage() {
 
         // 1. Add the sale document
         const salesRef = collection(firestore, `users/${user.uid}/sales`);
-        batch.set(doc(salesRef), saleToAdd);
+        const saleDocRef = doc(salesRef);
+        batch.set(saleDocRef, {...saleToAdd, revenueId: `rev_${saleDocRef.id}` });
+
 
         // 2. Add the revenue document
         const revenuesRef = collection(firestore, `users/${user.uid}/revenues`);
-        batch.set(doc(revenuesRef), revenueFromSale);
+        const revenueDocRef = doc(revenuesRef, `rev_${saleDocRef.id}`);
+        batch.set(revenueDocRef, revenueFromSale);
         
         // 3. Update the product stock
         const productDocRef = doc(firestore, `users/${user.uid}/finished-products`, product.id!);
@@ -201,6 +225,17 @@ export default function SalesPage() {
         setDeliveryFee(0);
         setIsDialogOpen(true);
     };
+
+    const handleCancelSale = (sale: Sale) => {
+        startTransition(async () => {
+            const result = await cancelSale(sale);
+            if (result.success) {
+                toast({ title: "Venda Cancelada", description: result.message });
+            } else {
+                toast({ variant: 'destructive', title: "Erro ao Cancelar", description: result.message });
+            }
+        });
+    }
     
     const totalStockByProduct = (product: FinishedProduct) => {
       if (!product.flavors) return 0;
@@ -251,6 +286,70 @@ export default function SalesPage() {
                                 </TableRow>
                                 )
                             })}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Histórico de Vendas</CardTitle>
+                    <CardDescription>Últimas 50 vendas registradas. Cancele uma venda para reverter o estoque e os registros financeiros.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Produto</TableHead>
+                                <TableHead>Data</TableHead>
+                                <TableHead>Qtde</TableHead>
+                                <TableHead>Local</TableHead>
+                                <TableHead className="text-right">Valor</TableHead>
+                                <TableHead className="text-right">Ação</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoadingSales && <TableRow><TableCell colSpan={6} className="h-24 text-center">Carregando histórico...</TableCell></TableRow>}
+                            {!isLoadingSales && sales?.map(sale => {
+                                const product = getProduct(sale.productId);
+                                const flavor = getFlavor(product, sale.flavorId);
+                                return (
+                                    <TableRow key={sale.id}>
+                                        <TableCell>
+                                            <div className="font-medium">{product?.name || 'Produto não encontrado'}</div>
+                                            <div className="text-sm text-muted-foreground">{flavor?.name || 'Sabor não encontrado'}</div>
+                                        </TableCell>
+                                        <TableCell>{new Date(sale.date).toLocaleString('pt-BR')}</TableCell>
+                                        <TableCell>{sale.quantity}</TableCell>
+                                        <TableCell><Badge variant="outline">{sale.location}</Badge></TableCell>
+                                        <TableCell className="text-right">{formatCurrency(sale.unitPrice * sale.quantity)}</TableCell>
+                                        <TableCell className="text-right">
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="destructive" size="sm" disabled={isPending}>Cancelar</Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Confirmar cancelamento?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Esta ação não pode ser desfeita. O estoque do produto será restaurado e os registros de venda e receita associados serão excluídos.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Voltar</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleCancelSale(sale)}>Confirmar Cancelamento</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </TableCell>
+                                    </TableRow>
+                                )
+                            })}
+                            {!isLoadingSales && sales?.length === 0 && (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="h-24 text-center">Nenhuma venda registrada ainda.</TableCell>
+                                </TableRow>
+                            )}
                         </TableBody>
                     </Table>
                 </CardContent>
@@ -354,3 +453,5 @@ export default function SalesPage() {
     </Dialog>
   );
 }
+
+    

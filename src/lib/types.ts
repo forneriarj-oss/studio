@@ -49,6 +49,7 @@ export type Sale = {
   date: string; // ISO String
   paymentMethod?: PaymentMethod;
   location?: string;
+  revenueId?: string; // ID do documento de receita correspondente
 };
 
 export type Purchase = {
@@ -117,3 +118,5 @@ export type UserProfile = {
   photoURL: string;
   email: string;
 }
+
+    

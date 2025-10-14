@@ -2,22 +2,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import * as admin from 'firebase-admin';
-import serviceAccount from '@/firebase/service-account.json';
-
-const BIZVIEW_APP_NAME = 'bizview-admin-app';
-
-function getAdminApp() {
-  if (admin.apps.some(app => app?.name === BIZVIEW_APP_NAME)) {
-    return admin.app(BIZVIEW_APP_NAME);
-  }
-  const credential = admin.credential.cert({
-    projectId: serviceAccount.project_id,
-    clientEmail: serviceAccount.client_email,
-    privateKey: serviceAccount.private_key.replace(/\\n/g, '\n'),
-  });
-  return admin.initializeApp({ credential }, BIZVIEW_APP_NAME);
-}
+import { getAdminApp } from '@/firebase/admin';
 
 export async function POST(request: NextRequest) {
   const adminApp = getAdminApp();
@@ -59,3 +44,5 @@ export async function DELETE() {
   cookies().delete("session");
   return NextResponse.json({ status: "success" });
 }
+
+    
